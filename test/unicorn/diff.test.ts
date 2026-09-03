@@ -16,6 +16,7 @@ import {
   OP_SUB,
   OP_TST,
   armB,
+  armBlxImm,
   armBx,
   armDpImm,
   armDpReg,
@@ -183,6 +184,15 @@ describe("3-G Unicorn differential", () => {
     await compareArm(armMul(0, 1, 2, 1), regs16([0, 3, 5]), 0x30000010);
     await compareArm(armB(0), regs16([]), 0x10);
     await compareArm(armBx(1), regs16([0, 0x2000]), 0x10);
+  });
+
+  it("ARM BLX(1) vs Unicorn", async () => {
+    const h0 = await compareArm(armBlxImm(2, 0), regs16([]), 0x10);
+    expect(h0.skipped).toBe(false);
+    const h1 = await compareArm(armBlxImm(2, 1), regs16([]), 0x10);
+    expect(h1.skipped).toBe(false);
+    const back = await compareArm(armBlxImm(0xfffffe, 0), regs16([]), 0x10);
+    expect(back.skipped).toBe(false);
   });
 
   it("random shifted-register MOV/ADD", async () => {

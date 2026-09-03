@@ -9,6 +9,7 @@ import {
   OP_MOV,
   OP_SUB,
   armB,
+  armBlxImm,
   armBx,
   armDpImm,
   armDpReg,
@@ -77,5 +78,19 @@ describe("3-B ARM decoder", () => {
     const d = dec(0xef0000ab);
     expect(d.op).toBe(Op.SVC);
     expect(d.w1).toBe(0xab);
+  });
+
+  it("decodes ARM BLX(1) 0xfa00977c and H=0/1 immediates", () => {
+    const real = dec(0xfa00977c);
+    expect(real.op).toBe(Op.BLX);
+    expect(real.cond).toBe(AL);
+    expect(real.w2 & 0xff).toBe(1);
+    expect(real.w1 | 0).toBe((0x00977c << 2) | 0);
+    const h0 = dec(armBlxImm(2, 0));
+    expect(h0.op).toBe(Op.BLX);
+    expect(h0.w1 | 0).toBe(8);
+    const h1 = dec(armBlxImm(2, 1));
+    expect(h1.op).toBe(Op.BLX);
+    expect(h1.w1 | 0).toBe(10);
   });
 });

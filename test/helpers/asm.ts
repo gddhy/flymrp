@@ -78,6 +78,11 @@ export function armBlx(rm: number, cond = AL): number {
   return (((cond & 0xf) << 28) | 0x012fff30 | (rm & 0xf)) >>> 0;
 }
 
+/** ARM BLX(1): 1111 101 H imm24. H is the extra offset bit, not the T-bit. */
+export function armBlxImm(imm24: number, h = 0): number {
+  return (0xfa00_0000 | ((h & 1) << 24) | (imm24 & 0xff_ffff)) >>> 0;
+}
+
 export function armPush(list: number): number {
   return (0xe92d0000 | (list & 0xffff)) >>> 0;
 }

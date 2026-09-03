@@ -67,7 +67,10 @@ export function decodeArm(word: number, out: Uint32Array, idx: number): void {
   const op1 = (word >>> 25) & 7;
 
   if (cond === 0xf) {
-    if ((word & 0xfe00_0000) === 0xfa00_0000) {
+    // BLX(1): 1111 101 H imm24. Do not use `(word & 0xfe000000) === 0xfa000000`:
+    // JS `&` is signed Int32, so 0xfa000000 !== 4194304000 and the insn
+    // became UNDEF / NV-skip (Stage 5-C.3 cfunction.ext dest+0x14).
+    if (word >>> 25 === 0x7d) {
       const h = (word >>> 24) & 1;
       const off = (signExt24(word & 0xff_ffff) << 2) + (h << 1);
       emit(out, idx, Op.BLX, 0xe, 0, 0, 0, 0, 0, 0, off >>> 0, 1);

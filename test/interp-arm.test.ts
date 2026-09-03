@@ -12,6 +12,7 @@ import {
   OP_TEQ,
   OP_TST,
   armB,
+  armBlxImm,
   armBx,
   armDpImm,
   armDpReg,
@@ -210,5 +211,21 @@ describe("3-C ARM interpreter + CPSR", () => {
 
   it("SVC traps", () => {
     expect(() => exec(0xef0000ab, new Array(16).fill(0))).toThrow(CpuTrap);
+  });
+
+  it("ARM BLX(1) H=0 switches to Thumb and writes LR", () => {
+    // PC=0x1000, Align(PC,4)+SignExtend(imm24:H:0)=0x1008+8=0x1010
+    const cpu = exec(armBlxImm(2, 0), new Array(16).fill(0));
+    expect(cpu.r[15]).toBe(0x1010);
+    expect(cpu.r[14]).toBe(0x1004);
+    expect(cpu.t).toBe(1);
+    expect(cpu.cpsr & 0x20).toBe(0x20);
+  });
+
+  it("ARM BLX(1) H=1 uses the extra halfword and stays Thumb", () => {
+    const cpu = exec(armBlxImm(2, 1), new Array(16).fill(0));
+    expect(cpu.r[15]).toBe(0x1012);
+    expect(cpu.r[14]).toBe(0x1004);
+    expect(cpu.t).toBe(1);
   });
 });
