@@ -3,7 +3,7 @@
   "version": "0.0.3",
   "private": true,
   "type": "module",
-  "description": "Browser-native Mythroad MRP runtime — Stage 4 EXT ABI",
+  "description": "Browser-native Mythroad MRP runtime — Stage 5-B Mythroad core",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
