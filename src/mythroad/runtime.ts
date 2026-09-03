@@ -1,6 +1,6 @@
 import { ExtFault } from "../abi/fault.ts";
 import { ExtRuntime } from "../abi/runtime.ts";
-import { LuaRuntimeError } from "../err/errors.ts";
+import { LuaRuntimeError, UnknownAbiError } from "../err/errors.ts";
 import { TAG_STRING } from "../lua/types.ts";
 import { LuaVM } from "../lua/vm.ts";
 import { MRPArchive } from "../mrp/archive.ts";
@@ -20,7 +20,21 @@ import { EV_CUSTOM, EV_KEY, EV_SYSTEM, EV_TIMER, EventQueue, type RuntimeEvent }
 import { NullGraphicsBackend, type BitmapSlot, type GraphicsBackend, type SpriteSlot, type TileSlot } from "./graphics.ts";
 import { InputBackend } from "./input.ts";
 import { installNatives } from "./native.ts";
+import {
+  RuntimeTrace,
+  attachTrace,
+  raiseUnknown,
+  stackPreview,
+  wrapExtInstance,
+  wrapGraphics,
+  wrapNatives,
+  wrapLua as rewrapLua,
+  type AbiMode,
+  type ApprovedBehavior,
+  type UnknownAbiEvent,
+} from "./probe.ts";
 import { defaultProfile, type DeviceProfile } from "./profile.ts";
+import { MrTableBridge, type AllocRecord, type ReadFileRecord } from "./mr-table.ts";
 import { createStrCom } from "./strcom.ts";
 import { MythroadTimer } from "./timer.ts";
 import { MythroadVfs } from "./vfs.ts";
@@ -30,6 +44,12 @@ export type MythroadRuntimeOptions = {
   graphics?: GraphicsBackend;
   entry?: string;
   param?: string;
+  /** Optional. Default off. Does not change ABI when omitted. */
+  trace?: RuntimeTrace | boolean;
+  /** Default `strict`: unknown ABI stops. */
+  abiMode?: AbiMode;
+  /** Permissive-only. Keys like `_com:700`. Not an ABI guess. */
+  approvedUnknown?: Record<string, ApprovedBehavior>;
 };
 
 /**
@@ -48,6 +68,10 @@ export class MythroadRuntime {
 
   archive: MRPArchive | null = null;
   ext: ExtRuntime | null = null;
+  mrTable: MrTableBridge | null = null;
+  readonly mrAllocs: AllocRecord[] = [];
+  readonly mrReads: ReadFileRecord[] = [];
+  unknownRequiredSlot: number | null = null;
 
   state = MR_STATE_IDLE;
   clock = 0;
@@ -71,10 +95,25 @@ export class MythroadRuntime {
   readonly bitmaps: BitmapSlot[] = [];
   readonly sprites: SpriteSlot[] = [];
   readonly tiles: TileSlot[] = [];
+  readonly trace: RuntimeTrace | null = null;
+  readonly abiMode: AbiMode = "strict";
+  readonly approvedUnknown = new Map<string, ApprovedBehavior>();
+  readonly unknownEvents: UnknownAbiEvent[] = [];
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
-    this.gfx = opts.graphics ?? new NullGraphicsBackend();
+    this.abiMode = opts.abiMode ?? "strict";
+    if (opts.approvedUnknown) {
+      for (const [k, v] of Object.entries(opts.approvedUnknown)) this.approvedUnknown.set(k, v);
+    }
+    this.trace =
+      opts.trace instanceof RuntimeTrace
+        ? opts.trace
+        : opts.trace === true || opts.abiMode === "trace"
+          ? new RuntimeTrace()
+          : null;
+    const rawGfx = opts.graphics ?? new NullGraphicsBackend();
+    this.gfx = this.trace ? wrapGraphics(rawGfx, this.trace) : rawGfx;
     this.input = new InputBackend(this.events);
     this.screenW = this.profile.width;
     this.screenH = this.profile.height;
@@ -85,16 +124,42 @@ export class MythroadRuntime {
       getVfs: () => this.vfs,
       getExt: () => this.ext,
       setExt: (rt) => {
-        this.ext = rt;
+        this.bindExt(rt);
+      },
+      onUnknown: (code, L) => {
+        const preview = stackPreview(L);
+        return raiseUnknown(this, {
+          caller: "lua",
+          family: "_strCom",
+          code,
+          arguments: preview.arguments,
+          argumentTypes: preview.argumentTypes,
+          returnContext: "native",
+          message: `_strCom code ${code} not implemented in Stage 5-C`,
+        });
       },
     });
     installNatives(this);
     this.lua.L.setGlobal("_mr_entry", TAG_STRING, this.lua.L.internStr(this.entry));
     this.lua.L.setGlobal("_mr_param", TAG_STRING, this.lua.L.internStr(this.param));
+    if (this.trace) attachTrace(this, this.trace);
   }
 
   get mrp(): MRPArchive | null {
     return this.archive;
+  }
+
+  unknownAbi(family: string, code: number, L: import("../lua/state.ts").LuaState): number {
+    const preview = stackPreview(L);
+    return raiseUnknown(this, {
+      caller: "lua",
+      family,
+      code,
+      arguments: preview.arguments,
+      argumentTypes: preview.argumentTypes,
+      returnContext: "native",
+      message: `${family} code ${code} not implemented in Stage 5-C`,
+    });
   }
 
   loadMrp(bytes: Uint8Array): MRPArchive {
@@ -166,6 +231,7 @@ export class MythroadRuntime {
     this.timers.stop();
     this.exited = false;
     this.ext = null;
+    this.mrTable = null;
     this.events.clear();
     this.rebindLua();
     this.packName = this.pendingPack || this.packName;
@@ -185,6 +251,10 @@ export class MythroadRuntime {
   rebindLua(): void {
     this.lua = new LuaVM();
     installNatives(this);
+    if (this.trace) {
+      wrapNatives(this, this.trace);
+      rewrapLua(this, this.trace);
+    }
   }
 
   pause(): number {
@@ -209,6 +279,38 @@ export class MythroadRuntime {
     if (this.lua.hasGlobalFn("resume")) this.lua.callGlobal("resume");
     this.timers.resume(this.clock);
     return MR_SUCCESS;
+  }
+
+  bindExt(rt: ExtRuntime | null): void {
+    if (!rt) {
+      this.ext = null;
+      this.mrTable = null;
+      return;
+    }
+    const owner = this.packName || "ext";
+    const bridge = new MrTableBridge(rt, this.vfs, owner, {
+      onAlloc: (rec) => this.mrAllocs.push(rec),
+      onRead: (rec) => this.mrReads.push(rec),
+      onUnknownSlot: (n) => {
+        this.unknownRequiredSlot = n;
+        const message = `UNKNOWN_REQUIRED_SLOT = ${n}`;
+        const ev = {
+          caller: "ext",
+          family: "mr_table",
+          code: n,
+          arguments: [n],
+          argumentTypes: ["number"],
+          returnContext: "ext",
+          message,
+        };
+        this.unknownEvents.push(ev);
+        this.trace?.noteUnknown(ev);
+        throw new UnknownAbiError(message, { family: "mr_table", code: n, caller: "ext" });
+      },
+    });
+    bridge.install();
+    this.mrTable = bridge;
+    this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
   }
 
   private dispatchTimer(): number {

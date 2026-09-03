@@ -2,7 +2,7 @@ import { ExtFault, ExtStopped } from "../abi/fault.ts";
 import { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError } from "../err/errors.ts";
 import { LuaState } from "../lua/state.ts";
-import { NativeFunction } from "../lua/types.ts";
+import { NativeFunction, TAG_NUMBER, TAG_STRING, TAG_TABLE } from "../lua/types.ts";
 import { UnsupportedInsn, CpuTrap } from "../hot/cpu.ts";
 import { MemoryFault } from "../hot/memory.ts";
 import { gunzip, isGzip } from "../mrp/gzip.ts";
@@ -19,19 +19,24 @@ import type { MythroadVfs } from "./vfs.ts";
  *   800: arm_ext_load(str, len, optint(3)=code); push ext_r0 or status; return 1
  *   801: arm_ext_call(tonumber(3), str, len); push output, ret; return 2
  *   802: same load path as 800
+ *
+ * Arg 2 is `mr_L_checklstring` → `mrp_tostring_t` / `mrp_strlen_t`
+ * (mr_api.c): a table is `{ptr, len}` in the current EXT guest space,
+ * not a Lua string. 800/801/802 use that payload; other codes still
+ * take a host string.
  */
 export function createStrCom(ctx: {
   getVfs: () => MythroadVfs;
   getExt: () => ExtRuntime | null;
   setExt: (rt: ExtRuntime | null) => void;
+  onUnknown?: (code: number, L: LuaState) => number;
 }): NativeFunction {
   return (L: LuaState) => {
     const code = L.optNumber(1, 0) | 0;
-    const arg2 = L.checkString(2);
     const extra = L.optNumber(3, 0) | 0;
     switch (code) {
       case 601: {
-        const data = ctx.getVfs().readFile(arg2.s);
+        const data = ctx.getVfs().readFile(L.checkString(2).s);
         if (!data) {
           L.pushNil();
           return 1;
@@ -40,14 +45,15 @@ export function createStrCom(ctx: {
         return 1;
       }
       case 602: {
-        if (!ctx.getVfs().exists(arg2.s)) L.pushNil();
+        if (!ctx.getVfs().exists(L.checkString(2).s)) L.pushNil();
         else L.pushInteger(MR_SUCCESS);
         return 1;
       }
       case 300: {
-        const raw = strBytes(arg2.s);
+        const s = L.checkString(2).s;
+        const raw = strBytes(s);
         if (!isGzip(raw)) {
-          L.pushString(arg2.s);
+          L.pushString(s);
           return 1;
         }
         try {
@@ -58,31 +64,31 @@ export function createStrCom(ctx: {
         }
       }
       case 500: {
-        L.pushString(md5(strBytes(arg2.s)));
+        L.pushString(md5(strBytes(L.checkString(2).s)));
         return 1;
       }
       case 501: {
-        const enc = mrEncode(strBytes(arg2.s));
+        const enc = mrEncode(strBytes(L.checkString(2).s));
         if (!enc) return 0;
         L.pushString(enc);
         return 1;
       }
       case 502: {
-        const dec = mrDecode(strBytes(arg2.s));
+        const dec = mrDecode(strBytes(L.checkString(2).s));
         if (!dec) return 0;
         L.pushString(dec);
         return 1;
       }
       case 800:
       case 802: {
-        const bytes = strBytes(arg2.s);
+        const bytes = strComPayload(L, 2, ctx.getExt());
         const rt = new ExtRuntime();
+        ctx.setExt(rt);
         try {
           const loaded = rt.load(bytes, { loadCode: extra });
           if (loaded.kind !== "return") {
             throw new ExtFault(loaded.kind, 0, `_strCom(${code}) load kind=${loaded.kind}`);
           }
-          ctx.setExt(rt);
           L.pushInteger(loaded.ret | 0);
           return 1;
         } catch (e) {
@@ -93,7 +99,7 @@ export function createStrCom(ctx: {
       case 801: {
         const rt = ctx.getExt();
         if (!rt) throw new NativeAbiError("_strCom(801) without a loaded EXT");
-        const input = strBytes(arg2.s);
+        const input = strComPayload(L, 2, rt);
         try {
           const out = rt.arm_ext_call(extra, input);
           if (out.kind !== "return") {
@@ -107,6 +113,7 @@ export function createStrCom(ctx: {
         }
       }
       default:
+        if (ctx.onUnknown) return ctx.onUnknown(code, L);
         throw new NativeAbiError(`_strCom code ${code} not implemented in Stage 5-C`);
     }
   };
@@ -116,6 +123,32 @@ function strBytes(s: string): Uint8Array {
   const o = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) o[i] = s.charCodeAt(i) & 0xff;
   return o;
+}
+
+/** `mrp_tostring_t` + `mrp_strlen_t`: string / number, or table `{ptr,len}`. */
+function strComPayload(L: LuaState, idx: number, ext: ExtRuntime | null): Uint8Array {
+  const i = L.checkArg(idx);
+  const tag = L.tags[i]!;
+  if (tag === TAG_STRING) return strBytes(L.strings[L.nums[i]!]!);
+  if (tag === TAG_NUMBER) return strBytes(String(L.nums[i]!));
+  if (tag === TAG_TABLE) {
+    const t = L.tables[L.nums[i]!]!;
+    const a = t.getNum(1);
+    const b = t.getNum(2);
+    const ptr = (a.tag === TAG_NUMBER ? a.num : 0) >>> 0;
+    const len = (b.tag === TAG_NUMBER ? b.num : 0) >>> 0;
+    if (!ext) throw new NativeAbiError("_strCom table payload without a loaded EXT");
+    if (len > 0x20_0000) throw new NativeAbiError("_strCom table payload too large");
+    try {
+      return new Uint8Array(ext.mem.slice(ptr, len));
+    } catch (e) {
+      if (e instanceof MemoryFault) {
+        throw new NativeAbiError(`_strCom guest slice 0x${ptr.toString(16)}+${len}`);
+      }
+      throw e;
+    }
+  }
+  throw new NativeAbiError(`argument #${idx} must be a string`);
 }
 
 function rethrowExt(e: unknown): never {

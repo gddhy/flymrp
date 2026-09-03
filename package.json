@@ -8,6 +8,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "tsx bench/run.ts",
+    "inspect": "tsx tools/real/inspect.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

@@ -17,6 +17,22 @@ export class LuaRuntimeError extends FlymrpError {}
 /** Native C-function ABI (wrong argument type, missing required arg). */
 export class NativeAbiError extends FlymrpError {}
 
+/** Unimplemented native family/code. Subclass so existing NativeAbiError tests still match. */
+export class UnknownAbiError extends NativeAbiError {
+  readonly family: string;
+  readonly code: string | number;
+  readonly caller: string;
+  constructor(
+    message: string,
+    info: { family: string; code: string | number; caller: string },
+  ) {
+    super(message);
+    this.family = info.family;
+    this.code = info.code;
+    this.caller = info.caller;
+  }
+}
+
 /** VFS / virtual FD / ROM+RAM overlay. */
 export class VfsError extends FlymrpError {}
 

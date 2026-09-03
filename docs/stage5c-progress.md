@@ -11,7 +11,7 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 未接入：Canvas / WebGL / WebGPU / WebAudio / DOM / `setTimeout` / IndexedDB / 网络 / SMS / WAP / JIT / DRM。  
 Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 
-**No real binary fixture available.** rxgj 与本仓库均无 `start.mr` / `*.mrp` / `魔塔II.jar`。禁止伪造 real app test。
+真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 
@@ -23,7 +23,7 @@ Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 |---|---|---|
 | A | 29 | 冻结（5-B） |
 | B | 26 | 冻结（5-B） |
-| C | 21 | string/table/base 子集、SaveTable/LoadTable、`_runFile`、`_strCom` 300/500/501/502、Bitmap/Sprite/Tile 记录、`__index`/`__newindex` |
+| C | 24 | 上表 + `mr_table/0`、`mr_table/14`、`mr_table/125` |
 
 `IMPLEMENTED_A.length === 29`、`IMPLEMENTED_B.length === 26` 保持不变。
 
@@ -93,7 +93,7 @@ stdlib 安装使 `LuaVM` 的 intern/closure 基数上升（bench `intern=57 cl=4
 * Pluto 不持久化 Lua function。
 * `_plat` / `_platEx` 各 code、指针类 `_strCom`/`_com`、socket/SMS/WAP、GUI、audio：未实现。
 * `BitmapShowEx` 像素指针：不实现。
-* 无真实 MRP/MR/魔塔II fixture。
+* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.5）。`魔塔II.jar` 仍无。停点：`UNKNOWN_REQUIRED_SLOT = 130`。
 * pack 切换无真实 FS，只跑当前 VFS 中的 startfile。
 
 ---

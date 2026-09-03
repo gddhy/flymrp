@@ -1,5 +1,7 @@
 export { MythroadRuntime } from "./runtime.ts";
 export { createStrCom } from "./strcom.ts";
+export { MrTableBridge, readGuestCString } from "./mr-table.ts";
+export type { AllocRecord, ReadFileRecord } from "./mr-table.ts";
 export { MythroadVfs } from "./vfs.ts";
 export { MythroadTimer } from "./timer.ts";
 export { EventQueue, EV_TIMER, EV_SYSTEM, EV_CUSTOM, EV_KEY } from "./events.ts";
@@ -13,3 +15,5 @@ export * from "./constants.ts";
 export type { RuntimeAction } from "./constants.ts";
 export { persistRoot, unpersistRoot } from "./persist.ts";
 export { md5, mrEncode, mrDecode } from "./codec.ts";
+export { RuntimeTrace, type AbiMode, type TraceRecord, type UnknownAbiEvent } from "./probe.ts";
+export { UnknownAbiError } from "../err/errors.ts";

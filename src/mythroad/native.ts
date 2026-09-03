@@ -149,7 +149,7 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
         if (a1 === 2913) rt.bi |= MR_FLAGS_BI;
         break;
       default:
-        throw new NativeAbiError(`_com code ${a0} not implemented in Stage 5-C`);
+        return rt.unknownAbi("_com", a0, L);
     }
     L.pushInteger(ret);
     return 1;

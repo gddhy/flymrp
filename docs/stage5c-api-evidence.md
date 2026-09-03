@@ -247,9 +247,21 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 项 | 结果 |
 |---|---|
 | rxgj `*.mr` / `*.mrp` | 无 |
-| flymrp 工作区 | 无 |
+| flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
+| 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
+| 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 130`（`asm_mr_TestCom`，未实现）；table[0]/[14]/[25]/[125] 已接线 |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
-| 结论 | **No real binary fixture available.** 禁止伪造 real app test。 |
+| 结论 | **INSPECTED，不是 real-app green。** |
+
+### table[14] memset2
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[14] = memset2`；`string.c` `memset2` |
+| ABI | `void *memset2(void *s, int c, size_t count)`：填 `c` 的低 8 位，返回 `s` |
+| 真实调用 | `r0=0x0020021c` `r1=0` `r2=19952`（ER_RW） |
+| confidence | CONFIRMED |
 
 ---
 

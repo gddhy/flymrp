@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { EXT_CODE_ADDR } from "../../src/abi/layout.ts";
 import { NativeAbiError } from "../../src/err/errors.ts";
-import { CREATE_ABC, CREATE_ABx, OP_CALL, OP_GETGLOBAL, OP_LOADK, OP_RETURN, proto } from "../../src/lua/index.ts";
+import { CREATE_ABC, CREATE_ABx, OP_CALL, OP_GETGLOBAL, OP_LOADK, OP_RETURN, TAG_NUMBER, TAG_TABLE, call, proto } from "../../src/lua/index.ts";
 import { gzipStore } from "../../src/mrp/gzip.ts";
 import { buildMrp } from "../../src/mrp/index.ts";
 import { md5, mrDecode, mrEncode, MythroadRuntime } from "../../src/mythroad/index.ts";
+import { ARM_LOAD_HELPER_OFF, assembleArmHelperAt, buildArmLoadImage } from "../helpers/ext-asm.ts";
 import { kn, ks } from "../helpers/lua.ts";
 
 function bin(s: string): Uint8Array {
@@ -168,6 +170,57 @@ describe("5-C _strCom / _com", () => {
       }),
     );
     expect(rt.lua.L.nums[0]).toBe(123);
+  });
+
+  it("800 table {ptr,len} reloads guest bytes (tostring_t)", () => {
+    const helperAt = EXT_CODE_ADDR + ARM_LOAD_HELPER_OFF;
+    const first = buildArmLoadImage({
+      dest: EXT_CODE_ADDR,
+      helperWords: assembleArmHelperAt(helperAt, { ret0: 0x11 }),
+    });
+    const second = buildArmLoadImage({
+      dest: EXT_CODE_ADDR,
+      helperWords: assembleArmHelperAt(helperAt, { ret0: 0x22 }),
+    });
+    const rt = new MythroadRuntime();
+    rt.lua.runCold(
+      proto({
+        maxstack: 4,
+        k: [ks("_strCom"), kn(800), ks(strOf(first)), kn(0)],
+        code: [
+          CREATE_ABx(OP_GETGLOBAL, 0, 0),
+          CREATE_ABx(OP_LOADK, 1, 1),
+          CREATE_ABx(OP_LOADK, 2, 2),
+          CREATE_ABx(OP_LOADK, 3, 3),
+          CREATE_ABC(OP_CALL, 0, 4, 2),
+          CREATE_ABC(OP_RETURN, 0, 2, 0),
+        ],
+      }),
+    );
+    expect(rt.lua.L.nums[0]).toBe(0);
+    const old = rt.ext;
+    expect(old).not.toBeNull();
+    const ptr = old!.alloc(second.length);
+    old!.mem.load(ptr, second);
+    const L = rt.lua.L;
+    const g = L.getGlobal("_strCom");
+    L.top = 0;
+    L.base = 1;
+    L.ci.length = 1;
+    L.ci[0]!.base = 1;
+    L.ci[0]!.calling = false;
+    L.setFn(0, g.num);
+    L.top = 1;
+    L.pushInteger(800);
+    const tid = L.newTable();
+    L.tables[tid]!.setNum(1, { tag: TAG_NUMBER, num: ptr });
+    L.tables[tid]!.setNum(2, { tag: TAG_NUMBER, num: second.length });
+    L.pushSlot({ tag: TAG_TABLE, num: tid });
+    L.pushInteger(0);
+    call(L, 0, 1);
+    expect(L.nums[0]).toBe(0);
+    expect(rt.ext).not.toBeNull();
+    expect(rt.ext).not.toBe(old);
   });
 
   it("unimplemented stays NativeAbiError", () => {
