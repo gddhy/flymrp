@@ -82,4 +82,7 @@ export const IMPLEMENTED_C = [
   "TileDraw",
   "metamethod/__index",
   "metamethod/__newindex",
+  "mr_table/0",
+  "mr_table/14",
+  "mr_table/125",
 ] as const;
