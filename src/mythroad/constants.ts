@@ -94,4 +94,13 @@ export const SHORT_TYPENAMES = ["nil", "bool", "obj", "num", "str", "tab", "func
 export const TYPENAMES = ["nil", "boolean", "object", "number", "string", "table", "function", "object", "thread"] as const;
 
 export const BITMAPMAX = 30;
+export const SPRITEMAX = 10;
+export const TILEMAX = 3;
+export const BM_COPY = 0;
+export const BM_TRANSPARENT = 1;
 export const MR_START_FILE = "start.mr";
+
+export type RuntimeAction =
+  | { kind: "RUN_FILE"; pack: string; file: string; param: string }
+  | { kind: "RESTART" }
+  | { kind: "EXIT" };

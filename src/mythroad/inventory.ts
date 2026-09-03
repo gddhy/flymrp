@@ -1,4 +1,4 @@
-/** Implemented Stage 5-B surface. Counts must match docs/stage5b-api-inventory.md. */
+/** A/B counts are frozen (docs/stage5b-api-inventory.md). C is Stage 5-C only. */
 
 export const IMPLEMENTED_A = [
   "_strCom/601",
@@ -59,4 +59,27 @@ export const IMPLEMENTED_B = [
   "_com/102",
   "_com/401",
   "_com/406",
+] as const;
+
+export const IMPLEMENTED_C = [
+  "string.len",
+  "string.sub",
+  "string.pack",
+  "string.unpack",
+  "string.subV",
+  "table.rawGet",
+  "table.getn",
+  "_setTab",
+  "SaveTable",
+  "LoadTable",
+  "_runFile",
+  "_strCom/300",
+  "_strCom/500",
+  "_strCom/501",
+  "_strCom/502",
+  "BitmapShow",
+  "SpriteDraw",
+  "TileDraw",
+  "metamethod/__index",
+  "metamethod/__newindex",
 ] as const;

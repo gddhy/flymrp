@@ -5,6 +5,8 @@ import { LuaState } from "../lua/state.ts";
 import { NativeFunction } from "../lua/types.ts";
 import { UnsupportedInsn, CpuTrap } from "../hot/cpu.ts";
 import { MemoryFault } from "../hot/memory.ts";
+import { gunzip, isGzip } from "../mrp/gzip.ts";
+import { md5, mrDecode, mrEncode } from "./codec.ts";
 import { MR_SUCCESS } from "./constants.ts";
 import type { MythroadVfs } from "./vfs.ts";
 
@@ -42,6 +44,35 @@ export function createStrCom(ctx: {
         else L.pushInteger(MR_SUCCESS);
         return 1;
       }
+      case 300: {
+        const raw = strBytes(arg2.s);
+        if (!isGzip(raw)) {
+          L.pushString(arg2.s);
+          return 1;
+        }
+        try {
+          L.pushString(gunzip(raw));
+          return 1;
+        } catch {
+          return 0;
+        }
+      }
+      case 500: {
+        L.pushString(md5(strBytes(arg2.s)));
+        return 1;
+      }
+      case 501: {
+        const enc = mrEncode(strBytes(arg2.s));
+        if (!enc) return 0;
+        L.pushString(enc);
+        return 1;
+      }
+      case 502: {
+        const dec = mrDecode(strBytes(arg2.s));
+        if (!dec) return 0;
+        L.pushString(dec);
+        return 1;
+      }
       case 800:
       case 802: {
         const bytes = strBytes(arg2.s);
@@ -76,7 +107,7 @@ export function createStrCom(ctx: {
         }
       }
       default:
-        throw new NativeAbiError(`_strCom code ${code} not implemented in Stage 5-B`);
+        throw new NativeAbiError(`_strCom code ${code} not implemented in Stage 5-C`);
     }
   };
 }

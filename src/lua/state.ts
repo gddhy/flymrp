@@ -37,12 +37,44 @@ export class LuaState {
   insnBudget = 1_000_000;
   nCcalls = 0;
   stats = { interns: 0, tables: 0, closures: 0, upvals: 0 };
+  tmIndex = 0;
+  tmNewindex = 0;
+  tmEq = 0;
+  tmAdd = 0;
+  tmSub = 0;
+  tmMul = 0;
+  tmDiv = 0;
+  tmPow = 0;
+  tmOp = 0;
+  tmUnm = 0;
+  tmLt = 0;
+  tmLe = 0;
+  tmConcat = 0;
+  tmCall = 0;
+  tmMetatable = 0;
+  keyN = 0;
 
   constructor(stacksize = 256) {
     this.stacksize = stacksize;
     this.tags = new Uint8Array(stacksize);
     this.nums = new Int32Array(stacksize);
     this.globalsId = this.newTable();
+    this.tmIndex = this.internStr("__index");
+    this.tmNewindex = this.internStr("__newindex");
+    this.tmEq = this.internStr("__eq");
+    this.tmAdd = this.internStr("__add");
+    this.tmSub = this.internStr("__sub");
+    this.tmMul = this.internStr("__mul");
+    this.tmDiv = this.internStr("__div");
+    this.tmPow = this.internStr("__pow");
+    this.tmOp = this.internStr("__op");
+    this.tmUnm = this.internStr("__unm");
+    this.tmLt = this.internStr("__lt");
+    this.tmLe = this.internStr("__le");
+    this.tmConcat = this.internStr("__concat");
+    this.tmCall = this.internStr("__call");
+    this.tmMetatable = this.internStr("__metatable");
+    this.keyN = this.internStr("n");
     this.ci.push({
       base: 1,
       top: stacksize,
@@ -236,6 +268,27 @@ export class LuaState {
     if (this.tags[i] !== TAG_STRING) throw new NativeAbiError(`argument #${idx} must be a string`);
     const id = this.nums[i]!;
     return { s: this.strings[id]!, id };
+  }
+
+  /** mr_L_checklstring: string or number→decimal. */
+  checkLString(idx: number): { s: string; id: number } {
+    const i = this.checkArg(idx);
+    if (this.tags[i] === TAG_STRING) {
+      const id = this.nums[i]!;
+      return { s: this.strings[id]!, id };
+    }
+    if (this.tags[i] === TAG_NUMBER) {
+      const s = String(this.nums[i]!);
+      return { s, id: this.internStr(s) };
+    }
+    throw new NativeAbiError(`argument #${idx} must be a string`);
+  }
+
+  pushSlot(s: { tag: number; num: number }): void {
+    this.grow(1);
+    this.tags[this.top] = s.tag;
+    this.nums[this.top] = s.num;
+    this.top++;
   }
 
   optString(idx: number, def = ""): string {

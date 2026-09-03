@@ -3,17 +3,25 @@ import { LuaState } from "../lua/state.ts";
 import { TAG_NUMBER, TAG_TABLE, type NativeFunction } from "../lua/types.ts";
 import {
   BITMAPMAX,
+  BM_COPY,
+  BM_TRANSPARENT,
   MR_FAILED,
+  MR_FILE_CREATE,
   MR_FILE_RDONLY,
   MR_FILE_STATE_CLOSED,
   MR_FILE_STATE_NIL,
   MR_FILE_STATE_OPEN,
+  MR_FILE_WRONLY,
   MR_FLAGS_BI,
   MR_FONT_MEDIUM,
   MR_SEEK_SET,
+  MR_SUCCESS,
   MR_VERSION,
   SHORT_TYPENAMES,
+  SPRITEMAX,
+  TILEMAX,
 } from "./constants.ts";
+import { persistRoot, unpersistRoot } from "./persist.ts";
 import { lcgNext } from "./profile.ts";
 import type { MythroadRuntime } from "./runtime.ts";
 
@@ -63,6 +71,24 @@ export function installNatives(rt: MythroadRuntime): void {
   const point = makePoint(rt);
   reg("_drawPoint", point);
   reg("DrawPoint", point);
+
+  reg("BitmapLoad", makeBitmapLoad(rt));
+  reg("BitmapShow", makeBitmapShow(rt));
+  reg("BitmapNew", makeBitmapNew(rt));
+  reg("BitmapDraw", makeBitmapDraw(rt));
+  reg("SpriteSet", makeSpriteSet(rt));
+  reg("SpriteDraw", makeSpriteDraw(rt));
+  reg("TileSet", makeTileSet(rt));
+  reg("TileSetRect", makeTileSetRect(rt));
+  reg("TileDraw", makeTileDraw(rt));
+
+  const save = makeSaveTable(rt);
+  const load = makeLoadTable(rt);
+  reg("SaveTable", save);
+  reg("LoadTable", load);
+  const runFile = makeRunFile(rt);
+  reg("RunFile", runFile);
+  reg("_runFile", runFile);
 
   const exitFn = makeExit(rt);
   reg("Exit", exitFn);
@@ -123,7 +149,7 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
         if (a1 === 2913) rt.bi |= MR_FLAGS_BI;
         break;
       default:
-        throw new NativeAbiError(`_com code ${a0} not implemented in Stage 5-B`);
+        throw new NativeAbiError(`_com code ${a0} not implemented in Stage 5-C`);
     }
     L.pushInteger(ret);
     return 1;
@@ -494,4 +520,191 @@ function installSysLib(rt: MythroadRuntime, sysInfo: NativeFunction, dt: NativeF
     return 1;
   });
   L.setGlobal("sys", TAG_TABLE, id);
+}
+
+function makeSaveTable(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const filename = L.optString(3, "");
+    L.settop(2);
+    L.checkTable(1);
+    const permsId = L.nums[L.absindex(1)]!;
+    const root = L.slot(L.absindex(2));
+    const fd = rt.vfs.open(filename, MR_FILE_WRONLY | MR_FILE_CREATE);
+    if (fd === 0) return 0;
+    const bytes = persistRoot(L, permsId, root);
+    rt.vfs.write(fd, bytes);
+    rt.vfs.close(fd);
+    L.settop(0);
+    L.pushInteger(MR_SUCCESS);
+    return 1;
+  };
+}
+
+function makeLoadTable(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const filename = L.optString(2, "");
+    L.settop(2);
+    L.settop(1);
+    const permsId = L.nums[L.absindex(1)]!;
+    L.checkTable(1);
+    const fd = rt.vfs.open(filename, MR_FILE_RDONLY);
+    if (fd === 0) {
+      L.settop(1);
+      return 1;
+    }
+    const data = rt.vfs.read(fd, 0x7fffffff);
+    rt.vfs.close(fd);
+    const obj = unpersistRoot(L, permsId, data);
+    L.settop(0);
+    L.pushSlot(obj);
+    return 1;
+  };
+}
+
+function makeRunFile(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const pack = L.optString(1, "");
+    const file = L.optString(2, "");
+    const param = L.optString(3, "");
+    rt.requestRunFile(pack, file, param);
+    return 0;
+  };
+}
+
+function makeBitmapLoad(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    const filename = L.optString(2, "");
+    const x = L.optNumber(3, 0) | 0;
+    const y = L.optNumber(4, 0) | 0;
+    const w = L.optNumber(5, 0) | 0;
+    const h = L.optNumber(6, 0) | 0;
+    const maxw = L.optNumber(7, 0) | 0;
+    if (!(rt.bi & MR_FLAGS_BI)) throw new LuaRuntimeError(`BitmapLoad:cannot read File "${filename}"!`);
+    if (i > BITMAPMAX) throw new LuaRuntimeError(`BitmapLoad:index ${i} invalid!`);
+    if (filename.charCodeAt(0) === 42) return 0;
+    if (!rt.vfs.exists(filename)) throw new LuaRuntimeError(`BitmapLoad ${i}:cannot read "${filename}"!`);
+    rt.bitmaps[i] = { w, h, loaded: true, name: filename };
+    rt.gfx.image({ op: "image", sub: "load", i, filename, x, y, w, h, maxw });
+    return 0;
+  };
+}
+
+function makeBitmapShow(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    const x = L.optNumber(2, 0) | 0;
+    const y = L.optNumber(3, 0) | 0;
+    const rop = L.optNumber(4, BM_COPY) | 0;
+    const sx = L.optNumber(5, 0) | 0;
+    const sy = L.optNumber(6, 0) | 0;
+    const slot = rt.bitmaps[i];
+    const w = L.absindex(7) < L.top && L.optNumber(7, -1) !== -1 ? L.optNumber(7, -1) | 0 : (slot?.w ?? -1);
+    const h = L.absindex(8) < L.top && L.optNumber(8, -1) !== -1 ? L.optNumber(8, -1) | 0 : (slot?.h ?? -1);
+    rt.gfx.image({ op: "image", sub: "show", i, x, y, w, h, rop, sx, sy });
+    return 0;
+  };
+}
+
+function makeBitmapNew(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    const w = L.optNumber(2, 0) | 0;
+    const h = L.optNumber(3, 0) | 0;
+    if (i > BITMAPMAX) throw new LuaRuntimeError(`BitmapNew:index ${i} invalid!`);
+    rt.bitmaps[i] = { w, h, loaded: true, name: "" };
+    rt.gfx.image({ op: "image", sub: "new", i, w, h });
+    return 0;
+  };
+}
+
+function makeBitmapDraw(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const di = L.optNumber(1, 0) | 0;
+    const dx = L.optNumber(2, 0) | 0;
+    const dy = L.optNumber(3, 0) | 0;
+    const si = L.optNumber(4, 0) | 0;
+    if (si > BITMAPMAX || di > BITMAPMAX) throw new LuaRuntimeError(`BitmapDraw:index ${di} or ${si} invalid!`);
+    rt.gfx.image({
+      op: "image",
+      sub: "draw",
+      i: di,
+      di,
+      si,
+      x: dx,
+      y: dy,
+      sx: L.optNumber(5, 0) | 0,
+      sy: L.optNumber(6, 0) | 0,
+      w: L.optNumber(7, 0) | 0,
+      h: L.optNumber(8, 0) | 0,
+      rop: L.optNumber(13, BM_COPY) | 0,
+    });
+    return 0;
+  };
+}
+
+function makeSpriteSet(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    const h = L.optNumber(2, 0) | 0;
+    if (i >= SPRITEMAX) throw new LuaRuntimeError(`SpriteSet:index ${i} invalid!`);
+    rt.sprites[i] = { h };
+    return 0;
+  };
+}
+
+function makeSpriteDraw(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    const spriteindex = L.optNumber(2, 0) | 0;
+    const x = L.optNumber(3, 0) | 0;
+    const y = L.optNumber(4, 0) | 0;
+    const mod = L.optNumber(5, BM_TRANSPARENT) | 0;
+    rt.gfx.sprite({ op: "sprite", i, spriteindex, x, y, mod });
+    return 0;
+  };
+}
+
+function makeTileSet(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    if (i >= TILEMAX) throw new LuaRuntimeError("TileSet:tile index out of rang!");
+    const x = L.optNumber(2, 0) | 0;
+    const y = L.optNumber(3, 0) | 0;
+    const w = L.optNumber(4, 0) | 0;
+    const h = L.optNumber(5, 0) | 0;
+    const tileh = L.optNumber(6, 0) | 0;
+    rt.tiles[i] = { x, y, w, h, tileh, x1: 0, y1: 0, x2: 0, y2: 0 };
+    rt.gfx.tile({ op: "tile", sub: "set", i, x, y, w, h, tileh });
+    return 0;
+  };
+}
+
+function makeTileSetRect(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    if (i >= TILEMAX) throw new LuaRuntimeError("TileSet:tile index out of rang!");
+    const x1 = L.optNumber(2, 0) | 0;
+    const y1 = L.optNumber(3, 0) | 0;
+    const x2 = L.optNumber(4, 0) | 0;
+    const y2 = L.optNumber(5, 0) | 0;
+    const t = rt.tiles[i] ?? { x: 0, y: 0, w: 0, h: 0, tileh: 0, x1, y1, x2, y2 };
+    t.x1 = x1;
+    t.y1 = y1;
+    t.x2 = x2;
+    t.y2 = y2;
+    rt.tiles[i] = t;
+    rt.gfx.tile({ op: "tile", sub: "rect", i, x1, y1, x2, y2 });
+    return 0;
+  };
+}
+
+function makeTileDraw(rt: MythroadRuntime): NativeFunction {
+  return (L) => {
+    const i = L.optNumber(1, 0) | 0;
+    if (i >= TILEMAX) throw new LuaRuntimeError("TileDraw:tile index out of rang!");
+    const t = rt.tiles[i] ?? { x: 0, y: 0, w: 0, h: 0, tileh: 0, x1: 0, y1: 0, x2: 0, y2: 0 };
+    rt.gfx.tile({ op: "tile", sub: "draw", i, x: t.x, y: t.y, w: t.w, h: t.h, tileh: t.tileh });
+    return 0;
+  };
 }

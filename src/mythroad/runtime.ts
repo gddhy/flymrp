@@ -9,13 +9,15 @@ import {
   MR_START_FILE,
   MR_STATE_IDLE,
   MR_STATE_PAUSE,
+  MR_STATE_RESTART,
   MR_STATE_RUN,
   MR_STATE_STOP,
   MR_SUCCESS,
   MR_TIMER_STATE_IDLE,
+  type RuntimeAction,
 } from "./constants.ts";
 import { EV_CUSTOM, EV_KEY, EV_SYSTEM, EV_TIMER, EventQueue, type RuntimeEvent } from "./events.ts";
-import { NullGraphicsBackend, type GraphicsBackend } from "./graphics.ts";
+import { NullGraphicsBackend, type BitmapSlot, type GraphicsBackend, type SpriteSlot, type TileSlot } from "./graphics.ts";
 import { InputBackend } from "./input.ts";
 import { installNatives } from "./native.ts";
 import { defaultProfile, type DeviceProfile } from "./profile.ts";
@@ -35,7 +37,7 @@ export type MythroadRuntimeOptions = {
  * State lives here, not inside LuaVM.
  */
 export class MythroadRuntime {
-  readonly lua = new LuaVM();
+  lua = new LuaVM();
   readonly vfs = new MythroadVfs();
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
@@ -62,6 +64,13 @@ export class MythroadRuntime {
   exited = false;
   lastDispatch = 0;
   steps = 0;
+  pendingPack = "";
+  pendingStartFile = "";
+  pendingParam = "";
+  lastAction: RuntimeAction | null = null;
+  readonly bitmaps: BitmapSlot[] = [];
+  readonly sprites: SpriteSlot[] = [];
+  readonly tiles: TileSlot[] = [];
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
@@ -143,7 +152,46 @@ export class MythroadRuntime {
     return true;
   }
 
+  requestRunFile(pack: string, file: string, param: string): void {
+    this.pendingPack = pack;
+    this.pendingStartFile = file;
+    this.pendingParam = param ?? "";
+    this.lastAction = { kind: "RUN_FILE", pack, file, param: this.pendingParam };
+    this.timers.start(this.clock, 100, "restart", MR_STATE_RUN);
+    this.state = MR_STATE_RESTART;
+  }
+
+  applyRestart(): void {
+    this.lastAction = { kind: "RESTART" };
+    this.timers.stop();
+    this.exited = false;
+    this.ext = null;
+    this.events.clear();
+    this.rebindLua();
+    this.packName = this.pendingPack || this.packName;
+    this.param = this.pendingParam;
+    this.lua.L.setGlobal("_mr_entry", TAG_STRING, this.lua.L.internStr(this.entry));
+    this.lua.L.setGlobal("_mr_param", TAG_STRING, this.lua.L.internStr(this.param));
+    this.state = MR_STATE_RUN;
+    const name = this.pendingStartFile || MR_START_FILE;
+    const chunk = this.vfs.readFile(name);
+    if (!chunk) throw new LuaRuntimeError(`cannot read ${name}`);
+    this.lua.runBytes(chunk);
+    if (this.timers.state === MR_TIMER_STATE_IDLE && this.lua.hasGlobalFn("dealtimer")) {
+      this.timers.start(this.clock, 100, "dealtimer", this.state);
+    }
+  }
+
+  rebindLua(): void {
+    this.lua = new LuaVM();
+    installNatives(this);
+  }
+
   pause(): number {
+    if (this.state === MR_STATE_RESTART) {
+      this.timers.stop();
+      return MR_SUCCESS;
+    }
     if (this.state === MR_STATE_RUN) this.state = MR_STATE_PAUSE;
     else return MR_IGNORE;
     if (this.lua.hasGlobalFn("suspend")) this.lua.callGlobal("suspend");
@@ -152,6 +200,10 @@ export class MythroadRuntime {
   }
 
   resume(): number {
+    if (this.state === MR_STATE_RESTART) {
+      this.timers.start(this.clock, 100, "restart", MR_STATE_RUN);
+      return MR_SUCCESS;
+    }
     if (this.state === MR_STATE_PAUSE) this.state = MR_STATE_RUN;
     else return MR_IGNORE;
     if (this.lua.hasGlobalFn("resume")) this.lua.callGlobal("resume");
@@ -160,6 +212,10 @@ export class MythroadRuntime {
   }
 
   private dispatchTimer(): number {
+    if (this.state === MR_STATE_RESTART) {
+      this.applyRestart();
+      return MR_SUCCESS;
+    }
     if (!this.canRun()) return MR_IGNORE;
     if (this.ext) {
       const out = this.ext.arm_ext_call(2, new Uint8Array(0));

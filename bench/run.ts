@@ -26,9 +26,9 @@ import {
   dumpChunk,
   proto,
 } from "../src/lua/index.ts";
-import { TAG_NUMBER, TAG_STRING } from "../src/lua/types.ts";
+import { TAG_NUMBER, TAG_STRING, TAG_TABLE } from "../src/lua/types.ts";
 import { MRPArchive, buildMrp } from "../src/mrp/index.ts";
-import { EV_KEY, MR_KEY_PRESS, MR_KEY_UP, MythroadRuntime } from "../src/mythroad/index.ts";
+import { EV_KEY, MR_KEY_PRESS, MR_KEY_UP, MythroadRuntime, NullGraphicsBackend } from "../src/mythroad/index.ts";
 import { armB, armBx, armDpImm, OP_ADD, OP_MOV } from "../test/helpers/asm.ts";
 import {
   ARM_LOAD_HELPER_OFF,
@@ -428,6 +428,87 @@ const READN = 20_000;
   const ms4 = performance.now() - t4;
   console.log(
     `${"native_GetSysInfo".padEnd(22)} ${SN.toString().padStart(10)} calls  ${ms4.toFixed(1).padStart(8)} ms  ${(ms4 / SN * 1000).toFixed(2)} µs/call`,
+  );
+}
+
+{
+  const vm = new LuaVM();
+  const N = 20_000;
+  const p = proto({
+    maxstack: 6,
+    k: [ks("string"), kn(1), kn(N), ks("len"), ks("xxxxxxxx")],
+    code: [
+      CREATE_ABx(OP_LOADK, 0, 1),
+      CREATE_ABx(OP_LOADK, 1, 2),
+      CREATE_ABx(OP_LOADK, 2, 1),
+      CREATE_ABC(OP_SUB, 0, 0, 2),
+      CREATE_AsBx(OP_JMP, 0, 4),
+      CREATE_ABx(OP_GETGLOBAL, 3, 0),
+      CREATE_ABC(OP_GETTABLE, 3, 3, 253),
+      CREATE_ABx(OP_LOADK, 4, 4),
+      CREATE_ABC(OP_CALL, 3, 2, 1),
+      CREATE_AsBx(OP_FORLOOP, 0, -5),
+      CREATE_ABC(OP_RETURN, 0, 1, 0),
+    ],
+  });
+  vm.runCold(p);
+  const t0 = performance.now();
+  vm.runCold(p);
+  const ms = performance.now() - t0;
+  console.log(
+    `${"lua_string_len".padEnd(22)} ${N.toString().padStart(10)} calls  ${ms.toFixed(1).padStart(8)} ms  ${(ms / N * 1000).toFixed(2)} µs/call`,
+  );
+}
+
+{
+  const vm = new LuaVM();
+  const t = vm.L.newTable();
+  const mt = vm.L.newTable();
+  vm.L.tables[t]!.meta = mt;
+  vm.L.setTableFn(mt, "__index", (L) => {
+    L.pushInteger(1);
+    return 1;
+  });
+  vm.L.setGlobal("obj", TAG_TABLE, t);
+  const N = 20_000;
+  const p = proto({
+    maxstack: 6,
+    k: [ks("obj"), kn(1), kn(N), ks("miss")],
+    code: [
+      CREATE_ABx(OP_LOADK, 0, 1),
+      CREATE_ABx(OP_LOADK, 1, 2),
+      CREATE_ABx(OP_LOADK, 2, 1),
+      CREATE_ABC(OP_SUB, 0, 0, 2),
+      CREATE_AsBx(OP_JMP, 0, 2),
+      CREATE_ABx(OP_GETGLOBAL, 3, 0),
+      CREATE_ABC(OP_GETTABLE, 4, 3, 253),
+      CREATE_AsBx(OP_FORLOOP, 0, -3),
+      CREATE_ABC(OP_RETURN, 0, 1, 0),
+    ],
+  });
+  vm.runCold(p);
+  const t0 = performance.now();
+  vm.runCold(p);
+  const ms = performance.now() - t0;
+  console.log(
+    `${"lua_meta_index".padEnd(22)} ${N.toString().padStart(10)} gets   ${ms.toFixed(1).padStart(8)} ms  ${(ms / N * 1000).toFixed(2)} µs/get`,
+  );
+}
+
+{
+  const g = new NullGraphicsBackend();
+  const rt = new MythroadRuntime({ graphics: g });
+  rt.state = 1;
+  const N = 20_000;
+  const t0 = performance.now();
+  for (let i = 0; i < N; i++) {
+    rt.gfx.clear(0, 0, 0);
+    rt.gfx.drawPoint(1, 2, 3, 4, 5);
+    rt.gfx.flush(0, 0, 1, 1, 30);
+  }
+  const ms = performance.now() - t0;
+  console.log(
+    `${"gfx_command".padEnd(22)} ${N.toString().padStart(10)} trips  ${ms.toFixed(1).padStart(8)} ms  ${(N / (ms / 1000) / 1e3).toFixed(1)} ktrip/s`,
   );
 }
 

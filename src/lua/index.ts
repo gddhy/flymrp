@@ -71,3 +71,4 @@ export { LuaState } from "./state.ts";
 export { LuaVM, call, linkProto } from "./vm.ts";
 export { NativeApi } from "./api.ts";
 export { LuaTable } from "./table.ts";
+export { installLuaStdlib, luaNext } from "./stdlib.ts";

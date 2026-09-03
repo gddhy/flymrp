@@ -52,6 +52,8 @@ import {
   OP_UNM,
 } from "./opcodes.ts";
 import { i32, LuaState, parseIntStr } from "./state.ts";
+import { bindStdlibCall, installLuaStdlib, luaNext } from "./stdlib.ts";
+import { LuaTable } from "./table.ts";
 import {
   ColdProto,
   MRP_MULTRET,
@@ -109,25 +111,228 @@ function tonumberSlot(L: LuaState, tag: number, num: number): number | null {
   return null;
 }
 
+function strcmp(a: string, b: string): number {
+  const n = a.length < b.length ? a.length : b.length;
+  for (let i = 0; i < n; i++) {
+    const d = (a.charCodeAt(i) & 0xff) - (b.charCodeAt(i) & 0xff);
+    if (d) return d;
+  }
+  return a.length - b.length;
+}
+
+function slotFalse(tag: number, num: number): boolean {
+  return tag === TAG_NIL || (tag === TAG_BOOL && num === 0);
+}
+
+function gettm(L: LuaState, tab: LuaTable, nameId: number): { tag: number; num: number } | null {
+  if (!tab.meta) return null;
+  const v = L.tables[tab.meta]!.getStr(nameId);
+  return v.tag === TAG_NIL ? null : v;
+}
+
+function gettmbyobj(L: LuaState, tag: number, num: number, nameId: number): { tag: number; num: number } | null {
+  if (tag !== TAG_TABLE) return null;
+  return gettm(L, L.tables[num]!, nameId);
+}
+
+function callTMres(
+  L: LuaState,
+  f: { tag: number; num: number },
+  aTag: number,
+  aNum: number,
+  bTag: number,
+  bNum: number,
+): { tag: number; num: number } {
+  const func = L.top;
+  L.grow(3);
+  L.tags[func] = f.tag;
+  L.nums[func] = f.num;
+  L.tags[func + 1] = aTag;
+  L.nums[func + 1] = aNum;
+  L.tags[func + 2] = bTag;
+  L.nums[func + 2] = bNum;
+  L.top = func + 3;
+  call(L, func, 1);
+  const r = { tag: L.tags[func]!, num: L.nums[func]! };
+  L.top = func;
+  return r;
+}
+
+function callTM(
+  L: LuaState,
+  f: { tag: number; num: number },
+  aTag: number,
+  aNum: number,
+  bTag: number,
+  bNum: number,
+  c: { tag: number; num: number },
+): void {
+  const func = L.top;
+  L.grow(4);
+  L.tags[func] = f.tag;
+  L.nums[func] = f.num;
+  L.tags[func + 1] = aTag;
+  L.nums[func + 1] = aNum;
+  L.tags[func + 2] = bTag;
+  L.nums[func + 2] = bNum;
+  L.tags[func + 3] = c.tag;
+  L.nums[func + 3] = c.num;
+  L.top = func + 4;
+  call(L, func, 0);
+  L.top = func;
+}
+
+function gettable(
+  L: LuaState,
+  tTag: number,
+  tNum: number,
+  kTag: number,
+  kNum: number,
+  loop: number,
+): { tag: number; num: number } {
+  if (loop > 100) throw new LuaRuntimeError("table err:2014");
+  if (tTag === TAG_TABLE) {
+    const tab = L.tables[tNum]!;
+    const v = tab.get(kTag, kNum);
+    if (v.tag !== TAG_NIL) return v;
+    const tm = gettm(L, tab, L.tmIndex);
+    if (!tm) return { tag: TAG_NIL, num: 0 };
+    if (tm.tag === TAG_FUNCTION) return callTMres(L, tm, tTag, tNum, kTag, kNum);
+    return gettable(L, tm.tag, tm.num, kTag, kNum, loop + 1);
+  }
+  const tm = gettmbyobj(L, tTag, tNum, L.tmIndex);
+  if (!tm) throw new LuaRuntimeError("attempt to index a non-table");
+  if (tm.tag === TAG_FUNCTION) return callTMres(L, tm, tTag, tNum, kTag, kNum);
+  return gettable(L, tm.tag, tm.num, kTag, kNum, loop + 1);
+}
+
+function settable(
+  L: LuaState,
+  tTag: number,
+  tNum: number,
+  kTag: number,
+  kNum: number,
+  val: { tag: number; num: number },
+  loop: number,
+): void {
+  if (loop > 100) throw new LuaRuntimeError("table err:2015");
+  if (tTag === TAG_TABLE) {
+    const tab = L.tables[tNum]!;
+    const old = tab.get(kTag, kNum);
+    const tm = gettm(L, tab, L.tmNewindex);
+    if (old.tag !== TAG_NIL || !tm) {
+      tab.set(kTag, kNum, val);
+      return;
+    }
+    if (tm.tag === TAG_FUNCTION) {
+      callTM(L, tm, tTag, tNum, kTag, kNum, val);
+      return;
+    }
+    settable(L, tm.tag, tm.num, kTag, kNum, val, loop + 1);
+    return;
+  }
+  const tm = gettmbyobj(L, tTag, tNum, L.tmNewindex);
+  if (!tm) throw new LuaRuntimeError("attempt to index a non-table");
+  if (tm.tag === TAG_FUNCTION) {
+    callTM(L, tm, tTag, tNum, kTag, kNum, val);
+    return;
+  }
+  settable(L, tm.tag, tm.num, kTag, kNum, val, loop + 1);
+}
+
+function callBinTM(
+  L: LuaState,
+  dest: number,
+  p1: { tag: number; num: number },
+  p2: { tag: number; num: number },
+  nameId: number,
+): boolean {
+  let tm = gettmbyobj(L, p1.tag, p1.num, nameId);
+  if (!tm || tm.tag !== TAG_FUNCTION) tm = gettmbyobj(L, p2.tag, p2.num, nameId);
+  if (!tm || tm.tag !== TAG_FUNCTION) return false;
+  const r = callTMres(L, tm, p1.tag, p1.num, p2.tag, p2.num);
+  L.tags[dest] = r.tag;
+  L.nums[dest] = r.num;
+  return true;
+}
+
+function arithOp(
+  L: LuaState,
+  dest: number,
+  b: { tag: number; num: number },
+  c: { tag: number; num: number },
+  tmName: number,
+  op: number,
+): void {
+  const bn = tonumberSlot(L, b.tag, b.num);
+  const cn = tonumberSlot(L, c.tag, c.num);
+  if (bn !== null && cn !== null) {
+    let r = 0;
+    if (op === OP_ADD) r = i32(bn + cn);
+    else if (op === OP_SUB) r = i32(bn - cn);
+    else if (op === OP_MUL) r = i32(bn * cn);
+    else {
+      if (cn === 0) throw new LuaRuntimeError("division by zero");
+      r = i32(bn / cn);
+    }
+    L.setNum(dest, r);
+    return;
+  }
+  if (!callBinTM(L, dest, b, c, tmName)) throw new LuaRuntimeError("attempt to perform arithmetic");
+}
+
 function equalSlots(L: LuaState, ta: number, na: number, tb: number, nb: number): boolean {
   if (ta !== tb) return false;
   if (ta === TAG_NIL) return true;
   if (ta === TAG_NUMBER || ta === TAG_BOOL) return na === nb;
-  if (ta === TAG_STRING || ta === TAG_TABLE || ta === TAG_FUNCTION) return na === nb;
+  if (ta === TAG_STRING || ta === TAG_FUNCTION) return na === nb;
+  if (ta === TAG_TABLE) {
+    if (na === nb) return true;
+    const ma = L.tables[na]!.meta;
+    const mb = L.tables[nb]!.meta;
+    if (!ma || !mb) return false;
+    const ea = L.tables[ma]!.getStr(L.tmEq);
+    const eb = L.tables[mb]!.getStr(L.tmEq);
+    if (ea.tag !== TAG_FUNCTION || eb.tag !== TAG_FUNCTION || ea.num !== eb.num) return false;
+    const r = callTMres(L, ea, ta, na, tb, nb);
+    return !slotFalse(r.tag, r.num);
+  }
   return na === nb;
+}
+
+function orderTM(
+  L: LuaState,
+  ta: number,
+  na: number,
+  tb: number,
+  nb: number,
+  nameId: number,
+): boolean | null {
+  const tm1 = gettmbyobj(L, ta, na, nameId);
+  if (!tm1 || tm1.tag !== TAG_FUNCTION) return null;
+  const tm2 = gettmbyobj(L, tb, nb, nameId);
+  if (!tm2 || tm2.tag !== tm1.tag || tm2.num !== tm1.num) return null;
+  const r = callTMres(L, tm1, ta, na, tb, nb);
+  return !slotFalse(r.tag, r.num);
 }
 
 function lessThan(L: LuaState, ta: number, na: number, tb: number, nb: number): boolean {
   if (ta !== tb) throw new LuaRuntimeError("attempt to compare different types");
   if (ta === TAG_NUMBER) return (na | 0) < (nb | 0);
-  if (ta === TAG_STRING) return L.strings[na]! < L.strings[nb]!;
+  if (ta === TAG_STRING) return strcmp(L.strings[na]!, L.strings[nb]!) < 0;
+  const tm = orderTM(L, ta, na, tb, nb, L.tmLt);
+  if (tm !== null) return tm;
   throw new LuaRuntimeError("attempt to compare");
 }
 
 function lessEqual(L: LuaState, ta: number, na: number, tb: number, nb: number): boolean {
   if (ta !== tb) throw new LuaRuntimeError("attempt to compare different types");
   if (ta === TAG_NUMBER) return (na | 0) <= (nb | 0);
-  if (ta === TAG_STRING) return L.strings[na]! <= L.strings[nb]!;
+  if (ta === TAG_STRING) return strcmp(L.strings[na]!, L.strings[nb]!) <= 0;
+  let tm = orderTM(L, ta, na, tb, nb, L.tmLe);
+  if (tm !== null) return tm;
+  tm = orderTM(L, tb, nb, ta, na, L.tmLt);
+  if (tm !== null) return !tm;
   throw new LuaRuntimeError("attempt to compare");
 }
 
@@ -173,7 +378,15 @@ function poscall(L: LuaState, wanted: number, firstResult: number): void {
 }
 
 function precall(L: LuaState, func: number): number | null {
-  if (L.tags[func] !== TAG_FUNCTION) throw new LuaRuntimeError("attempt to call a non-function");
+  if (L.tags[func] !== TAG_FUNCTION) {
+    const tm = gettmbyobj(L, L.tags[func]!, L.nums[func]!, L.tmCall);
+    if (!tm || tm.tag !== TAG_FUNCTION) throw new LuaRuntimeError("attempt to call a non-function");
+    L.grow(1);
+    for (let p = L.top; p > func; p--) L.copy(p - 1, p);
+    L.top++;
+    L.tags[func] = tm.tag;
+    L.nums[func] = tm.num;
+  }
   const cl = L.closures[L.nums[func]!]!;
   if (!cl.isC) {
     const p = cl.proto;
@@ -262,22 +475,39 @@ function execute(L: LuaState): number {
         }
         case OP_GETGLOBAL: {
           const bx = GETARG_Bx(i);
-          const v = L.tables[cl.g]!.getStr(proto.kNums[bx]!);
-          L.tags[ra] = v.tag;
-          L.nums[ra] = v.num;
+          const g = L.tables[cl.g]!;
+          const v = g.getStr(proto.kNums[bx]!);
+          if (v.tag !== TAG_NIL) {
+            L.tags[ra] = v.tag;
+            L.nums[ra] = v.num;
+          } else {
+            ci.pc = pc;
+            const r = gettable(L, TAG_TABLE, cl.g, TAG_STRING, proto.kNums[bx]!, 0);
+            L.tags[ra] = r.tag;
+            L.nums[ra] = r.num;
+          }
           break;
         }
         case OP_GETTABLE: {
           const rb = base + GETARG_B(i);
           const kc = rk(L, base, proto, GETARG_C(i));
-          if (L.tags[rb] !== TAG_TABLE) throw new LuaRuntimeError("attempt to index a non-table");
-          const v = L.tables[L.nums[rb]!]!.get(kc.tag, kc.num);
-          L.tags[ra] = v.tag;
-          L.nums[ra] = v.num;
+          if (L.tags[rb] === TAG_TABLE) {
+            const v = L.tables[L.nums[rb]!]!.get(kc.tag, kc.num);
+            if (v.tag !== TAG_NIL) {
+              L.tags[ra] = v.tag;
+              L.nums[ra] = v.num;
+              break;
+            }
+          }
+          ci.pc = pc;
+          const r = gettable(L, L.tags[rb]!, L.nums[rb]!, kc.tag, kc.num, 0);
+          L.tags[ra] = r.tag;
+          L.nums[ra] = r.num;
           break;
         }
         case OP_SETGLOBAL: {
-          L.tables[cl.g]!.set(TAG_STRING, proto.kNums[GETARG_Bx(i)]!, L.slot(ra));
+          ci.pc = pc;
+          settable(L, TAG_TABLE, cl.g, TAG_STRING, proto.kNums[GETARG_Bx(i)]!, L.slot(ra), 0);
           break;
         }
         case OP_SETUPVAL: {
@@ -285,10 +515,18 @@ function execute(L: LuaState): number {
           break;
         }
         case OP_SETTABLE: {
-          if (L.tags[ra] !== TAG_TABLE) throw new LuaRuntimeError("attempt to index a non-table");
           const kb = rk(L, base, proto, GETARG_B(i));
           const kc = rk(L, base, proto, GETARG_C(i));
-          L.tables[L.nums[ra]!]!.set(kb.tag, kb.num, kc);
+          if (L.tags[ra] === TAG_TABLE) {
+            const tab = L.tables[L.nums[ra]!]!;
+            const old = tab.get(kb.tag, kb.num);
+            if (old.tag !== TAG_NIL || !gettm(L, tab, L.tmNewindex)) {
+              tab.set(kb.tag, kb.num, kc);
+              break;
+            }
+          }
+          ci.pc = pc;
+          settable(L, L.tags[ra]!, L.nums[ra]!, kb.tag, kb.num, kc, 0);
           break;
         }
         case OP_NEWTABLE: {
@@ -304,12 +542,20 @@ function execute(L: LuaState): number {
         case OP_SELF: {
           const rb = base + GETARG_B(i);
           const kc = rk(L, base, proto, GETARG_C(i));
-          L.copy(rb, ra + 1);
-          if (L.tags[rb] !== TAG_TABLE) throw new LuaRuntimeError("attempt to index a non-table");
           if (kc.tag !== TAG_STRING) throw new LuaRuntimeError("SELF key must be a string");
-          const v = L.tables[L.nums[rb]!]!.get(kc.tag, kc.num);
-          L.tags[ra] = v.tag;
-          L.nums[ra] = v.num;
+          L.copy(rb, ra + 1);
+          if (L.tags[rb] === TAG_TABLE) {
+            const v = L.tables[L.nums[rb]!]!.get(kc.tag, kc.num);
+            if (v.tag !== TAG_NIL) {
+              L.tags[ra] = v.tag;
+              L.nums[ra] = v.num;
+              break;
+            }
+          }
+          ci.pc = pc;
+          const r = gettable(L, L.tags[rb]!, L.nums[rb]!, kc.tag, kc.num, 0);
+          L.tags[ra] = r.tag;
+          L.nums[ra] = r.num;
           break;
         }
         case OP_ADD:
@@ -318,28 +564,38 @@ function execute(L: LuaState): number {
         case OP_DIV: {
           const b = rk(L, base, proto, GETARG_B(i));
           const c = rk(L, base, proto, GETARG_C(i));
-          const bn = tonumberSlot(L, b.tag, b.num);
-          const cn = tonumberSlot(L, c.tag, c.num);
-          if (bn === null || cn === null) throw new LuaRuntimeError("attempt to perform arithmetic");
-          let r = 0;
-          if (op === OP_ADD) r = i32(bn + cn);
-          else if (op === OP_SUB) r = i32(bn - cn);
-          else if (op === OP_MUL) r = i32(bn * cn);
-          else {
-            if (cn === 0) throw new LuaRuntimeError("division by zero");
-            r = i32(bn / cn);
+          if (b.tag === TAG_NUMBER && c.tag === TAG_NUMBER) {
+            let r = 0;
+            if (op === OP_ADD) r = i32(b.num + c.num);
+            else if (op === OP_SUB) r = i32(b.num - c.num);
+            else if (op === OP_MUL) r = i32(b.num * c.num);
+            else {
+              if (c.num === 0) throw new LuaRuntimeError("division by zero");
+              r = i32(b.num / c.num);
+            }
+            L.setNum(ra, r);
+          } else {
+            ci.pc = pc;
+            const tm = op === OP_ADD ? L.tmAdd : op === OP_SUB ? L.tmSub : op === OP_MUL ? L.tmMul : L.tmDiv;
+            arithOp(L, ra, b, c, tm, op);
           }
-          L.setNum(ra, r);
           break;
         }
         case OP_POW: {
-          const pow = L.tables[cl.g]!.getStr(L.internStr("__pow"));
+          let pow = L.tables[cl.g]!.getStr(L.tmOp);
+          if (pow.tag !== TAG_FUNCTION) pow = L.tables[cl.g]!.getStr(L.tmPow);
           if (pow.tag !== TAG_FUNCTION) throw new LuaRuntimeError("err:1020");
           const b = rk(L, base, proto, GETARG_B(i));
           const c = rk(L, base, proto, GETARG_C(i));
           const bn = tonumberSlot(L, b.tag, b.num);
           const cn = tonumberSlot(L, c.tag, c.num);
-          if (bn === null || cn === null) throw new LuaRuntimeError("attempt to perform arithmetic");
+          if (bn === null || cn === null) {
+            ci.pc = pc;
+            if (!callBinTM(L, ra, b, c, L.tmPow) && !callBinTM(L, ra, b, c, L.tmOp)) {
+              throw new LuaRuntimeError("attempt to perform arithmetic");
+            }
+            break;
+          }
           ci.pc = pc;
           L.grow(3);
           L.setFn(L.top, pow.num);
@@ -354,8 +610,14 @@ function execute(L: LuaState): number {
         case OP_UNM: {
           const rb = base + GETARG_B(i);
           const n = tonumberSlot(L, L.tags[rb]!, L.nums[rb]!);
-          if (n === null) throw new LuaRuntimeError("attempt to perform arithmetic");
-          L.setNum(ra, i32(-n));
+          if (n !== null) {
+            L.setNum(ra, i32(-n));
+            break;
+          }
+          ci.pc = pc;
+          if (!callBinTM(L, ra, L.slot(rb), { tag: TAG_NIL, num: 0 }, L.tmUnm)) {
+            throw new LuaRuntimeError("attempt to perform arithmetic");
+          }
           break;
         }
         case OP_NOT: {
@@ -366,12 +628,23 @@ function execute(L: LuaState): number {
           const b = GETARG_B(i);
           const c = GETARG_C(i);
           let s = "";
+          let ok = true;
           for (let r = b; r <= c; r++) {
             const part = tostringAt(L, base + r);
-            if (part === null) throw new LuaRuntimeError("attempt to concatenate");
+            if (part === null) {
+              ok = false;
+              break;
+            }
             s += part;
           }
-          L.setStr(ra, L.internStr(s));
+          if (ok) {
+            L.setStr(ra, L.internStr(s));
+            break;
+          }
+          ci.pc = pc;
+          const left = L.slot(base + b);
+          const right = L.slot(base + b + 1);
+          if (!callBinTM(L, ra, left, right, L.tmConcat)) throw new LuaRuntimeError("attempt to concatenate");
           break;
         }
         case OP_JMP: {
@@ -572,8 +845,10 @@ export class LuaVM {
   readonly L: LuaState;
   constructor(L = new LuaState()) {
     this.L = L;
-    this.L.register("next", nextFn);
-    this.L.register("_next", nextFn);
+    this.L.register("next", luaNext);
+    this.L.register("_next", luaNext);
+    installLuaStdlib(this.L);
+    bindStdlibCall(call);
   }
 
   register(name: string, fn: NativeFunction): void {
@@ -612,19 +887,23 @@ export class LuaVM {
     this.pcall(nresults);
   }
 
-  /** Call a global Lua/C function at a runtime boundary (not per-opcode). */
+  /** Call a global Lua/C function. Nested C callbacks must not reset CI. */
   callGlobal(name: string, args: number[] = [], nresults = 0): boolean {
     const g = this.L.getGlobal(name);
     if (g.tag !== TAG_FUNCTION) return false;
-    this.L.top = 0;
-    this.L.base = 1;
-    this.L.ci.length = 1;
-    this.L.ci[0]!.base = 1;
-    this.L.ci[0]!.calling = false;
+    const nested = this.L.nCcalls > 0;
+    if (!nested) {
+      this.L.top = 0;
+      this.L.base = 1;
+      this.L.ci.length = 1;
+      this.L.ci[0]!.base = 1;
+      this.L.ci[0]!.calling = false;
+    }
     this.L.grow(1 + args.length);
+    const func = this.L.top;
     this.L.setFn(this.L.top++, g.num);
     for (const a of args) this.L.setNum(this.L.top++, a);
-    call(this.L, 0, nresults);
+    call(this.L, func, nresults);
     return true;
   }
 
@@ -636,25 +915,6 @@ export class LuaVM {
   at(i: number): { tag: number; num: number } {
     return this.L.slot(i);
   }
-}
-
-function nextFn(L: LuaState): number {
-  const t = L.checkTable(1);
-  const keyi = L.absindex(2);
-  const keyTag = keyi < L.top ? L.tags[keyi]! : TAG_NIL;
-  const keyNum = keyi < L.top ? L.nums[keyi]! : 0;
-  const pair = t.next(keyTag, keyNum);
-  if (!pair) {
-    L.pushNil();
-    return 1;
-  }
-  L.grow(2);
-  L.tags[L.top] = pair.k.tag;
-  L.nums[L.top] = pair.k.num;
-  L.tags[L.top + 1] = pair.v.tag;
-  L.nums[L.top + 1] = pair.v.num;
-  L.top += 2;
-  return 2;
 }
 
 export { dumpChunk, LuaChunkReader, makeProto, CREATE_ABC };

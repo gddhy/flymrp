@@ -16,10 +16,14 @@ import {
   OP_CALL,
   OP_DIV,
   OP_GETGLOBAL,
+  OP_GETTABLE,
   OP_LOADK,
   OP_MOVE,
   OP_POW,
   OP_RETURN,
+  TAG_STRING,
+  TAG_TABLE,
+  call,
   proto,
 } from "../../src/lua/index.ts";
 import { MRPArchive, buildMrp } from "../../src/mrp/index.ts";
@@ -172,7 +176,7 @@ describe("5-B error model", () => {
       rt.lua.runCold(
         proto({
           maxstack: 4,
-          k: [ks("_strCom"), kn(500), ks("x")],
+          k: [ks("_strCom"), kn(700), ks("x")],
           code: [
             CREATE_ABx(OP_GETGLOBAL, 0, 0),
             CREATE_ABx(OP_LOADK, 1, 1),
@@ -187,6 +191,39 @@ describe("5-B error model", () => {
   it("unknown input key is EventError", () => {
     const rt = new MythroadRuntime();
     expect(() => rt.input.press("ZZ")).toThrow(EventError);
+  });
+
+  it("table err:2014 is LuaRuntimeError", () => {
+    const rt = new MythroadRuntime();
+    const L = rt.lua.L;
+    const t = L.newTable();
+    const mt = L.newTable();
+    L.tables[t]!.meta = mt;
+    L.tables[mt]!.set(TAG_STRING, L.internStr("__index"), { tag: TAG_TABLE, num: t });
+    L.setGlobal("obj", TAG_TABLE, t);
+    expect(() =>
+      rt.lua.runCold(
+        proto({
+          maxstack: 3,
+          k: [ks("obj"), ks("z")],
+          code: [CREATE_ABx(OP_GETGLOBAL, 0, 0), CREATE_ABC(OP_GETTABLE, 1, 0, 251), CREATE_ABC(OP_RETURN, 1, 2, 0)],
+        }),
+      ),
+    ).toThrow(LuaRuntimeError);
+  });
+
+  it("SaveTable function is LuaRuntimeError", () => {
+    const rt = new MythroadRuntime();
+    const L = rt.lua.L;
+    L.top = 0;
+    L.base = 1;
+    L.ci.length = 1;
+    L.setFn(0, L.getGlobal("SaveTable").num);
+    L.setTbl(1, L.newTable());
+    L.setFn(2, L.newCClosure(() => 0));
+    L.top = 3;
+    L.pushString("f.bin");
+    expect(() => call(L, 0, 1)).toThrow(LuaRuntimeError);
   });
 
   it("_mod 0 is LuaRuntimeError", () => {

@@ -6,8 +6,11 @@ import {
   ColdProto,
   LuaVM,
   OP_RETURN,
+  TAG_FUNCTION,
   TAG_NUMBER,
   TAG_STRING,
+  TAG_TABLE,
+  call,
   proto,
 } from "../../src/lua/index.ts";
 
@@ -53,3 +56,47 @@ export function resultTag(vm: LuaVM, i = 0): number {
 }
 
 export { CREATE_ABC, CREATE_ABx, CREATE_AsBx, proto };
+
+export function invoke(vm: LuaVM, name: string, args: Array<number | string | boolean> = [], nret = 1): void {
+  const g = vm.L.getGlobal(name);
+  if (g.tag !== TAG_FUNCTION) throw new Error(`global ${name} is not a function`);
+  vm.L.top = 0;
+  vm.L.base = 1;
+  vm.L.ci.length = 1;
+  vm.L.ci[0]!.base = 1;
+  vm.L.ci[0]!.calling = false;
+  vm.L.setFn(0, g.num);
+  vm.L.top = 1;
+  for (const a of args) {
+    if (typeof a === "string") vm.L.pushString(a);
+    else if (typeof a === "boolean") vm.L.pushBoolean(a);
+    else vm.L.pushInteger(a);
+  }
+  call(vm.L, 0, nret);
+}
+
+export function invokeField(
+  vm: LuaVM,
+  table: string,
+  field: string,
+  args: Array<number | string | boolean> = [],
+  nret = 1,
+): void {
+  const t = vm.L.getGlobal(table);
+  if (t.tag !== TAG_TABLE) throw new Error(`${table} is not a table`);
+  const fn = vm.L.tables[t.num]!.getStr(vm.L.internStr(field));
+  if (fn.tag !== TAG_FUNCTION) throw new Error(`${table}.${field} is not a function`);
+  vm.L.top = 0;
+  vm.L.base = 1;
+  vm.L.ci.length = 1;
+  vm.L.ci[0]!.base = 1;
+  vm.L.ci[0]!.calling = false;
+  vm.L.setFn(0, fn.num);
+  vm.L.top = 1;
+  for (const a of args) {
+    if (typeof a === "string") vm.L.pushString(a);
+    else if (typeof a === "boolean") vm.L.pushBoolean(a);
+    else vm.L.pushInteger(a);
+  }
+  call(vm.L, 0, nret);
+}

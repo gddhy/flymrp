@@ -16,6 +16,8 @@ export class LuaTable {
   map = new Map<string, Slot>();
   mapKeys: { tag: number; num: number }[] = [];
   meta = 0;
+  /** Hidden `sizes[t]` from `mr_L_setn` when `t.n` is absent. */
+  arrSize: number | null = null;
 
   get(tag: number, num: number): Slot {
     if (tag === TAG_NUMBER) {
@@ -86,5 +88,24 @@ export class LuaTable {
       if (v && v.tag !== TAG_NIL) return { k: { tag: mk.tag, num: mk.num }, v };
     }
     return null;
+  }
+
+  /** `mr_L_getn`: t.n if number≥0, else hidden size, else count 1..n until nil. */
+  getn(nId: number): number {
+    const field = this.getStr(nId);
+    if (field.tag === TAG_NUMBER && field.num >= 0) return field.num | 0;
+    if (this.arrSize !== null && this.arrSize >= 0) return this.arrSize | 0;
+    let i = 0;
+    while (i < this.arr.length && this.arr[i]!.tag !== TAG_NIL) i++;
+    return i;
+  }
+
+  setn(nId: number, n: number): void {
+    const field = this.getStr(nId);
+    if (field.tag === TAG_NUMBER && field.num >= 0) {
+      this.set(TAG_STRING, nId, { tag: TAG_NUMBER, num: n | 0 });
+      return;
+    }
+    this.arrSize = n | 0;
   }
 }
