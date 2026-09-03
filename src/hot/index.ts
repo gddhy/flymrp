@@ -1,0 +1,10 @@
+export { GuestMemory, MemoryFault } from "./memory.ts";
+export { ARMCPU, CpuTrap, UnsupportedInsn } from "./cpu.ts";
+export { Op, unpackW0, packW0, PACK_STRIDE, OP_NAMES } from "./opcodes.ts";
+export { decodeArm, isArmUndef } from "./decode-arm.ts";
+export { decodeThumb16, isThumb32Prefix } from "./decode-thumb16.ts";
+export { decodeThumb32 } from "./decode-thumb32.ts";
+export { decodeAt, insnSize } from "./decode.ts";
+export { step, run, execPacked } from "./interp.ts";
+export { BlockCache } from "./cache.ts";
+export type { BasicBlock, ExecRegion } from "./cache.ts";

@@ -1,0 +1,106 @@
+import type { ARMCPU } from "../hot/cpu.ts";
+import type { GuestMemory } from "../hot/memory.ts";
+import { ExtFault, ExtStopKind } from "./fault.ts";
+import {
+  EXT_TABLE_ADDR,
+  EXT_TABLE_COUNT,
+  MR_IGNORE,
+  tableSlotAddr,
+} from "./layout.ts";
+
+/** Data slots are pointers, not executable functions. */
+export const DATA_SLOTS = new Set<number>([
+  23, 24,
+  ...range(91, 112),
+  135, 136, 138, 139, 140, 142, 143, 146,
+]);
+
+function range(lo: number, hi: number): number[] {
+  const out: number[] = [];
+  for (let i = lo; i <= hi; i++) out.push(i);
+  return out;
+}
+
+export type TableHandler = (cpu: ARMCPU, mem: GuestMemory, args: Uint32Array) => number;
+
+export class MrTable {
+  readonly execMask = new Uint8Array(EXT_TABLE_COUNT);
+  readonly handlers: Array<TableHandler | null> = new Array(EXT_TABLE_COUNT).fill(null);
+
+  constructor() {
+    for (let n = 0; n < EXT_TABLE_COUNT; n++) {
+      this.execMask[n] = DATA_SLOTS.has(n) ? 0 : 1;
+    }
+  }
+
+  setHandler(n: number, handler: TableHandler): void {
+    if (n < 0 || n >= EXT_TABLE_COUNT) throw new RangeError(`table slot ${n}`);
+    this.handlers[n] = handler;
+    if (!DATA_SLOTS.has(n)) this.execMask[n] = 1;
+  }
+
+  isExec(n: number): boolean {
+    return n >= 0 && n < EXT_TABLE_COUNT && this.execMask[n] === 1;
+  }
+
+  /** [HOT] PC → slot. Unaligned or data-slot execute is InvalidSlot. */
+  dispatch(cpu: ARMCPU, mem: GuestMemory, pc: number): void {
+    const a = pc >>> 0;
+    if ((a & 3) !== 0) {
+      throw new ExtFault(ExtStopKind.InvalidSlot, a, "unaligned table pc");
+    }
+    const n = (a - EXT_TABLE_ADDR) >>> 2;
+    if (n >= EXT_TABLE_COUNT) {
+      throw new ExtFault(ExtStopKind.InvalidSlot, a, "slot out of range");
+    }
+    if (!this.execMask[n]) {
+      throw new ExtFault(ExtStopKind.InvalidSlot, a, `data slot ${n}`);
+    }
+    fillSpDeadZone(mem, cpu.r[13] >>> 0, cpu.r[14] >>> 0);
+    const args = readAapcs(cpu, mem);
+    const handler = this.handlers[n];
+    const ret = handler ? handler(cpu, mem, args) >>> 0 : MR_IGNORE;
+    cbRet(cpu, ret);
+  }
+}
+
+export function initTableMemory(mem: GuestMemory, allocU32: (init: number) => number): void {
+  for (let n = 0; n < EXT_TABLE_COUNT; n++) {
+    mem.write32(tableSlotAddr(n), tableSlotAddr(n));
+  }
+  for (const n of DATA_SLOTS) {
+    mem.write32(tableSlotAddr(n), allocU32(0));
+  }
+}
+
+function readAapcs(cpu: ARMCPU, mem: GuestMemory): Uint32Array {
+  const args = new Uint32Array(8);
+  args[0] = cpu.r[0] >>> 0;
+  args[1] = cpu.r[1] >>> 0;
+  args[2] = cpu.r[2] >>> 0;
+  args[3] = cpu.r[3] >>> 0;
+  const sp = cpu.r[13] >>> 0;
+  for (let i = 0; i < 4; i++) {
+    args[4 + i] = mem.read32((sp + i * 4) >>> 0);
+  }
+  return args;
+}
+
+/** AAPCS callee dead zone: SP-64 filled with alternating LR / SP residue. */
+export function fillSpDeadZone(mem: GuestMemory, sp: number, lr: number): void {
+  if (sp < 64) return;
+  const base = (sp - 64) >>> 0;
+  for (let i = 0; i < 16; i++) {
+    mem.write32(base + i * 4, (i & 1) === 0 ? lr : sp);
+  }
+}
+
+export function cbRet(cpu: ARMCPU, ret: number): void {
+  const lr = cpu.r[14] >>> 0;
+  cpu.r[0] = ret >>> 0;
+  cpu.t = lr & 1;
+  let pc = (lr & ~1) >>> 0;
+  if (!cpu.t) pc &= ~3;
+  cpu.r[15] = pc;
+  cpu.branched = 1;
+}
