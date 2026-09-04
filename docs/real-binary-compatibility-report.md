@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 17`）。5-C.10E：table[33] `mr_getTime` 已执行；见 `docs/stage5c10e-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 17`）。5-C.10F：table[17] `sprintf_` 只读取证，未实现；见 `docs/stage5c10f-progress.md`。
 
 ## Lua execution
 
@@ -41,7 +41,7 @@ fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[33] `mr_getTime` �
 
 - confirmed calls: `_com(3629,2913)`，`GetSysInfo`，`_strCom(601/800/801)`，`string.unpack("II")`
 - unknown calls: **none**（Lua）
-- unknown required slot: **33**（`asm_mr_getTime`；LIVE 到达，host 未实现。table[38] code 0x4c6 与 table[130] case 7 已实现。`table[38] registered` ≠ 完整 `mr_platEx`）
+- unknown required slot: **17**（`sprintf_`；LIVE 到达，host 未实现。table[33] `mr_getTime` / table[38] code 0x4c6 / table[130] case 7 已实现）
 
 ## EXT
 

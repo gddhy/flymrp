@@ -6,7 +6,8 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-Stage 5-C.10E：`table[33]` `mr_getTime` 接 deterministic `runtime.clock >>> 0`。生产停在 table[17] `sprintf_`。未实现 17。见 `docs/stage5c10e-progress.md`。  
+Stage 5-C.10F：`table[17]` / `sprintf_` 只读取证，未实现。生产停在 table[17]。见 `docs/stage5c10f-progress.md`。  
+Stage 5-C.10E：`table[33]` `mr_getTime` 接 deterministic `runtime.clock >>> 0`。当时停在 table[17]。见 `docs/stage5c10e-progress.md`。  
 Stage 5-C.10D：`table[33]` / `asm_mr_getTime` 只读取证，未实现。当时生产停在 table[33]。见 `docs/stage5c10d-progress.md`。  
 Stage 5-C.10C：`table[38]` 仅 `mr_platEx` code `0x4c6`（rxgj FULL `MR_SUCCESS`，无副作用）。生产确定性停在 table[33]。未实现 33。见 `docs/stage5c10c-progress.md`。  
 Stage 5-C.10B：`table[130]` 仅 case 7（rxgj FULL）。当时停在 table[38]。见 `docs/stage5c10b-progress.md`。  

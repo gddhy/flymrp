@@ -29,3 +29,5 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
 `gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.
+
+`sprintf-17-forensics.test.ts` is Stage 5-C.10F：table[17] / `sprintf_` 调用点与 vararg ABI 取证。Handler **未**注册。

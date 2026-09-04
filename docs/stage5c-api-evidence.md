@@ -297,14 +297,15 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | stub `0x00010084`；零参数；`REAL_EXECUTED`；返回 0（未 advance）；STR `ER_RW+0x4358 = 0` |
 | confidence | 身份/单位/LIVE 执行 **CONFIRMED**。见 `docs/stage5c10e-progress.md` |
 
-### table[17] sprintf_（5-C.10E LIVE 到达，未实现）
+### table[17] sprintf_（5-C.10F LIVE 到达，未实现）
 
 | 字段 | 值 |
 |---|---|
-| source | `mythroad.c` `_mr_c_function_table[17] = sprintf_` |
+| source | `mythroad.c` `_mr_c_function_table[17] = sprintf_`（mpaland/printf，非 libc） |
 | C | `int sprintf_(char* buffer, const char* format, ...)` |
-| LIVE | stub `0x00010044`；`r0=0x01e7ff74` `r1="res_lang%d.rc"` `r2=0`；host **未**实现 |
-| confidence | 到达 **CONFIRMED**。行为 **未**实现 |
+| LIVE | stub `0x00010044`；`r0=buffer` `r1="res_lang%d.rc"` `%d` **CONFIRMED** `R2=0`；`R3` 是 BLX stub |
+| pack | 12 个 ER_RW+0x5c callsite；LIVE 只需 `%d`；STATIC 另有 `%s` |
+| confidence | 身份/AAPCS/LIVE `%d` **CONFIRMED**。host **未**实现。见 `docs/stage5c10f-progress.md` |
 
 ---
 
@@ -316,7 +317,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 |---|---|
 | CONFIRMED | 本阶段实现所依据的全部主路径 |
 | INFERRED | 0（无） |
-| UNKNOWN | `_plat*` 其它 code、`sprintf_` / table[17]、未读完的 GUI/audio/network |
+| UNKNOWN | `_plat*` 其它 code、未读完的 GUI/audio/network |
 
 ---
 
