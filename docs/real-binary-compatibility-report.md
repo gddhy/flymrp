@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`EXT fault abi-fault` / `ARM_INSN_BUDGET`）。5-C.10P：table[9] `memcmp2` **REAL_EXECUTED**；gzip magic equal，guest inflate 撞上 1e6 insn budget。见 `docs/stage5c10p-progress.md`。
+fail（`UNKNOWN_REQUIRED_SLOT = 30`）。5-C.10Q：guest inflate 完成，输出与 reference gunzip 一致。生产停在 table[30] `mr_getCharBitmap`。见 `docs/stage5c10q-progress.md`。
 
 ## Lua execution
 
@@ -50,7 +50,7 @@ fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 memcmp2 gzip 检测后�
 - `arm_ext_call(1)`：kind=return，r0=0；table[0] 分配 8B guest；table[125] 读 `cfunction.ext` 220596B 进 guest
 - `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200178` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
 - `arm_ext_call(6)`：kind=**return**，r0=0（guest helper `0x01ea5e9d`；未实现 host helper）
-- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] memcpy2 **REAL_EXECUTED** → table[10] strcmp2 **REAL_EXECUTED**（命中 `res_lang0.rc`，file_pos=7065 file_len=17174 与 `MRPArchive` 一致）→ table[1] **REAL_EXECUTED** → table[0](17178) → table[45] seek SET 7065 → table[44] read 17174 **match archive.data** → table[41] close **REAL_EXECUTED** → table[9] memcmp2 **REAL_EXECUTED**（`1F 8B`==`1F 8B`）→ guest inflate → **STOP ARM_INSN_BUDGET**
+- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] memcpy2 **REAL_EXECUTED** → table[10] strcmp2 **REAL_EXECUTED**（命中 `res_lang0.rc`，file_pos=7065 file_len=17174 与 `MRPArchive` 一致）→ table[1] **REAL_EXECUTED** → table[0](17178) → table[45] seek SET 7065 → table[44] read 17174 **match archive.data** → table[41] close **REAL_EXECUTED** → table[9] memcmp2 **REAL_EXECUTED**（`1F 8B`==`1F 8B`）→ guest inflate **PASS** → **STOP table[30]**
 
 ## VFS
 

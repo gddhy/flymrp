@@ -14,6 +14,7 @@ export type ExtOracleReq = {
   mem?: { addr: number; hex: string }[];
   dump?: { addr: number; len: number }[];
   table_hooks?: { slot: number; kind: string }[];
+  heap_top?: number;
 };
 
 export type ExtOracleRes = {

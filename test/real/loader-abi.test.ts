@@ -1,19 +1,18 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ExtFault } from "../../src/abi/fault.ts";
 import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace } from "../../src/mythroad/index.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.5 real loader chain", () => {
-  it("cfunction load + code 6 return, then stops at ARM insn budget", () => {
+  it("cfunction load + code 6 return, then stops at table[30]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const tr = new RuntimeTrace();
     const rt = new MythroadRuntime({ graphics: new NullGraphicsBackend(), trace: tr, abiMode: "strict" });
     rt.loadMrp(bytes);
-    expect(() => rt.start("start.mr")).toThrow(ExtFault);
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(() => rt.start("start.mr")).toThrow(/UNKNOWN_REQUIRED_SLOT = 30/);
+    expect(rt.unknownRequiredSlot).toBe(30);
     expect(rt.unknownEvents.some((e) => e.family === "mr_table" && e.code === 9)).toBe(false);
 
     const cf = rt.mrReads.find((r) => r.name === "cfunction.ext" && r.lookfor === 0);

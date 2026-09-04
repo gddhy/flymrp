@@ -89,9 +89,21 @@ export {
 } from "./free1.ts";
 export {
   ARM_INSN_BUDGET_THROWN,
+  UNKNOWN_SLOT_30_THROWN,
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,
   type ExecStatus,
   type RealMrpStartupReport,
 } from "./startup.ts";
+export {
+  FORENSIC_BUDGET_CEILING,
+  FORENSIC_INSN_BUDGETS,
+  disasmBudgetStopStatic,
+  renderInflateBudgetMarkdown,
+  runInflateBudget,
+  runInflateBudgetSweep,
+  runToArmBudget,
+  type InflateBudgetReport,
+  type InflateBudgetSweep,
+} from "./inflate-budget.ts";

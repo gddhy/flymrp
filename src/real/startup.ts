@@ -1,11 +1,14 @@
 /**
- * Stage 5-C.10P — real MRP production startup.
+ * Stage 5-C.10Q — real MRP production startup.
  * table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime
  * + table[17] sprintf_ (literal bytes + `%d` only)
  * + table[100] pack_filename 128-byte data slot
  * + table[40]/[44]/[45]/[41] current-pack read-only file alias
  * + table[3] memcpy2 + table[10] strcmp2 + table[9] memcmp2
  * + table[1] mr_free registry-only (no origin_mem reuse).
+ * Guest inflate completes inside ARM/Thumb; host gunzip is verification-only.
+ * Production ARM watchdog is configurable (`armInstructionBudget`, default 2e6, max 20e6).
+ * First remaining blocker: table[30] mr_getCharBitmap (not implemented).
  * No cbRet bypass. No gzip/inflate host ABI.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
@@ -53,6 +56,14 @@ export const REAL_MRP_BASELINE = {
   stub10: 0x00010028,
   stub1: 0x00010004,
   stub9: 0x00010024,
+  slot30: 30,
+  stub30: 0x00010078,
+  stopPc: 0x00010078,
+  stopLr: 0x01eaadad,
+  stopR0: 0x662f,
+  inflateInsnCount: 1_404_897,
+  gzipOutLen: 30192,
+  gzipAlloc: 30196,
   gzipMagic: [0x1f, 0x8b] as const,
   memcmp9R0: 0x01e7fee8,
   memcmp9R1: 0x01eadefc,
@@ -63,7 +74,7 @@ export const REAL_MRP_BASELINE = {
   budgetStopPc: 0x01ea1ee8,
   budgetStopLr: 0x01ea1f83,
   insnBudget: DEFAULT_INSN_BUDGET,
-  totalHitCount: 3035,
+  totalHitCount: 3549,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -89,6 +100,8 @@ export const REAL_MRP_BASELINE = {
 
 /** strcom throws this after arm_ext_call(0) returns kind=abi-fault (budget). */
 export const ARM_INSN_BUDGET_THROWN = "EXT fault abi-fault at 0x0 (arm_ext_call kind=abi-fault)";
+/** Production stop after guest inflate completes: table[30] mr_getCharBitmap. */
+export const UNKNOWN_SLOT_30_THROWN = "UNKNOWN_REQUIRED_SLOT = 30";
 
 export type CpuSnap = {
   pc: number;
@@ -904,6 +917,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
         });
         return out;
       } catch (err) {
+        if (!cpu) cpu = snapCpu(e);
         extCalls.push({
           code,
           ok: false,
@@ -1448,12 +1462,27 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     },
     {
       stage: "guest inflate",
-      status: run.thrown.includes("abi-fault") ? "BLOCKED" : run.chunkReturned ? "PASS" : "NOT REACHED",
-      note: run.thrown.includes("abi-fault")
-        ? `ARM insn budget ${REAL_MRP_BASELINE.insnBudget}; no new mr_table slot`
-        : run.chunkReturned
-          ? "arm_ext_call(0) returned"
-          : "not reached",
+      status: run.unknownSlot === 30 || run.thrown.includes("UNKNOWN_REQUIRED_SLOT = 30")
+        ? "PASS"
+        : run.thrown.includes("abi-fault")
+          ? "BLOCKED"
+          : run.chunkReturned
+            ? "PASS"
+            : "NOT REACHED",
+      note: run.unknownSlot === 30 || run.thrown.includes("UNKNOWN_REQUIRED_SLOT = 30")
+        ? `guest inflate completed in ${REAL_MRP_BASELINE.inflateInsnCount} ARM/Thumb insns; output matches reference gunzip`
+        : run.thrown.includes("abi-fault")
+          ? `ARM insn watchdog ${REAL_MRP_BASELINE.insnBudget}; inflate still running`
+          : run.chunkReturned
+            ? "arm_ext_call(0) returned"
+            : "not reached",
+    },
+    {
+      stage: "table30",
+      status: run.unknownSlot === 30 ? "BLOCKED" : "NOT REACHED",
+      note: run.unknownSlot === 30
+        ? "UNKNOWN_REQUIRED_SLOT; mr_getCharBitmap NOT_EXECUTED by host"
+        : "not reached",
     },
   ];
 }
@@ -1541,6 +1570,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(10, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(1, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(9, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(30, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
   const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9];
@@ -1661,7 +1691,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
       table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
       table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side; host stops at ARM insn budget. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. First remaining blocker is table[30] mr_getCharBitmap. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1712,7 +1742,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu33 = r.execution.cpu33;
   const cpu17 = r.execution.cpu17;
   const lines = [
-    "# Real MRP Startup (Stage 5-C.10P)",
+    "# Real MRP Startup (Stage 5-C.10Q)",
     "",
     "Production path. table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime",
     "+ table[17] sprintf_ (literal bytes + `%d` only).",
@@ -1722,7 +1752,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
     "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
     "table[9] memcmp2 is REAL_EXECUTED (unsigned char; exact *su1-*su2; early exit).",
-    "gzip/inflate is not a host ABI this stage. Guest inflate hits ARM insn budget.",
+    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is table[30] mr_getCharBitmap.",
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
     "Stage 5-D: **NOT STARTED**.",
     "",

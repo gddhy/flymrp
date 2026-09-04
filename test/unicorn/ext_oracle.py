@@ -18,11 +18,23 @@ TABLE = 0x00010000
 BX_LR = (0xE12FFF1E).to_bytes(4, "little")
 
 
-def apply_hook(mu: Uc, kind: str) -> None:
+def fill_dead(mu: Uc, sp: int, lr: int) -> None:
+    if sp < 64:
+        return
+    base = (sp - 64) & 0xFFFFFFFF
+    for i in range(16):
+        val = lr if (i & 1) == 0 else sp
+        mu.mem_write((base + i * 4) & 0xFFFFFFFF, val.to_bytes(4, "little"))
+
+
+def apply_hook(mu: Uc, kind: str, heap: dict) -> None:
     r0 = mu.reg_read(UC_ARM_REG_R0)
     r1 = mu.reg_read(UC_ARM_REG_R1)
     r2 = mu.reg_read(UC_ARM_REG_R2)
     r3 = mu.reg_read(UC_ARM_REG_R3)
+    sp = mu.reg_read(UC_ARM_REG_R13)
+    lr = mu.reg_read(UC_ARM_REG_R14)
+    fill_dead(mu, sp, lr)
     if kind == "const":
         mu.reg_write(UC_ARM_REG_R0, 0x51)
     elif kind == "add":
@@ -30,15 +42,41 @@ def apply_hook(mu: Uc, kind: str) -> None:
     elif kind == "echo":
         mu.reg_write(UC_ARM_REG_R0, r0)
     elif kind == "arg4":
-        sp = mu.reg_read(UC_ARM_REG_R13)
         val = int.from_bytes(mu.mem_read(sp, 4), "little")
         mu.reg_write(UC_ARM_REG_R0, val)
     elif kind == "write":
         mu.mem_write(r0, (0x0DDBA11).to_bytes(4, "little"))
         mu.reg_write(UC_ARM_REG_R0, 0)
+    elif kind == "memcpy":
+        if r2:
+            mu.mem_write(r0, bytes(mu.mem_read(r1, r2)))
+    elif kind == "memset":
+        if r2:
+            mu.mem_write(r0, bytes([r1 & 0xFF]) * r2)
+    elif kind == "memcmp":
+        n = r2
+        res = 0
+        for i in range(n):
+            a = mu.mem_read(r0 + i, 1)[0]
+            b = mu.mem_read(r1 + i, 1)[0]
+            if a != b:
+                res = (a - b) & 0xFFFFFFFF
+                break
+        mu.reg_write(UC_ARM_REG_R0, res)
+    elif kind == "malloc":
+        n = r0 if r0 else 0
+        if n == 0:
+            mu.reg_write(UC_ARM_REG_R0, 0)
+        else:
+            aligned = (max(n, 1) + 7) & ~7
+            addr = heap["top"]
+            heap["top"] = (addr + aligned) & 0xFFFFFFFF
+            mu.reg_write(UC_ARM_REG_R0, addr)
+    elif kind == "free":
+        mu.reg_write(UC_ARM_REG_R0, 0)
     else:
         mu.reg_write(UC_ARM_REG_R0, r0)
-    _ = (r2, r3)
+    _ = r3
 
 
 def run_one(req: dict) -> dict:
@@ -57,6 +95,7 @@ def run_one(req: dict) -> dict:
     for m in req.get("mem", []):
         mu.mem_write(int(m["addr"]), bytes.fromhex(m["hex"]))
     hooks = {int(h["slot"]): h["kind"] for h in req.get("table_hooks", [])}
+    heap = {"top": int(req.get("heap_top", 0x00200000)) & 0xFFFFFFFF}
     for slot in hooks:
         mu.mem_write(TABLE + slot * 4, BX_LR)
 
@@ -64,7 +103,7 @@ def run_one(req: dict) -> dict:
         if TABLE <= address < TABLE + 150 * 4 and (address & 3) == 0:
             idx = (address - TABLE) // 4
             if idx in hooks:
-                apply_hook(uc, hooks[idx])
+                apply_hook(uc, hooks[idx], heap)
 
     if hooks:
         mu.hook_add(UC_HOOK_CODE, on_code, begin=TABLE, end=TABLE + 150 * 4 - 1)

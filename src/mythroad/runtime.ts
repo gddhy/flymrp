@@ -1,5 +1,5 @@
 import { ExtFault } from "../abi/fault.ts";
-import { ExtRuntime } from "../abi/runtime.ts";
+import { DEFAULT_INSN_BUDGET, ExtRuntime, MAX_INSN_BUDGET } from "../abi/runtime.ts";
 import { LuaRuntimeError, UnknownAbiError } from "../err/errors.ts";
 import { TAG_STRING } from "../lua/types.ts";
 import { LuaVM } from "../lua/vm.ts";
@@ -50,6 +50,11 @@ export type MythroadRuntimeOptions = {
   abiMode?: AbiMode;
   /** Permissive-only. Keys like `_com:700`. Not an ABI guess. */
   approvedUnknown?: Record<string, ApprovedBehavior>;
+  /**
+   * ARM/Thumb instruction watchdog for `arm_ext_call` / `runGuest`.
+   * Not an execution slice. Omitted → `DEFAULT_INSN_BUDGET`. Clamped to `MAX_INSN_BUDGET`.
+   */
+  armInstructionBudget?: number;
 };
 
 /**
@@ -98,12 +103,17 @@ export class MythroadRuntime {
   readonly tiles: TileSlot[] = [];
   readonly trace: RuntimeTrace | null = null;
   readonly abiMode: AbiMode = "strict";
+  readonly armInstructionBudget: number;
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
     this.abiMode = opts.abiMode ?? "strict";
+    this.armInstructionBudget = Math.min(
+      Math.max(opts.armInstructionBudget ?? DEFAULT_INSN_BUDGET, 1),
+      MAX_INSN_BUDGET,
+    );
     if (opts.approvedUnknown) {
       for (const [k, v] of Object.entries(opts.approvedUnknown)) this.approvedUnknown.set(k, v);
     }
@@ -316,6 +326,7 @@ export class MythroadRuntime {
     });
     bridge.install();
     rt.setPackTableName(this.packName);
+    rt.insnBudget = this.armInstructionBudget;
     this.mrTable = bridge;
     this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
   }

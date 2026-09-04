@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AEX_P_ER_RW_OFF, tableSlotIndex } from "../../src/abi/layout.ts";
 import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
 import { MythroadRuntime, NullGraphicsBackend } from "../../src/mythroad/index.ts";
-import { ARM_INSN_BUDGET_THROWN, REAL_MRP_BASELINE, runRealMrpStartup } from "../../src/real/startup.ts";
+import { REAL_MRP_BASELINE, UNKNOWN_SLOT_30_THROWN, runRealMrpStartup } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const REAL_SHA = "77487205cd4db95fcf104392d9cc692ab122b06f7a04e14f49899277d9ac4263";
@@ -13,8 +13,8 @@ const HITS_TO_FIRST_TABLE9 = [
   25, 0, 125, 25, 0, 14, 130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3, 3, 10, 3, 3, 10, 3, 3, 10, 3, 3, 1, 1, 0, 45, 44, 41, 9,
 ] as const;
 
-describe("5-C.10P real MRP startup after memcmp2", () => {
-  it("REAL_EXECUTED table9 memcmp2; gzip path; stops at ARM insn budget", () => {
+describe("5-C.10Q real MRP startup after guest inflate", () => {
+  it("REAL_EXECUTED table9 memcmp2; guest inflate completes; stops at table[30]", () => {
     expect(existsSync(REAL_APP)).toBe(true);
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runRealMrpStartup(bytes, { path: REAL_APP, consistencyRuns: 5 });
@@ -23,7 +23,7 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
     expect(r.mrp.package).toBe("gssjxz.mrp");
     expect(r.lua.realStartMrLoaded).toBe(true);
     expect(r.lua.exception?.isLuaVmError).toBe(false);
-    expect(r.lua.exception?.message).toBe(ARM_INSN_BUDGET_THROWN);
+    expect(r.lua.exception?.message).toBe(UNKNOWN_SLOT_30_THROWN);
     expect(r.lua.strCom.map((s) => [s.code, s.extra, s.ok])).toEqual([
       [601, 0, true],
       [800, 0, true],
@@ -58,7 +58,7 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
     expect(r.mrTable.hits.map((h) => h.slot).slice(0, HITS_TO_FIRST_TABLE9.length)).toEqual([...HITS_TO_FIRST_TABLE9]);
     expect(r.mrTable.hits).toHaveLength(REAL_MRP_BASELINE.totalHitCount);
     expect(r.mrTable.hits[HITS_TO_FIRST_TABLE9.length]!.slot).toBe(9);
-    expect(r.mrTable.hits.at(-1)!.slot).toBe(3);
+    expect(r.mrTable.hits.at(-1)!.slot).toBe(30);
 
     const h17 = r.mrTable.hits.find((h) => h.slot === 17);
     expect(h17?.status).toBe("REAL_EXECUTED");
@@ -130,6 +130,9 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
     expect(bySlot[9]!.status).toBe("REAL_EXECUTED");
     expect(bySlot[9]!.guestReached).toBe(true);
     expect(bySlot[9]!.handlerPresent).toBe(true);
+    expect(bySlot[30]!.status).toBe("NOT_EXECUTED");
+    expect(bySlot[30]!.guestReached).toBe(true);
+    expect(bySlot[30]!.handlerPresent).toBe(false);
 
     expect(r.mrTable.handlers).toEqual([
       { slot: 0, present: true },
@@ -161,13 +164,13 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
     expect(r.execution.cpu17?.r3).toBe(REAL_MRP_BASELINE.stub17);
     expect(r.execution.cpu17?.insnCount).toBe(183);
 
-    expect(r.execution.cpu?.pc).toBe(REAL_MRP_BASELINE.budgetStopPc);
-    expect(r.execution.cpu?.lr).toBe(REAL_MRP_BASELINE.budgetStopLr);
-    expect(r.execution.cpu?.insnCount).toBe(REAL_MRP_BASELINE.insnBudget);
+    expect(r.execution.cpu?.pc).toBe(REAL_MRP_BASELINE.stopPc);
+    expect(r.execution.cpu?.lr).toBe(REAL_MRP_BASELINE.stopLr);
+    expect(r.execution.cpu?.insnCount).toBe(REAL_MRP_BASELINE.inflateInsnCount);
 
-    expect(r.stop.reason).toBe(ARM_INSN_BUDGET_THROWN);
-    expect(r.stop.slot).toBeNull();
-    expect(r.stop.pc).toBe(REAL_MRP_BASELINE.budgetStopPc);
+    expect(r.stop.reason).toBe(UNKNOWN_SLOT_30_THROWN);
+    expect(r.stop.slot).toBe(30);
+    expect(r.stop.pc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(r.stop.owner).toBe("gssjxz.mrp");
 
     expect(r.progress.map((p) => [p.stage, p.status])).toEqual([
@@ -191,12 +194,13 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
       ["table10", "PASS"],
       ["table1", "PASS"],
       ["table9", "PASS"],
-      ["guest inflate", "BLOCKED"],
+      ["guest inflate", "PASS"],
+      ["table30", "BLOCKED"],
     ]);
 
     expect(r.baseline.deterministic).toBe(true);
-    expect(r.baseline.firstProductionBlocker).toBe("ARM_INSN_BUDGET");
-    expect(r.baseline.firstPost130Blocker).toBe("ARM_INSN_BUDGET");
+    expect(r.baseline.firstProductionBlocker).toBe("table[30]");
+    expect(r.baseline.firstPost130Blocker).toBe("table[30]");
     expect(r.forensicPrior.table130).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table38).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table33).toBe("REAL_EXECUTED");
@@ -206,16 +210,16 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
     expect(r.consistency.runs).toBe(5);
     expect(r.consistency.mismatches).toEqual([]);
     const fp = r.consistency.fingerprints[0]!;
-    expect(fp.firstUnknownSlot).toBeNull();
-    expect(fp.stopPc).toBe(REAL_MRP_BASELINE.budgetStopPc);
-    expect(fp.armInsnCount).toBe(REAL_MRP_BASELINE.insnBudget);
+    expect(fp.firstUnknownSlot).toBe(30);
+    expect(fp.stopPc).toBe(REAL_MRP_BASELINE.stopPc);
+    expect(fp.armInsnCount).toBe(REAL_MRP_BASELINE.inflateInsnCount);
     expect(fp.luaInsnCount).toBe(71);
     expect(fp.tableSlots.slice(0, HITS_TO_FIRST_TABLE9.length)).toEqual([...HITS_TO_FIRST_TABLE9]);
     expect(fp.tableSlots).toHaveLength(REAL_MRP_BASELINE.totalHitCount);
     expect(fp.memcmp9Ret).toBe(0);
     expect(fp.gzipPath).toBe(true);
     expect(fp.hitCount).toBe(REAL_MRP_BASELINE.totalHitCount);
-    expect(fp.stopKind).toBe("abi-fault");
+    expect(fp.stopKind).toBe("");
     expect(fp.table33Return).toBe(0);
     expect(fp.erRwPlus4358).toBe(0);
     expect(fp.sprintfFilename).toBe(REAL_MRP_BASELINE.sprintfExpected);
@@ -391,9 +395,9 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
       rt.start("start.mr");
       throw new Error("should stop");
     } catch (e) {
-      expect(e).toMatchObject({ message: ARM_INSN_BUDGET_THROWN });
+      expect(e).toMatchObject({ message: UNKNOWN_SLOT_30_THROWN });
     }
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(30);
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(1234);
@@ -421,11 +425,11 @@ describe("5-C.10P real MRP startup after memcmp2", () => {
       rt.loadMrp(bytes);
       rt.start("start.mr");
     } catch {
-      /* ARM insn budget */
+      /* table[30] */
     }
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(0);
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(30);
   });
 });

@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `ARM_INSN_BUDGET`（guest inflate，无新 slot）。5-C.10P：table[9] `memcmp2` **REAL_EXECUTED**；gzip magic `1F 8B` equal。5-C.10O：`_mr_readFile("res_lang0.rc")` 成功。见 5-C.10P |
+| 停点 | `table[30]` `mr_getCharBitmap`。5-C.10Q：guest inflate 完成（1,404,897 insn），输出与 reference gunzip 一致。5-C.10P：table[9] `memcmp2` **REAL_EXECUTED**。见 5-C.10Q |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **STOP ARM_INSN_BUDGET** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **PASS** → **STOP table[30]** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -327,7 +327,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
 | C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
 | LIVE | read 16 header **match** `archive.data[0:16]`；seek CUR 224：16→240；read 5496 index **match** `archive.data[240:5736]`。table[41] 未到达 |
-| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate → **STOP ARM_INSN_BUDGET** |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate complete → **STOP table[30]** |
 | 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
 | confidence | wrapper/slot/C + LIVE header/index **CONFIRMED** |
 

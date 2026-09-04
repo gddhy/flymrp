@@ -26,7 +26,13 @@ import { mapExtImage, parseExtImage, type MappedExt } from "./loader.ts";
 import { ModuleOwners } from "./owners.ts";
 import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table.ts";
 
-export const DEFAULT_INSN_BUDGET = 1_000_000;
+/**
+ * Finite ARM/Thumb instruction watchdog per `runGuest` / `arm_ext_call`.
+ * This is a safety/debug limit, not a browser event-loop execution slice.
+ * Forensic runners may overwrite `ExtRuntime.insnBudget`; values are clamped to `MAX_INSN_BUDGET`.
+ */
+export const DEFAULT_INSN_BUDGET = 2_000_000;
+export const MAX_INSN_BUDGET = 20_000_000;
 
 export function createExtMemory(): GuestMemory {
   const mem = new GuestMemory(EXT_BASE_ADDR, EXT_MEM_SIZE);
@@ -312,8 +318,9 @@ export class ExtRuntime {
     this.cpu.t = thumb;
     this.lastKind = ExtStopKind.Return;
     const startCount = this.cpu.insnCount;
+    const budget = Math.min(Math.max(this.insnBudget | 0, 1), MAX_INSN_BUDGET);
     try {
-      run(this.cpu, this.insnBudget);
+      run(this.cpu, budget);
       this.lastKind = ExtStopKind.AbiFault;
       return this.finish(ExtStopKind.AbiFault, "budget exceeded");
     } catch (e) {
