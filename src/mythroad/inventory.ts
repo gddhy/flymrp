@@ -85,4 +85,6 @@ export const IMPLEMENTED_C = [
   "mr_table/0",
   "mr_table/14",
   "mr_table/125",
+  "mr_table/130/7",
+  "mr_table/38/0x4c6",
 ] as const;

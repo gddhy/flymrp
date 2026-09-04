@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 130`（`asm_mr_TestCom`，未实现）；table[0]/[14]/[25]/[125] 已接线 |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 33`（`asm_mr_getTime` 未实现）；table[130] case 7 与 table[38] code 0x4c6 已接线 |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -263,6 +263,39 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 真实调用 | `r0=0x0020021c` `r1=0` `r2=19952`（ER_RW） |
 | confidence | CONFIRMED |
 
+### table[130] asm_mr_TestCom（5-C.10B：仅 case 7）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[130] = asm_mr_TestCom`；`fixR9.h` `#define asm_mr_TestCom _mr_TestCom` |
+| ABI | `_mr_TestCom(L, input0, input1)`；rxgj `aex_t130` 传 `(NULL, r1, r2)`。Guest r0/r3 忽略 |
+| 实现 | **仅 case 7**：rxgj FULL `#ifdef MR_PLAT_DRAWTEXT` → `return input1`。其它 case → `UnknownAbiError`。不是 universal Mythroad，不是平台探测 |
+| 真实调用 | `r1=7` `r2=0x270f` → `r0=0x270f` **REAL_EXECUTED** |
+| ER_RW | 函数本身不写；guest 随后 `str` 使 **ER_RW+0x1c = 0x270d**（LIVE） |
+| 后继 | table[14] memset → table[38] REAL_EXECUTED → table[33] STOP |
+| confidence | case 7 CONFIRMED（rxgj FULL）。整表 TestCom **未**实现 |
+
+### table[38] asm_mr_platEx（5-C.10C：仅 code 0x4c6）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[38] = asm_mr_platEx`；`fixR9.h` `#define asm_mr_platEx mr_platEx`。**无 `_mr_platEx` 符号** |
+| ABI | `int32 mr_platEx(int32 code, uint8 *input, int32 input_len, uint8 **output, int32 *output_len, MR_PLAT_EX_CB *cb)` |
+| 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
+| 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
+| 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
+| 后继 | table[33] `asm_mr_getTime` **STOP**（LIVE，host 未实现） |
+| confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
+
+### table[33] asm_mr_getTime（5-C.10C LIVE 到达，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[33] = asm_mr_getTime`；`fixR9.h` `#define asm_mr_getTime mr_getTime` |
+| C | `uint32 mr_getTime(void)` |
+| LIVE | stub `0x00010084`；入口 `r0=0x00010084`（BLX 目标，不是 platEx 返回值）；host **未**实现 |
+| confidence | 到达 CONFIRMED。行为 **未**实现 |
+
 ---
 
 ## 16. 计数（证据条目）
@@ -273,7 +306,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 |---|---|
 | CONFIRMED | 本阶段实现所依据的全部主路径 |
 | INFERRED | 0（无） |
-| UNKNOWN | `_plat*` 各 code、未读完的 GUI/audio/network |
+| UNKNOWN | `_plat*` 其它 code、`asm_mr_getTime`、未读完的 GUI/audio/network |
 
 ---
 

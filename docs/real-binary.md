@@ -6,7 +6,14 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-Stage 5-C.5：`table[14]` memset 已接。cfunction load 完成，`arm_ext_call(6)` guest 返回 0。完整 runtime 第一个失败是 `UNKNOWN_REQUIRED_SLOT = 130`（`asm_mr_TestCom`，未实现）。见 `docs/stage5c5-progress.md`。
+Stage 5-C.10C：`table[38]` 仅 `mr_platEx` code `0x4c6`（rxgj FULL `MR_SUCCESS`，无副作用）。生产确定性停在 table[33]。未实现 33。见 `docs/stage5c10c-progress.md`。  
+Stage 5-C.10B：`table[130]` 仅 case 7（rxgj FULL）。当时停在 table[38]。见 `docs/stage5c10b-progress.md`。  
+Stage 5-C.10A：真实 MRP 启动基线（实现 130 前）。见 `docs/stage5c10a-progress.md`。  
+Stage 5-C.9：`table[38]` 本次是 6 参数 `mr_platEx(0x4c6,0,0,0,0,0)`，返回值不挡后续 CFG。见 `docs/stage5c9-progress.md`。未实现 130/38/33。  
+Stage 5-C.8：`0x01ea7f68` 在越过 130 后打 `table[38]` `asm_mr_platEx(0x4c6,0,0,0,0,0)`。见 `docs/stage5c8-progress.md`。未实现 130/38。  
+Stage 5-C.7：`table[130]` 返回值不是这段 `mrc_init` helper 直达 CFG 的必要条件。见 `docs/stage5c7-progress.md`。未实现 TestCom。  
+Stage 5-C.6：`table[130]` / `asm_mr_TestCom` 只读取证。真实调用点与 R1/R2 生产指令见 `docs/stage5c6-progress.md`。  
+Stage 5-C.5：`table[14]` memset 已接。cfunction load 完成，`arm_ext_call(6)` guest 返回 0。完整 runtime 第一个失败仍是 `UNKNOWN_REQUIRED_SLOT = 130`。
 
 ---
 
@@ -16,6 +23,7 @@ Stage 5-C.5：`table[14]` memset 已接。cfunction load 完成，`arm_ext_call(
 npx tsx tools/real/inspect.ts
 npx tsx tools/real/inspect.ts path/to/app.mrp
 npx tsx tools/real/run-app.ts
+npx tsx tools/real/startup-baseline.ts test/fixtures/real/app.mrp
 ```
 
 无参数：打印 fixture 是否存在 + loader readiness。有文件也不声称 real-app green。
@@ -24,7 +32,7 @@ npx tsx tools/real/run-app.ts
 
 | 路径 | 作用 |
 |---|---|
-| `src/real/inspect.ts` | 只读 format 分类 |
+| `src/real/startup.ts` | 5-C.10A 真实 MRP 生产启动基线（不实现未知 ABI） |
 | `src/real/gate.ts` | parse → load → 有限 step → report |
 | `src/real/readiness.ts` | READY / PARTIAL / BLOCKED 审计 |
 | `src/mythroad/probe.ts` | 可选 trace（默认关） |

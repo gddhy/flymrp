@@ -31,17 +31,17 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 130`）
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 33`）。5-C.10C：table[38] code 0x4c6 已执行；见 `docs/stage5c10c-progress.md`。
 
 ## Lua execution
 
-fail — `_mr_c_load()==0` 之后 `_strCom(801,"",0)` / `arm_ext_call(0)` 停在 table[130]
+fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[38] code 0x4c6 后停在 table[33]
 
 ## Native ABI
 
 - confirmed calls: `_com(3629,2913)`，`GetSysInfo`，`_strCom(601/800/801)`，`string.unpack("II")`
 - unknown calls: **none**（Lua）
-- unknown required slot: **130**（`asm_mr_TestCom`；mythroad.c `_mr_c_function_table[130]`）
+- unknown required slot: **33**（`asm_mr_getTime`；LIVE 到达，host 未实现。table[38] code 0x4c6 与 table[130] case 7 已实现。`table[38] registered` ≠ 完整 `mr_platEx`）
 
 ## EXT
 
@@ -50,7 +50,7 @@ fail — `_mr_c_load()==0` 之后 `_strCom(801,"",0)` / `arm_ext_call(0)` 停在
 - `arm_ext_call(1)`：kind=return，r0=0；table[0] 分配 8B guest；table[125] 读 `cfunction.ext` 220596B 进 guest
 - `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200100` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
 - `arm_ext_call(6)`：kind=**return**，r0=0（guest helper `0x01ea5e9d`；未实现 host helper）
-- `arm_ext_call(0)`：table[130] **STOP**
+- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED**（r0=`MR_SUCCESS`）→ table[33] **STOP**
 
 ## VFS
 
@@ -75,7 +75,7 @@ not observed
 
 ## Failure
 
-`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。第一个真实失败是 **table[130]**（`UNKNOWN_REQUIRED_SLOT = 130`，`asm_mr_TestCom`）。未实现 TestCom / host code 6 helper。未进入 Stage 5-D。
+`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。table[130] case 7 与 table[38] code 0x4c6 已执行。第一个真实失败是 **table[33]** `asm_mr_getTime`。未实现 getTime / 完整 platEx / host code 6 helper。未进入 Stage 5-D。
 
 ## Readiness
 

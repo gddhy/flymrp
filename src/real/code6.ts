@@ -446,7 +446,7 @@ function memoryAccessFor(slot: number | null, r0: number, r1: number, r2: number
     return `table[14] memset(dest=${hx(r0)}, c=${r1}, n=${r2}) — identity CONFIRMED mythroad.c`;
   }
   if (slot === 130) {
-    return `table[130] r0=${hx(r0)} r1=${hx(r1)} r2=${hx(r2)} — mythroad.c identity asm_mr_TestCom, not implemented`;
+    return `table[130] r0=${hx(r0)} r1=${hx(r1)} r2=${hx(r2)} — asm_mr_TestCom case 7 (rxgj FULL)`;
   }
   if (slot === 25) return `table[25] _mr_c_function_new(helper=${hx(r0)}, len=${r1})`;
   if (slot === 0) return `table[0] mr_malloc(${r0})`;
@@ -731,20 +731,20 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     requiredInitialization: [
       "mr_c_function_load(0) → BLX(1) → table[25] → malloc → table[14] memset → arm_ext_call(6)",
       slot25 ? "cfunction load touched table[25] (dynamic)" : "cfunction load did not touch table[25]",
-      unknownSlot === 130 ? "STOP: table[130] is asm_mr_TestCom in mythroad.c — not implemented this stage" : "",
+      unknownSlot === 33 ? "STOP: table[33] asm_mr_getTime — not implemented this stage" : "",
     ].filter(Boolean),
     confirmed: [
       "table[14] memset2(s,c,n) returns s; r0=dest r1=byte r2=size_t; GuestMemory.fill",
       "cfunction load completes after memset; P=0x00200100 helper=0x01ea5e9d ER_RW=0x0020021c",
       "arm_ext_call(6) enters guest helper 0x01ea5e9c Thumb with r0=P r1=6 r9=ER_RW and returns 0",
       "after code 6, ER_RW+0x10=0x7b0 (1968); ER_RW+0x20=0 (the R9+0x20 note is not this store)",
-      "strict first fault after memset: UNKNOWN_REQUIRED_SLOT = 130 during arm_ext_call(0)",
+      "strict first fault after memset: UNKNOWN_REQUIRED_SLOT = 33 during arm_ext_call(0)",
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "asm_mr_TestCom ABI for table[130] r0=0 r1=7 r2=9999 — identity only, not implemented",
+      "table[130] case 7 + table[38] code 0x4c6 (rxgj FULL); production then stops at table[33]",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };
@@ -756,7 +756,7 @@ export function renderCode6Markdown(r: Code6ForensicsReport): string {
   const lines = [
     "# Real cfunction.ext initialization (Stage 5-C.5)",
     "",
-    "Stage 5-C.5 implements CONFIRMED `table[14]` memset2. **Code 6 is guest-run, not host-implemented. table[130] is not implemented. Stage 5-D NOT STARTED.**",
+    "Stage 5-C.5 implements CONFIRMED `table[14]` memset2. **Code 6 is guest-run, not host-implemented. table[33] is not implemented. Stage 5-D NOT STARTED.**",
     "",
     "## Binary",
     "",
@@ -898,7 +898,7 @@ export function renderCode6Markdown(r: Code6ForensicsReport): string {
     "",
     ...r.requiredInitialization.map((s) => `- ${s}`),
     "",
-    "Do not invent a code-6 helper. Do not implement table[130] / `_plat*` / Stage 5-D.",
+    "Do not invent a code-6 helper. Do not implement table[33] / Stage 5-D.",
     "",
     "## CONFIRMED",
     "",
@@ -914,8 +914,8 @@ export function renderCode6Markdown(r: Code6ForensicsReport): string {
     "",
     "## Next required evidence",
     "",
-    "- Observe (do not guess) `asm_mr_TestCom` / table[130] only if a later stage confirms the r0/r1/r2 ABI from Mythroad C + this call.",
-    "- Do not implement a host code-6 helper, `_plat*`, or Stage 5-D from this report.",
+    "- Stage 5-C.10C: table[38] code 0x4c6 REAL_EXECUTED; production STOP is table[33]. Do not implement 33.",
+    "- Do not implement a host code-6 helper, remaining platEx codes, or Stage 5-D from this report.",
     "",
   ];
   return lines.join("\n");

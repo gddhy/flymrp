@@ -1,6 +1,6 @@
 export { MythroadRuntime } from "./runtime.ts";
 export { createStrCom } from "./strcom.ts";
-export { MrTableBridge, readGuestCString } from "./mr-table.ts";
+export { MrTableBridge, MR_TESTCOM_CASE7, MR_PLATEX_CODE_4C6, readGuestCString } from "./mr-table.ts";
 export type { AllocRecord, ReadFileRecord } from "./mr-table.ts";
 export { MythroadVfs } from "./vfs.ts";
 export { MythroadTimer } from "./timer.ts";

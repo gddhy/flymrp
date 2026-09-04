@@ -11,7 +11,8 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 未接入：Canvas / WebGL / WebGPU / WebAudio / DOM / `setTimeout` / IndexedDB / 网络 / SMS / WAP / JIT / DRM。  
 Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 
-真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。
+真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。  
+当前增量：Stage 5-C.10B（`docs/stage5c10b-progress.md`）table[130] 仅 case 7；38/33 仍未实现。
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 
@@ -23,7 +24,7 @@ Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 |---|---|---|
 | A | 29 | 冻结（5-B） |
 | B | 26 | 冻结（5-B） |
-| C | 24 | 上表 + `mr_table/0`、`mr_table/14`、`mr_table/125` |
+| C | 25 | 上表 + `mr_table/0`、`mr_table/14`、`mr_table/125`、`mr_table/130/7` |
 
 `IMPLEMENTED_A.length === 29`、`IMPLEMENTED_B.length === 26` 保持不变。
 
@@ -44,9 +45,11 @@ Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 | timer/event | timer 11 + events 11 + timer-c 6 | 28 | ≥ 15 |
 | restart/runFile | `test/mythroad/restart.test.ts` | 5 | ≥ 5 |
 | real binary | `test/mythroad/real-binary.test.ts` | 1（unavailable） | 有则 ≥ 1 |
+| real MRP startup | `test/real/real-mrp-startup.test.ts` | 2 | 真实 app.mrp；130 case 7 后停 38 |
+| table[130] ABI | `test/real/testcom-130-abi.test.ts` | 6 | 仅 case 7 |
 | error paths | `test/mythroad/errors.test.ts` | 20 | ≥ 10 |
 
-`npm test`：**376/376**。`tsc --noEmit` 通过。
+`npm test`：**439/439**。`tsc --noEmit` 通过。
 
 ---
 
@@ -93,7 +96,7 @@ stdlib 安装使 `LuaVM` 的 intern/closure 基数上升（bench `intern=57 cl=4
 * Pluto 不持久化 Lua function。
 * `_plat` / `_platEx` 各 code、指针类 `_strCom`/`_com`、socket/SMS/WAP、GUI、audio：未实现。
 * `BitmapShowEx` 像素指针：不实现。
-* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.5）。`魔塔II.jar` 仍无。停点：`UNKNOWN_REQUIRED_SLOT = 130`。
+* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10C）。`魔塔II.jar` 仍无。生产停点：`UNKNOWN_REQUIRED_SLOT = 33`（未实现 `asm_mr_getTime`）。5-C.10C：`table[38]` 仅 code `0x4c6`（rxgj FULL `return MR_SUCCESS`，无副作用）。table[33] LIVE 到达但未执行。
 * pack 切换无真实 FS，只跑当前 VFS 中的 startfile。
 
 ---
