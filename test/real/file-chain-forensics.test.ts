@@ -13,6 +13,7 @@ import {
   specReadCount,
   specSeek,
 } from "../../src/real/filechain.ts";
+import { ARM_INSN_BUDGET_THROWN } from "../../src/real/startup.ts";
 import { FILE_ABI_SLOTS, OPEN40 } from "../../src/real/open40.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
@@ -22,8 +23,8 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFileChainForensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.productionThrown).toBe(ARM_INSN_BUDGET_THROWN);
+    expect(r.probeThrown).toBe(ARM_INSN_BUDGET_THROWN);
     expect(r.packName).toBe("gssjxz.mrp");
     expect(r.packFilenameAt40).toBe("gssjxz.mrp");
     expect(r.resourceNameAt40).toBe(OPEN40.sprintfText);

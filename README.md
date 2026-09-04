@@ -2,7 +2,7 @@
 
 Browser-native Mythroad MRP runtime.
 
-Stage 5-C.10O（当前）：实现 `table[1]` registry-only `mr_free`（校验 ownership+len，不复用地址）。生产停在 `table[9]` `memcmp2`。guest `_mr_readFile("res_lang0.rc")` 已完整成功。见 `docs/stage5c10o-progress.md`。  
+Stage 5-C.10P（当前）：实现 `table[9]` `memcmp2`（unsigned char，精确 `*su1-*su2`，early exit）。LIVE gzip magic `1F 8B` equal。生产停在 ARM insn budget（guest inflate）。见 `docs/stage5c10p-progress.md`。  
 Stage 5-C.10N：`table[1]` / `mr_free` ownership + allocation header **只读取证**。当时**未实现** table[1]。当时生产停在 `table[1]`。见 `docs/stage5c10n-progress.md`。  
 Stage 5-C.10M：实现 `table[3]` memcpy2（前向逐 byte，非 memmove）+ `table[10]` strcmp2（-1/0/1）。当时**未实现** `table[1]`。当时生产停在 `table[1]`。见 `docs/stage5c10m-progress.md`。  
 Stage 5-C.10L：`table[3]` memcpy2 ABI + directory loop 只读取证，当时**未实现**。当时生产停在 `table[3]`。见 `docs/stage5c10l-progress.md`。  

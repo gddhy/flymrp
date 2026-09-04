@@ -88,6 +88,7 @@ export {
   type Free1Report,
 } from "./free1.ts";
 export {
+  ARM_INSN_BUDGET_THROWN,
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

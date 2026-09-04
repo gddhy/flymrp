@@ -20,19 +20,17 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
     expect(st.blxImmTargets.some((t) => t.from === ((EXT_CODE_ADDR + 0x14) >>> 0) && t.to === 0x01ea5e0c)).toBe(true);
   });
 
-  it("memset lets code 6 enter guest; first remaining fault is table[9] memcmp2", () => {
+  it("memset lets code 6 enter guest; first remaining fault is ARM insn budget", () => {
     const r = runCode6Forensics(new Uint8Array(readFileSync(REAL_APP)));
     expect(r.fault.loadBlxTaken).toBe(true);
     expect(r.fault.guestEntered).toBe(true);
-    expect(r.fault.classification).toBe("ABI");
-    expect(r.fault.subtype).toBe("UNKNOWN_REQUIRED_SLOT = 9");
-    expect(r.fault.site).toBe("arm_ext_call.table");
-    expect(r.fault.slot).toBe(9);
-    expect(r.fault.faultPc).toBe(0x10024);
-    expect(r.fault.r0).toBe(0x01e7fee8);
-    expect(r.fault.r1).toBe(0x01eadefc);
-    expect(r.fault.r2).toBe(2);
-    expect(r.fault.r9).toBe(0x00200294);
+    expect(r.fault.classification).toBe("CPU");
+    expect(r.fault.subtype).toBe("ARM_INSN_BUDGET");
+    expect(r.fault.site).toBe("arm_ext_call.budget");
+    expect(r.fault.slot).toBeNull();
+    expect(r.fault.kind).toBe("abi-fault");
+    expect(r.fault.faultPc).toBe(0x01ea1ee8);
+    expect(r.fault.r9).toBe(0);
     expect(r.fault.p).toBe(0x00200178);
     expect(r.fault.helper).toBe(0x01ea5e9d);
     expect(r.fault.erRw).toBe(0x00200294);

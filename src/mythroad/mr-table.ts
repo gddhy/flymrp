@@ -39,7 +39,7 @@ export type ReadFileRecord = {
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
  * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
  * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias /
- * `[3]` `memcpy2` / `[10]` `strcmp2` /
+ * `[3]` `memcpy2` / `[10]` `strcmp2` / `[9]` `memcmp2` /
  * `[1]` `mr_free` (registry-only; no origin_mem reuse).
  * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
  * Uses the existing EXT bump heap.
@@ -74,6 +74,7 @@ export class MrTableBridge {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
     this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
+    this.ext.registerHandler(9, (_cpu, mem, args) => memcmp2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
@@ -329,6 +330,29 @@ export function memcpy2(mem: GuestMemory, dest: number, src: number, count: numb
     mem.write8((dst + i) >>> 0, b);
   }
   return dst;
+}
+
+/**
+ * rxgj `string.c` `memcmp2`.
+ * `int memcmp2(const void *cs, const void *ct, size_t count)`
+ *
+ * Compares `unsigned char` and returns the exact first-difference
+ * `*su1 - *su2` (not libc-clamped -1/0/1, not `strcmp2`).
+ * Early-exits on the first mismatch. `count === 0` returns 0 without
+ * accessing either pointer.
+ */
+export function memcmp2(mem: GuestMemory, cs: number, ct: number, count: number): number {
+  const a = cs >>> 0;
+  const b = ct >>> 0;
+  const n = count >>> 0;
+  let res = 0;
+  for (let i = 0; i < n; i++) {
+    const su1 = mem.read8((a + i) >>> 0) & 0xff;
+    const su2 = mem.read8((b + i) >>> 0) & 0xff;
+    res = (su1 - su2) | 0;
+    if (res !== 0) break;
+  }
+  return res;
 }
 
 /**

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { GETTIME33, runGetTime33Forensics } from "../../src/real/gettime33.ts";
+import { ARM_INSN_BUDGET_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -13,8 +14,8 @@ describe("5-C.10D table[33] / asm_mr_getTime forensics", () => {
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.productionThrown).toBe(ARM_INSN_BUDGET_THROWN);
+    expect(r.probeThrown).toBe(ARM_INSN_BUDGET_THROWN);
     expect(r.init2Reached).toBe(false);
     expect(r.owner).toBe("gssjxz.mrp");
 

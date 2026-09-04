@@ -11,6 +11,7 @@ import {
   runFree1Forensics,
 } from "../../src/real/free1.ts";
 import { runProductionCode0Fault } from "../../src/real/code0chain.ts";
+import { ARM_INSN_BUDGET_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -19,8 +20,8 @@ describe("5-C.10N table[1] mr_free ownership forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFree1Forensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.productionThrown).toBe(ARM_INSN_BUDGET_THROWN);
+    expect(r.probeThrown).toBe(ARM_INSN_BUDGET_THROWN);
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.handler0).toBe(true);
     expect(r.handler1).toBe(true);
@@ -105,7 +106,7 @@ describe("5-C.10N table[1] mr_free ownership forensics", () => {
   it("5 production runs stay deterministic at table[9]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const runs = Array.from({ length: 5 }, () => runProductionCode0Fault(bytes));
-    expect(new Set(runs)).toEqual(new Set(["UNKNOWN_REQUIRED_SLOT = 9"]));
+    expect(new Set(runs)).toEqual(new Set([ARM_INSN_BUDGET_THROWN]));
     const rt = new MythroadRuntime();
     expect(rt.ext).toBeNull();
   });

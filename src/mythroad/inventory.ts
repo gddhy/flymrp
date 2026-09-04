@@ -105,6 +105,9 @@ export const IMPLEMENTED_C = [
   "mr_table/3/memcpy2",
   // Guest byte-string compare. unsigned char. Returns -1/0/1.
   "mr_table/10/strcmp2",
+  // Guest byte-wise memcmp2. unsigned char. Early exit.
+  // Returns exact *su1-*su2, not libc-clamped -1/0/1.
+  "mr_table/9/memcmp2",
   // Valid flymrp bump allocations are retired from the live registry.
   // Address reuse / origin_mem free-list coalescing is not implemented.
   "mr_table/1/mr_free/registry-only",

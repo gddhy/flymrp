@@ -3,7 +3,7 @@ import { EXT_CODE_ADDR, EXT_PLATFORM_MEM_ADDR, EXT_STOP_ADDR, tableSlotAddr } fr
 import { ExtRuntime } from "../../src/abi/runtime.ts";
 import { ExtStopKind } from "../../src/abi/fault.ts";
 import { GuestMemory, MemoryFault } from "../../src/hot/memory.ts";
-import { memcpy2, strcmp2, MrTableBridge } from "../../src/mythroad/mr-table.ts";
+import { memcpy2, memcmp2, strcmp2, MrTableBridge } from "../../src/mythroad/mr-table.ts";
 import { MythroadVfs } from "../../src/mythroad/vfs.ts";
 import { OP_MOV, armBx, armDpReg, armLdrImm, armBlx } from "../helpers/asm.ts";
 import { wordsToBytes } from "../helpers/ext-asm.ts";
@@ -181,7 +181,67 @@ describe("5-C.10M table[10] strcmp2", () => {
     const { ext } = wire();
     expect(ext.table.handlers[1]).toBeTruthy();
     expect(ext.table.handlers[3]).toBeTruthy();
+    expect(ext.table.handlers[9]).toBeTruthy();
     expect(ext.table.handlers[10]).toBeTruthy();
     expect(ext.table.handlers[4]).toBeFalsy();
+  });
+});
+
+describe("5-C.10P table[9] memcmp2", () => {
+  it("equal bytes return 0 for n=0/1/2/multi", () => {
+    const mem = new GuestMemory();
+    const a = put(mem, 0x0002_0000, [0x1f, 0x8b, 0x08, 0x00]);
+    const b = put(mem, 0x0002_0100, [0x1f, 0x8b, 0x08, 0x00]);
+    expect(memcmp2(mem, a, b, 0)).toBe(0);
+    expect(memcmp2(mem, a, b, 1)).toBe(0);
+    expect(memcmp2(mem, a, b, 2)).toBe(0);
+    expect(memcmp2(mem, a, b, 4)).toBe(0);
+  });
+
+  it("returns exact unsigned-char difference, not -1/0/1", () => {
+    const mem = new GuestMemory();
+    const a = put(mem, 0x0002_0000, [0x00, 0x7f, 0x80, 0xff]);
+    const b = put(mem, 0x0002_0100, [0xff, 0x80, 0x7f, 0x00]);
+    expect(memcmp2(mem, a, b, 1)).toBe(0x00 - 0xff);
+    expect(memcmp2(mem, (a + 1) >>> 0, (b + 1) >>> 0, 1)).toBe(0x7f - 0x80);
+    expect(memcmp2(mem, (a + 2) >>> 0, (b + 2) >>> 0, 1)).toBe(0x80 - 0x7f);
+    expect(memcmp2(mem, (a + 3) >>> 0, (b + 3) >>> 0, 1)).toBe(0xff - 0x00);
+    expect(memcmp2(mem, a, b, 1)).not.toBe(-1);
+    expect(memcmp2(mem, (a + 3) >>> 0, (b + 3) >>> 0, 1)).not.toBe(1);
+  });
+
+  it("count=0 does not access unmapped pointers", () => {
+    const mem = new GuestMemory();
+    expect(memcmp2(mem, EXT_PLATFORM_MEM_ADDR, EXT_PLATFORM_MEM_ADDR, 0)).toBe(0);
+    expect(memcmp2(mem, 0, EXT_PLATFORM_MEM_ADDR, 0)).toBe(0);
+  });
+
+  it("early-exits on first difference and does not touch later unmapped bytes", () => {
+    const mem = new GuestMemory();
+    const last = (mem.ramBase + mem.ramSize - 1) >>> 0;
+    mem.write8(last, 0xaa);
+    const other = put(mem, 0x0002_0000, [0xbb, 0]);
+    expect(memcmp2(mem, last, other, 2)).toBe(0xaa - 0xbb);
+  });
+
+  it("unmapped pointer with n>0 is MemoryFault", () => {
+    const mem = new GuestMemory();
+    const mapped = put(mem, 0x0002_0000, [1, 2]);
+    expect(() => memcmp2(mem, EXT_PLATFORM_MEM_ADDR, mapped, 1)).toThrow(MemoryFault);
+    expect(() => memcmp2(mem, mapped, EXT_PLATFORM_MEM_ADDR, 1)).toThrow(MemoryFault);
+  });
+
+  it("guest table[9] writes the signed difference into R0", () => {
+    const { ext, b } = wire();
+    const s1 = b.malloc(4);
+    const s2 = b.malloc(4);
+    ext.mem.load(s1, [0x1f, 0x8b]);
+    ext.mem.load(s2, [0x1f, 0x8b]);
+    const eq = runSlot(ext, 9, s1, s2, 2);
+    expect(eq.kind).toBe(ExtStopKind.Return);
+    expect(eq.r0).toBe(0);
+    ext.mem.load(s2, [0x1f, 0x00]);
+    const ne = runSlot(ext, 9, s1, s2, 2);
+    expect(ne.r0).toBe(0x8b);
   });
 });
