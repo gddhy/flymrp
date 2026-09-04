@@ -12,7 +12,7 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 Stage 3/4 CPU 与 EXT ABI **未改**（`src/hot` / `src/abi` 无 diff）。
 
 真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。  
-当前增量：Stage 5-C.10B（`docs/stage5c10b-progress.md`）table[130] 仅 case 7；38/33 仍未实现。
+当前增量：Stage 5-C.10D（`docs/stage5c10d-progress.md`）table[33] / `asm_mr_getTime` 只读取证，未实现。生产停在 table[33]。
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 
@@ -96,7 +96,7 @@ stdlib 安装使 `LuaVM` 的 intern/closure 基数上升（bench `intern=57 cl=4
 * Pluto 不持久化 Lua function。
 * `_plat` / `_platEx` 各 code、指针类 `_strCom`/`_com`、socket/SMS/WAP、GUI、audio：未实现。
 * `BitmapShowEx` 像素指针：不实现。
-* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10C）。`魔塔II.jar` 仍无。生产停点：`UNKNOWN_REQUIRED_SLOT = 33`（未实现 `asm_mr_getTime`）。5-C.10C：`table[38]` 仅 code `0x4c6`（rxgj FULL `return MR_SUCCESS`，无副作用）。table[33] LIVE 到达但未执行。
+* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10D）。`魔塔II.jar` 仍无。生产停点：`UNKNOWN_REQUIRED_SLOT = 33`（未实现 `asm_mr_getTime`）。5-C.10D：table[33] 只读取证。5-C.10C：`table[38]` 仅 code `0x4c6`（rxgj FULL `return MR_SUCCESS`，无副作用）。table[33] LIVE 到达但未执行。
 * pack 切换无真实 FS，只跑当前 VFS 中的 startfile。
 
 ---

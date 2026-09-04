@@ -46,6 +46,12 @@ export {
   type Platex38Report,
 } from "./platex38.ts";
 export {
+  GETTIME33,
+  renderGetTime33Markdown,
+  runGetTime33Forensics,
+  type GetTime33Report,
+} from "./gettime33.ts";
+export {
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

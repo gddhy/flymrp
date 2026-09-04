@@ -287,14 +287,17 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 后继 | table[33] `asm_mr_getTime` **STOP**（LIVE，host 未实现） |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
-### table[33] asm_mr_getTime（5-C.10C LIVE 到达，未实现）
+### table[33] asm_mr_getTime（5-C.10D 取证，未实现）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[33] = asm_mr_getTime`；`fixR9.h` `#define asm_mr_getTime mr_getTime` |
 | C | `uint32 mr_getTime(void)` |
-| LIVE | stub `0x00010084`；入口 `r0=0x00010084`（BLX 目标，不是 platEx 返回值）；host **未**实现 |
-| confidence | 到达 CONFIRMED。行为 **未**实现 |
+| FULL 桌面 | `get_uptime_ms()` (`CLOCK_MONOTONIC` ms) − `dsmStartTime` |
+| LIVE | stub `0x00010084`；零参数；入口 `r0=0x00010084`（BLX 目标）；host **未**实现 |
+| 本 init 返回 | 静态：STR `ER_RW+0x4358`；随后 `movs r0,#0x55`。LIVE 未执行 STR |
+| pack | GOT `6b80 3080 6840 4780` 共 4 处；含绝对值 store 与 `t_old-now` / `now+arg` / `now-old` |
+| confidence | 身份/单位/LIVE 到达 **CONFIRMED**。行为 **未**实现。见 `docs/stage5c10d-progress.md` |
 
 ---
 
@@ -306,7 +309,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 |---|---|
 | CONFIRMED | 本阶段实现所依据的全部主路径 |
 | INFERRED | 0（无） |
-| UNKNOWN | `_plat*` 其它 code、`asm_mr_getTime`、未读完的 GUI/audio/network |
+| UNKNOWN | `_plat*` 其它 code、未读完的 GUI/audio/network |
 
 ---
 
