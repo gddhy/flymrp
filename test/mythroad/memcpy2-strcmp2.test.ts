@@ -177,9 +177,9 @@ describe("5-C.10M table[10] strcmp2", () => {
     expect(eq.r0).toBe(0);
   });
 
-  it("does not implement table[1] or table[4]", () => {
+  it("does not implement table[4]", () => {
     const { ext } = wire();
-    expect(ext.table.handlers[1]).toBeFalsy();
+    expect(ext.table.handlers[1]).toBeTruthy();
     expect(ext.table.handlers[3]).toBeTruthy();
     expect(ext.table.handlers[10]).toBeTruthy();
     expect(ext.table.handlers[4]).toBeFalsy();

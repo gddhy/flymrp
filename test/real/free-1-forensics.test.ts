@@ -15,15 +15,15 @@ import { runProductionCode0Fault } from "../../src/real/code0chain.ts";
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10N table[1] mr_free ownership forensics", () => {
-  it("LIVE table[1] is mrc_free of TempName header; handler stays unimplemented", () => {
+  it("LIVE table[1] is mrc_free of TempName header; ABI snapshot still holds", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFree1Forensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.handler0).toBe(true);
-    expect(r.handler1).toBe(false);
+    expect(r.handler1).toBe(true);
     expect(r.handler3).toBe(true);
     expect(r.handler10).toBe(true);
     expect(r.decision).toBe("FORENSICS_ONLY");
@@ -102,10 +102,10 @@ describe("5-C.10N table[1] mr_free ownership forensics", () => {
     expect(realLGmemSize(17174)).toBeGreaterThan(136);
   });
 
-  it("5 production runs stay deterministic at table[1]; table[1] is not registered", () => {
+  it("5 production runs stay deterministic at table[9]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const runs = Array.from({ length: 5 }, () => runProductionCode0Fault(bytes));
-    expect(new Set(runs)).toEqual(new Set(["UNKNOWN_REQUIRED_SLOT = 1"]));
+    expect(new Set(runs)).toEqual(new Set(["UNKNOWN_REQUIRED_SLOT = 9"]));
     const rt = new MythroadRuntime();
     expect(rt.ext).toBeNull();
   });

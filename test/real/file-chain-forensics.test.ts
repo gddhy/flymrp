@@ -22,8 +22,8 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFileChainForensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
     expect(r.packName).toBe("gssjxz.mrp");
     expect(r.packFilenameAt40).toBe("gssjxz.mrp");
     expect(r.resourceNameAt40).toBe(OPEN40.sprintfText);
@@ -39,7 +39,7 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     for (const s of NOT_REQUIRED_STARTUP_FILE_SLOTS) expect(r.handlers[s]).toBe(false);
     expect(r.handlers[14]).toBe(true);
     expect(r.handlers[0]).toBe(true);
-    expect(r.handlers[1]).toBe(false);
+    expect(r.handlers[1]).toBe(true);
     expect(r.handlers[3]).toBe(true);
     expect(r.handlers[10]).toBe(true);
 

@@ -19,4 +19,4 @@ export type { RuntimeAction } from "./constants.ts";
 export { persistRoot, unpersistRoot } from "./persist.ts";
 export { md5, mrEncode, mrDecode } from "./codec.ts";
 export { RuntimeTrace, type AbiMode, type TraceRecord, type UnknownAbiEvent } from "./probe.ts";
-export { UnknownAbiError } from "../err/errors.ts";
+export { NativeAbiError, UnknownAbiError } from "../err/errors.ts";

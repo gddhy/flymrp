@@ -14,8 +14,8 @@ describe("5-C.10F table[17] / sprintf_ forensics", () => {
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
     expect(r.owner).toBe("gssjxz.mrp");
 
     expect(r.cpu.pc).toBe(SPRINTF17.stub);

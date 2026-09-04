@@ -31,17 +31,17 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 1`）。5-C.10N：table[1] ownership/header 只读取证，未实现。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。见 `docs/stage5c10n-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 9`）。5-C.10O：table[1] registry-only `mr_free` **REAL_EXECUTED**；`_mr_readFile("res_lang0.rc")` 成功。未实现 table[9] `memcmp2`。见 `docs/stage5c10o-progress.md`。
 
 ## Lua execution
 
-fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[3]/[10] 目录扫描后停在 table[1] mr_free
+fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 `_mr_readFile("res_lang0.rc")` 后停在 table[9] `memcmp2`
 
 ## Native ABI
 
 - confirmed calls: `_com(3629,2913)`，`GetSysInfo`，`_strCom(601/800/801)`，`string.unpack("II")`
 - unknown calls: **none**（Lua）
-- unknown required slot: **1**（mr_free；LIVE 到达，host 未实现。table[3] memcpy2 / table[10] strcmp2 / table[40]/[44]/[45] current-pack RDONLY / table[17] `sprintf_` literal+`%d` / table[33] `mr_getTime` / table[38] code 0x4c6 / table[130] case 7 已实现）
+- unknown required slot: **9**（`memcmp2`；LIVE 到达，host 未实现。table[1] registry-only `mr_free` / table[3] memcpy2 / table[10] strcmp2 / table[40]/[44]/[45]/[41] current-pack RDONLY / table[17] `sprintf_` literal+`%d` / table[33] `mr_getTime` / table[38] code 0x4c6 / table[130] case 7 已实现）
 
 ## EXT
 
@@ -50,7 +50,7 @@ fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[3]/[10] 目录扫�
 - `arm_ext_call(1)`：kind=return，r0=0；table[0] 分配 8B guest；table[125] 读 `cfunction.ext` 220596B 进 guest
 - `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200178` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
 - `arm_ext_call(6)`：kind=**return**，r0=0（guest helper `0x01ea5e9d`；未实现 host helper）
-- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] memcpy2 **REAL_EXECUTED** → table[10] strcmp2 **REAL_EXECUTED**（命中 `res_lang0.rc`，file_pos=7065 file_len=17174 与 `MRPArchive` 一致）→ table[1] **STOP**
+- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] memcpy2 **REAL_EXECUTED** → table[10] strcmp2 **REAL_EXECUTED**（命中 `res_lang0.rc`，file_pos=7065 file_len=17174 与 `MRPArchive` 一致）→ table[1] **REAL_EXECUTED** → table[0](17178) → table[45] seek SET 7065 → table[44] read 17174 **match archive.data** → table[41] close **REAL_EXECUTED** → table[9] **STOP**
 
 ## VFS
 
@@ -75,7 +75,7 @@ not observed
 
 ## Failure
 
-`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。guest 自己扫 MRP directory 并命中 `res_lang0.rc`。第一个真实失败是 **table[1]** `mr_free`（5-C.10N 已取证 header/ownership，本阶段不实现）。未进入 Stage 5-D。
+`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。guest 自己扫 MRP directory 并命中 `res_lang0.rc`。guest `_mr_readFile("res_lang0.rc")` 已完整成功。第一个真实失败是 **table[9]** `memcmp2`（本阶段不实现）。未进入 Stage 5-D。
 
 ## Readiness
 

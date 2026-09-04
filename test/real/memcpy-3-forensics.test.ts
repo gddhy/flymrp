@@ -18,8 +18,8 @@ describe("5-C.10L table[3] memcpy2 ABI forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runMemcpy3Forensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.handler40).toBe(true);
     expect(r.handler44).toBe(true);
@@ -27,7 +27,7 @@ describe("5-C.10L table[3] memcpy2 ABI forensics", () => {
     expect(r.handler41).toBe(true);
     expect(r.handler3).toBe(true);
     expect(r.handler10).toBe(true);
-    expect(r.handler1).toBe(false);
+    expect(r.handler1).toBe(true);
 
     expect(r.cpu.pc).toBe(MEMCPY3.stub);
     expect(r.cpu.lr).toBe(MEMCPY3.lr);
@@ -93,7 +93,7 @@ describe("5-C.10L table[3] memcpy2 ABI forensics", () => {
   it("5 production runs stay deterministic at table[1]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const runs = Array.from({ length: 5 }, () => runProductionCode0Fault(bytes));
-    expect(new Set(runs)).toEqual(new Set(["UNKNOWN_REQUIRED_SLOT = 1"]));
+    expect(new Set(runs)).toEqual(new Set(["UNKNOWN_REQUIRED_SLOT = 9"]));
     const snaps = Array.from({ length: 5 }, () => runMemcpy3Forensics(bytes));
     const key = (r: (typeof snaps)[0]) =>
       [r.cpu.pc, r.cpu.lr, r.cpu.sp, r.cpu.r[0], r.cpu.r[1], r.cpu.r[2], r.cpu.insnCount, r.p, r.erRw].join(",");

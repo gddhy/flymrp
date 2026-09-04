@@ -1,11 +1,12 @@
 /**
- * Stage 5-C.10M — real MRP production startup.
+ * Stage 5-C.10O — real MRP production startup.
  * table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime
  * + table[17] sprintf_ (literal bytes + `%d` only)
  * + table[100] pack_filename 128-byte data slot
  * + table[40]/[44]/[45]/[41] current-pack read-only file alias
- * + table[3] memcpy2 + table[10] strcmp2.
- * No cbRet bypass. No table[1] free.
+ * + table[3] memcpy2 + table[10] strcmp2
+ * + table[1] mr_free registry-only (no origin_mem reuse).
+ * No cbRet bypass. No table[9] memcmp2.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
 import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, MR_MAX_FILENAME_SIZE, PACK_FILENAME_SLOT, tableSlotIndex } from "../abi/layout.ts";
@@ -49,6 +50,7 @@ export const REAL_MRP_BASELINE = {
   stub3: 0x0001000c,
   stub10: 0x00010028,
   stub1: 0x00010004,
+  stub9: 0x00010024,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -149,6 +151,9 @@ export type StartupFingerprint = {
   headerMatch: boolean;
   indexMatch: boolean;
   firstSeekNewPos: number;
+  payloadDest: number;
+  payloadMatch: boolean;
+  closeRet: number;
 };
 
 export type FileReadEvidence = {
@@ -217,7 +222,27 @@ export type Table1Live = {
   headerWord: number;
   headerBytes: number[];
   userPtr: number;
-  returnConsumer: "none / not executed";
+  ret: number | null;
+  registryMatch: {
+    guestAddr: number;
+    size: number;
+    alignedSize: number;
+    matchesR0: boolean;
+    matchesLen: boolean;
+    liveAfter: boolean;
+  } | null;
+  returnConsumer: "none";
+};
+
+export type ReadFileComplete = {
+  name: string;
+  filePos: number;
+  fileLen: number;
+  payloadAddr: number;
+  rawAlloc: number;
+  payloadMatch: boolean;
+  closed: boolean;
+  closeRet: number | null;
 };
 
 export type SlotStatusRow = {
@@ -307,6 +332,8 @@ export type RealMrpStartupReport = {
     strcmp10: Strcmp10Snap[];
     directory: DirectoryScan;
     table1: Table1Live | null;
+    table1Calls: Table1Live[];
+    readFile: ReadFileComplete | null;
   };
   mrTable: {
     hits: TableHit[];
@@ -332,6 +359,8 @@ export type RealMrpStartupReport = {
     table17: ExecStatus;
     table3: ExecStatus;
     table10: ExecStatus;
+    table1: ExecStatus;
+    table41: ExecStatus;
     note: string;
   };
   consistency: {
@@ -532,6 +561,9 @@ function fingerprintOf(p: {
   headerMatch: boolean;
   indexMatch: boolean;
   firstSeekNewPos: number;
+  payloadDest: number;
+  payloadMatch: boolean;
+  closeRet: number;
 }): StartupFingerprint {
   return {
     firstUnknownSlot: p.firstUnknownSlot,
@@ -561,6 +593,9 @@ function fingerprintOf(p: {
     headerMatch: p.headerMatch,
     indexMatch: p.indexMatch,
     firstSeekNewPos: p.firstSeekNewPos,
+    payloadDest: p.payloadDest,
+    payloadMatch: p.payloadMatch,
+    closeRet: p.closeRet,
   };
 }
 
@@ -591,6 +626,9 @@ function diffFingerprints(a: StartupFingerprint, b: StartupFingerprint): string[
     "headerMatch",
     "indexMatch",
     "firstSeekNewPos",
+    "payloadDest",
+    "payloadMatch",
+    "closeRet",
   ];
   const out: string[] = [];
   for (const k of keys) {
@@ -693,6 +731,9 @@ type OneRun = {
   filePos: number | null;
   fileLen: number | null;
   table1: Table1Live | null;
+  table1Calls: Table1Live[];
+  payloadRead: FileReadEvidence | null;
+  payloadRaw: number | null;
   p: number;
   helper: number;
   erRw: number;
@@ -747,6 +788,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
   let memcpy3: Memcpy3Snap[] = [];
   let strcmp10: Strcmp10Snap[] = [];
   let table1: Table1Live | null = null;
+  const table1Calls: Table1Live[] = [];
+  let payloadRead: FileReadEvidence | null = null;
+  let payloadRaw: number | null = null;
   let sawStrcmpMatch = false;
   let filePos: number | null = null;
   let fileLen: number | null = null;
@@ -843,7 +887,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
                             ? "REAL_EXECUTED memcpy2 forward byte-copy"
                             : n === 10
                               ? "REAL_EXECUTED strcmp2 -1/0/1"
-                              : "host handler"
+                              : n === 1
+                                ? "REAL_EXECUTED mr_free registry-only (no origin_mem reuse)"
+                                : "host handler"
           : "NOT_EXECUTED by host",
         pc: pc >>> 0,
         lr: c.r[14] >>> 0,
@@ -894,7 +940,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
         const src = c.r[1] >>> 0;
         if (count) memcpySrcPreview = [...mem.slice(src, Math.min(count, 16))];
       }
-      if (n === 1 && !had && !table1) {
+      if (n === 1) {
         const r0 = hit.arguments[0]!;
         const r1 = hit.arguments[1]!;
         let headerBytes: number[] = [];
@@ -905,7 +951,8 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
         } catch {
           headerBytes = [];
         }
-        table1 = {
+        const rec = rt.mrAllocs.find((a) => a.guestAddr === r0);
+        const snap: Table1Live = {
           r0,
           r1,
           r2: hit.arguments[2]!,
@@ -913,11 +960,35 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
           headerWord,
           headerBytes,
           userPtr: (r0 + 4) >>> 0,
-          returnConsumer: "none / not executed",
+          ret: null,
+          registryMatch: rec
+            ? {
+                guestAddr: rec.guestAddr,
+                size: rec.size,
+                alignedSize: rec.alignedSize,
+                matchesR0: rec.guestAddr === r0,
+                matchesLen: rec.size === r1,
+                liveAfter: rec.live,
+              }
+            : null,
+          returnConsumer: "none",
         };
+        table1Calls.push(snap);
+        if (!table1) table1 = snap;
       }
       origD(c, mem, pc);
       if (had) hit.return = c.r[0] >>> 0;
+      if (n === 0 && had && fileLen !== null && hit.arguments[0] === ((fileLen + 4) >>> 0) && payloadRaw === null) {
+        payloadRaw = (hit.return ?? 0) >>> 0;
+      }
+      if (n === 1 && table1Calls.length) {
+        const last = table1Calls[table1Calls.length - 1]!;
+        last.ret = c.r[0] >>> 0;
+        if (last.registryMatch) {
+          const rec = rt.mrAllocs.find((a) => a.guestAddr === last.r0);
+          last.registryMatch.liveAfter = rec ? rec.live : true;
+        }
+      }
       if (n === 3 && had) {
         const dst = hit.arguments[0]!;
         const src = hit.arguments[1]!;
@@ -973,6 +1044,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
         };
         if (!headerRead && requested === REAL_MRP_BASELINE.headerReadLen) headerRead = rec;
         else if (!indexRead && requested === indexLen) indexRead = rec;
+        else if (!payloadRead && fileLen !== null && requested === fileLen) payloadRead = rec;
       }
       if (n === 45 && had && !firstSeek) {
         firstSeek = {
@@ -1069,6 +1141,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     filePos,
     fileLen,
     table1,
+    table1Calls,
+    payloadRead,
+    payloadRaw,
     p,
     helper,
     erRw,
@@ -1106,6 +1181,7 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const hit3 = run.hits.find((h) => h.slot === 3);
   const hit10 = run.hits.find((h) => h.slot === 10);
   const hit1 = run.hits.find((h) => h.slot === 1);
+  const hit9 = run.hits.find((h) => h.slot === 9);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
@@ -1120,6 +1196,7 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const t10ok = hit10?.status === "REAL_EXECUTED";
   const t10blocked = !!hit10 && hit10.status === "NOT_EXECUTED";
   const t1blocked = !!hit1 && hit1.status === "NOT_EXECUTED";
+  const t9blocked = !!hit9 && hit9.status === "NOT_EXECUTED";
   return [
     { stage: "MRP parse", status: "PASS", note: "real app.mrp parsed" },
     {
@@ -1248,7 +1325,18 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
       status: t1blocked ? "BLOCKED" : hit1?.status === "REAL_EXECUTED" ? "PASS" : hit1 ? "BLOCKED" : "NOT REACHED",
       note: t1blocked
         ? "UNKNOWN_REQUIRED_SLOT; mr_free NOT_EXECUTED by host"
-        : hit1
+        : hit1?.status === "REAL_EXECUTED"
+          ? "REAL_EXECUTED mr_free registry-only (no origin_mem reuse)"
+          : hit1
+            ? "reached"
+            : "not reached",
+    },
+    {
+      stage: "table9",
+      status: t9blocked ? "BLOCKED" : hit9?.status === "REAL_EXECUTED" ? "PASS" : hit9 ? "BLOCKED" : "NOT REACHED",
+      note: t9blocked
+        ? "UNKNOWN_REQUIRED_SLOT; memcmp2 NOT_EXECUTED by host"
+        : hit9
           ? "reached"
           : "not reached",
     },
@@ -1299,6 +1387,9 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         headerMatch: run.headerRead?.match === true,
         indexMatch: run.indexRead?.match === true,
         firstSeekNewPos: run.firstSeek?.newPos ?? -1,
+        payloadDest: run.payloadRead?.dest ?? 0,
+        payloadMatch: run.payloadRead?.match === true,
+        closeRet: run.fileOps.find((o) => o.op === "close")?.ret ?? -1,
       }),
     );
   }
@@ -1330,9 +1421,10 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(3, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(10, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(1, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(9, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
-  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1];
+  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9];
   const handlers = handlerSlots.map((slot) => ({
     slot,
     present: run.handlerMap.get(slot) === true,
@@ -1422,6 +1514,8 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       strcmp10: run.strcmp10,
       directory: directoryOf(run, arc),
       table1: run.table1,
+      table1Calls: run.table1Calls,
+      readFile: readFileOf(run),
     },
     mrTable: { hits: run.hits, slots, handlers },
     stop: {
@@ -1443,7 +1537,9 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table17: run.hits.find((h) => h.slot === 17)?.status ?? "NOT_EXECUTED",
       table3: run.hits.find((h) => h.slot === 3)?.status ?? "NOT_EXECUTED",
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[41] not reached. table[1] mr_free is not implemented. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
+      table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is not implemented. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1471,6 +1567,22 @@ function directoryOf(run: OneRun, arc: MRPArchive): DirectoryScan {
   };
 }
 
+function readFileOf(run: OneRun): ReadFileComplete | null {
+  const name = run.strcmp10.find((s) => s.ret === 0)?.filename ?? "";
+  const close = run.fileOps.find((o) => o.op === "close");
+  if (!run.payloadRead || run.filePos === null || run.fileLen === null || !name) return null;
+  return {
+    name,
+    filePos: run.filePos,
+    fileLen: run.fileLen,
+    payloadAddr: run.payloadRead.dest,
+    rawAlloc: run.payloadRaw ?? ((run.payloadRead.dest - 4) >>> 0),
+    payloadMatch: run.payloadRead.match,
+    closed: close?.ret === 0,
+    closeRet: close?.ret ?? null,
+  };
+}
+
 export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu = r.execution.cpu;
   const cpu130 = r.execution.cpu130;
@@ -1478,14 +1590,16 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu33 = r.execution.cpu33;
   const cpu17 = r.execution.cpu17;
   const lines = [
-    "# Real MRP Startup (Stage 5-C.10M)",
+    "# Real MRP Startup (Stage 5-C.10O)",
     "",
     "Production path. table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime",
     "+ table[17] sprintf_ (literal bytes + `%d` only).",
     "table[100] is a 128-byte pack_filename data slot populated at bindExt.",
-    "table[40]/[44]/[45] current-pack RDONLY file alias reads MRPArchive.data.",
+    "table[40]/[44]/[45]/[41] current-pack RDONLY file alias reads MRPArchive.data.",
     "table[3] memcpy2 (forward byte-copy, not memmove) + table[10] strcmp2 (-1/0/1).",
-    "table[41] not reached. table[1] mr_free is not implemented.",
+    "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
+    "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
+    "table[9] memcmp2 is not implemented.",
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
     "Stage 5-D: **NOT STARTED**.",
     "",
@@ -1582,8 +1696,12 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- directory match: ${JSON.stringify(r.execution.directory.matchedName)} file_pos=${r.execution.directory.filePos} file_len=${r.execution.directory.fileLen}`,
     `- MRPArchive offset/length: ${r.execution.directory.archiveOffset}/${r.execution.directory.archiveLength} posLenMatch=${r.execution.directory.posLenMatch}`,
     r.execution.table1
-      ? `- table[1] LIVE (not implemented): R0=${hx(r.execution.table1.r0)} R1=${r.execution.table1.r1} header=${r.execution.table1.headerWord} user=${hx(r.execution.table1.userPtr)} consumer=${r.execution.table1.returnConsumer}`
+      ? `- table[1] first: R0=${hx(r.execution.table1.r0)} R1=${r.execution.table1.r1} header=${r.execution.table1.headerWord} user=${hx(r.execution.table1.userPtr)} ret=${r.execution.table1.ret} consumer=${r.execution.table1.returnConsumer}`
       : "- table[1] LIVE: (none)",
+    `- table[1] calls: ${r.execution.table1Calls.length}`,
+    r.execution.readFile
+      ? `- _mr_readFile: name=${JSON.stringify(r.execution.readFile.name)} pos=${r.execution.readFile.filePos} len=${r.execution.readFile.fileLen} payload=${hx(r.execution.readFile.payloadAddr)} raw=${hx(r.execution.readFile.rawAlloc)} match=${r.execution.readFile.payloadMatch} closed=${r.execution.readFile.closed} closeRet=${r.execution.readFile.closeRet}`
+      : "- _mr_readFile: (incomplete)",
     cpu130
       ? [
           "### table[130] entry",
@@ -1689,6 +1807,8 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- 17 = ${r.forensicPrior.table17} (sprintf_ literal+%d only; not %s / full mpaland)`,
     `- 3 = ${r.forensicPrior.table3} (memcpy2 forward byte-copy; not memmove)`,
     `- 10 = ${r.forensicPrior.table10} (strcmp2 unsigned-char -1/0/1)`,
+    `- 1 = ${r.forensicPrior.table1} (mr_free registry-only; no origin_mem reuse)`,
+    `- 41 = ${r.forensicPrior.table41} (mr_close current-pack handle)`,
     `- ${r.forensicPrior.note}`,
     "",
     "## Stage 5-D",

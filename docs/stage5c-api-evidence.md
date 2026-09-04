@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 1`（mr_free 未实现）。5-C.10N：table[1] ownership/header 只读取证。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。见 5-C.10N |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 9`（`memcmp2` 未实现）。5-C.10O：table[1] registry-only `mr_free` **REAL_EXECUTED**；`_mr_readFile("res_lang0.rc")` 成功。见 5-C.10O |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **STOP** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **STOP** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -327,7 +327,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
 | C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
 | LIVE | read 16 header **match** `archive.data[0:16]`；seek CUR 224：16→240；read 5496 index **match** `archive.data[240:5736]`。table[41] 未到达 |
-| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → **STOP mr_free table[1]** |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → **STOP memcmp2 table[9]** |
 | 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
 | confidence | wrapper/slot/C + LIVE header/index **CONFIRMED** |
 
@@ -363,16 +363,23 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | `"res_lang0.rc"` vs `start.mr` → -1；vs `mrc_loader.ext` → 1；vs `res_lang0.rc` → 0 |
 | confidence | identity/unsigned-char/-1/0/1/LIVE **CONFIRMED**。不是完整 libc strcmp |
 
-### table[1] mr_free（5-C.10N LIVE 到达，未实现）
+### table[1] mr_free（5-C.10O registry-only）
 
 | 字段 | 值 |
 |---|---|
 | source | `_mr_c_function_table[1] = (void*)asm_mr_free`；`fixR9.h` `#define asm_mr_free mr_free` |
 | C | `void mr_free(void *p, uint32 len)`。C 返回 void。`aex_t001` 总是 `R0=MR_SUCCESS` |
-| wrap | 本 pack `mrc_malloc`/`mrc_free`：table0 收 N+4，guest 在 raw 写 N，返回 payload；free 把 payload-4 与 N+4 交给 table[1] |
-| LIVE | **free TempName scratch**。table0(132)→`0x00206de0`（返回时 header=0）；guest wrap 写 128；table1 R0=`0x00206de0` R1=132 payload=`0x00206de4` `"res_lang0.rc"`。registry 记 raw/header，与 R0/R1 匹配。handler 未执行 |
-| allocator | rxgj `mem.c` first-fit，完全依赖 caller len，free 写 8B metadata。flymrp table0 是 bump + `allocs[]`，不复用。本 startup 下一笔 malloc 17174，不复用 132 |
-| confidence | identity/wrap/header 归属/LIVE/registry **CONFIRMED**。本阶段不实现。见 `docs/stage5c10n-progress.md` |
+| flymrp | registry-only：exact live `guestAddr`+`size` 后退役；NULL/unknown/already-free → 0；known pointer + wrong len → `NativeAbiError`。不复用、不写 free-list metadata |
+| LIVE | TempName `0x00206de0`/132 **REAL_EXECUTED** ret=0；indexbuf `0x00205860`/5500 **REAL_EXECUTED** ret=0 |
+| confidence | identity/wrap/LIVE/registry **CONFIRMED**。不是完整 origin_mem。见 `docs/stage5c10o-progress.md` |
+
+### table[9] memcmp2（5-C.10O LIVE 到达，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[9] = (void*)memcmp2`；`string.c` `int memcmp2(const void *cs, const void *ct, size_t count)` |
+| LIVE | R0=`0x01e7fee8` R1=`0x01eadefc` R2=2。payload 已是 gzip `1F 8B 08`。与 `mr_unzip.c` magic 检测一致 |
+| confidence | identity/LIVE **CONFIRMED**。本阶段不实现 |
 
 ---
 

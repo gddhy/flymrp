@@ -1,6 +1,6 @@
 import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
-import { UnknownAbiError } from "../err/errors.ts";
+import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { MR_SUCCESS } from "./constants.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
@@ -24,6 +24,8 @@ export type AllocRecord = {
   alignedSize: number;
   guestAddr: number;
   owner: string;
+  /** Still owned by the bump registry. Freed records stay in `allocs` but `live` is false. */
+  live: boolean;
 };
 
 export type ReadFileRecord = {
@@ -37,9 +39,10 @@ export type ReadFileRecord = {
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
  * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
  * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias /
- * `[3]` `memcpy2` / `[10]` `strcmp2`.
+ * `[3]` `memcpy2` / `[10]` `strcmp2` /
+ * `[1]` `mr_free` (registry-only; no origin_mem reuse).
  * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
- * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
+ * Uses the existing EXT bump heap.
  */
 export class MrTableBridge {
   readonly allocs: AllocRecord[] = [];
@@ -69,6 +72,7 @@ export class MrTableBridge {
 
   install(): void {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
+    this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
@@ -232,10 +236,45 @@ export class MrTableBridge {
     const aligned = (want + 7) & ~7;
     if ((this.ext.heapTop >>> 0) + aligned > EXT_STACK_ADDR) return 0;
     const guestAddr = this.ext.alloc(want) >>> 0;
-    const rec = { size: want, alignedSize: aligned, guestAddr, owner: this.owner };
+    const rec: AllocRecord = { size: want, alignedSize: aligned, guestAddr, owner: this.owner, live: true };
     this.allocs.push(rec);
     this.hooks.onAlloc?.(rec);
     return guestAddr;
+  }
+
+  /**
+   * table[1] = `asm_mr_free` = `mr_free`.
+   *
+   * C: `void mr_free(void *p, uint32 len)`. Guest-visible aex R0 is always
+   * `MR_SUCCESS` (0), including NULL / unknown / already-free.
+   *
+   * This validates and retires flymrp bump allocations but does not
+   * reproduce rxgj origin_mem free-list reuse/coalescing.
+   *
+   * Exact live match: `guestAddr === p` and `size === len`. Then mark
+   * not live. Does not zero, poison, write `{next,len}`, reuse the
+   * address, or move the bump pointer.
+   *
+   * Known live pointer + wrong len is a flymrp strict trap
+   * (`NativeAbiError`), not simulated free-list corruption.
+   */
+  free(p: number, len: number): number {
+    const ptr = p >>> 0;
+    const n = len >>> 0;
+    if (ptr === 0) return MR_SUCCESS;
+    const rec = this.allocs.find((a) => a.live && a.guestAddr === ptr);
+    if (!rec) return MR_SUCCESS;
+    if (rec.size !== n) {
+      throw new NativeAbiError(
+        `mr_free length mismatch: ptr=0x${ptr.toString(16)} len=${n} allocated=${rec.size}`,
+      );
+    }
+    rec.live = false;
+    return MR_SUCCESS;
+  }
+
+  liveAllocs(): AllocRecord[] {
+    return this.allocs.filter((a) => a.live);
   }
 
   readFile(mem: GuestMemory, nameAddr: number, lenAddr: number, lookfor: number): number {

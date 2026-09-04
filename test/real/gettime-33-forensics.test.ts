@@ -13,8 +13,8 @@ describe("5-C.10D table[33] / asm_mr_getTime forensics", () => {
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
     expect(r.init2Reached).toBe(false);
     expect(r.owner).toBe("gssjxz.mrp");
 

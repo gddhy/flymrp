@@ -12,7 +12,7 @@ describe("5-C.7 table[130] return-value dependence", () => {
     const r = runTestCom130DepForensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handlerPresent).toBe(true);
-    expect(r.thrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.thrown).toBe("UNKNOWN_REQUIRED_SLOT = 9");
 
     expect(r.encodings.cmp).toBe(TESTCOM130.enc.cmpR0R5);
     expect(r.encodings.bne).toBe(TESTCOM130.enc.bne);

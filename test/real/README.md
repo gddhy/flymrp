@@ -6,7 +6,7 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `test/fixtures/real/app.mrp` is a user-supplied unprotected MRP. Gate on that file is **INSPECTED**, not real-app green. `runCompatibilityGate()` with no bytes is still `REAL_BINARY_BLOCKED`.
 
-`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[1]`.
+`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[9]`.
 
 `cfunction-init.test.ts` is the isolated cfunction load: BLX → table[25] → table[14] memset zeros ER_RW.
 
@@ -24,7 +24,7 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `platex-38-abi.test.ts` is Stage 5-C.10C isolated ABI: platEx code 0x4c6 only.
 
-`real-mrp-startup.test.ts` is Stage 5-C.10M：真实 `app.mrp` 生产启动。table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**，guest 扫到 `res_lang0.rc`，停在 table[1] mr_free。No forensic bypass。
+`real-mrp-startup.test.ts` is Stage 5-C.10O：真实 `app.mrp` 生产启动。table[1] registry-only `mr_free` + table[41] close **REAL_EXECUTED**，`_mr_readFile("res_lang0.rc")` 成功，停在 table[9] `memcmp2`。No forensic bypass。
 
 `open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 现已注册（5-C.10K）。LIVE R0 为 pack filename。
 
@@ -32,7 +32,7 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `memcpy-3-forensics.test.ts` is Stage 5-C.10L：table[3] `memcpy2` LIVE 首笔 ABI 与 directory loop 后续 slot。5-C.10M 已实现 3/10；该取证仍锁第一笔 table[3]，生产停在 table[1]。
 
-`free-1-forensics.test.ts` is Stage 5-C.10N：table[1] `mr_free` ownership / allocation header 只读取证。不实现 table[1]。生产停在 table[1]。
+`free-1-forensics.test.ts` is Stage 5-C.10N：table[1] `mr_free` ownership / allocation header 只读取证。5-C.10O 已实现 registry-only table[1]；该取证仍锁第一笔 LIVE ABI，生产停在 table[9]。
 
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
