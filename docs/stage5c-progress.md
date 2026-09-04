@@ -12,7 +12,7 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 Stage 3 CPU **未改**。Stage 4 EXT ABI：5-C.10I 将 `table[100]` 从 8-byte scalar 改为 128-byte `pack_filename` buffer（`src/abi`）。5-C.10K 注册 table[40]/[44]/[45]/[41] current-pack 只读 alias。
 
 真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。  
-当前增量：Stage 5-C.10K（`docs/stage5c10k-progress.md`）current-pack read-only file backend。生产停在 table[3] memcpy。未实现 free/memcpy/strcmp。
+当前增量：Stage 5-C.10L（`docs/stage5c10l-progress.md`）table[3] memcpy2 只读取证。生产仍停在 table[3]。未实现 free/memcpy/strcmp。
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 
@@ -47,11 +47,12 @@ Stage 3 CPU **未改**。Stage 4 EXT ABI：5-C.10I 将 `table[100]` 从 8-byte s
 | real binary | `test/mythroad/real-binary.test.ts` | 1（unavailable） | 有则 ≥ 1 |
 | real MRP startup | `test/real/real-mrp-startup.test.ts` | 3 | 真实 app.mrp；table[100] pack_filename；停 40 |
 | file-chain forensics | `test/real/file-chain-forensics.test.ts` | 3 | 5-C.10J：file ABI 静态链；不实现 40/41+ |
+| table[3] memcpy forensics | `test/real/memcpy-3-forensics.test.ts` | 3 | 5-C.10L：memcpy2 ABI；不实现 3/10/1 |
 | table[100] pack_filename | `test/mythroad/pack-filename.test.ts` | 5 | 128-byte data slot；非 handler |
 | table[130] ABI | `test/real/testcom-130-abi.test.ts` | 6 | 仅 case 7 |
 | error paths | `test/mythroad/errors.test.ts` | 20 | ≥ 10 |
 
-`npm test`：**470/470**。`tsc --noEmit` 通过。
+`npm test`：**484/484**。`tsc --noEmit` 通过。
 
 ---
 
@@ -98,7 +99,7 @@ stdlib 安装使 `LuaVM` 的 intern/closure 基数上升（bench `intern=57 cl=4
 * Pluto 不持久化 Lua function。
 * `_plat` / `_platEx` 各 code、指针类 `_strCom`/`_com`、socket/SMS/WAP、GUI、audio：未实现。
 * `BitmapShowEx` 像素指针：不实现。
-* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10K）。`魔塔II.jar` 仍无。生产停点：`UNKNOWN_REQUIRED_SLOT = 3`（memcpy 未实现）。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。5-C.10J：file ABI 静态链已取证。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`。5-C.10H：空 filename 曾是 `table[100]` 未写入，不是 `res_lang0.rc`。5-C.10G：table[17] `sprintf_` 仅 literal+`%d`。5-C.10E：`table[33]` `mr_getTime` 接 `runtime.clock >>> 0`。
+* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10L）。`魔塔II.jar` 仍无。生产停点：`UNKNOWN_REQUIRED_SLOT = 3`（memcpy 未实现）。5-C.10L：table[3] `memcpy2` 只读取证。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。5-C.10J：file ABI 静态链已取证。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`。5-C.10H：空 filename 曾是 `table[100]` 未写入，不是 `res_lang0.rc`。5-C.10G：table[17] `sprintf_` 仅 literal+`%d`。5-C.10E：`table[33]` `mr_getTime` 接 `runtime.clock >>> 0`。
 * pack 切换无真实 FS，只跑当前 VFS 中的 startfile。
 
 ---

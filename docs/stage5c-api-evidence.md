@@ -342,6 +342,35 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | 地址 `0x00200058`；内容 `"gssjxz.mrp\0"`；扩容使后续 P/ER_RW +0x78 |
 | confidence | 类型/大小/copy/生命周期/LIVE **CONFIRMED**。见 `docs/stage5c10i-progress.md` |
 
+### table[3] memcpy2（5-C.10L 只读取证，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[3] = (void*)memcpy2`；`string.c` `memcpy2` |
+| C | `void *memcpy2(void *dest, const void *src, size_t count)` |
+| 行为 | 前向逐 byte；返回 dest；count=0 不访问指针；overlap 不处理（table[4] 才是 `memmove2`） |
+| bridge | `aex_t003`：`arm_ptr_span` + `arm_ext_guest_memcpy`；写回 R0=dst |
+| LIVE | R0=`0x01e7ff34` R1=`0x00205864` R2=4；4 bytes LE 9 = directory filename len；返回值立即被覆盖 |
+| confidence | identity/LIVE/返回值/overlap=no **CONFIRMED**。见 `docs/stage5c10l-progress.md` |
+
+### table[10] strcmp2（5-C.10L 只读取证，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[10] = (void*)strcmp2` |
+| C | `int strcmp2(const char *cs, const char *ct)`；不等 -1/1，等 0 |
+| 下一段 LIVE | R0=`res_lang0.rc` R1=TempName；`CMP r0,#0` **使用** 返回值 |
+| confidence | identity/signature/callsite **CONFIRMED** |
+
+### table[1] mr_free（5-C.10L 只读取证，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[1] = (void*)asm_mr_free`；`fixR9.h` `#define asm_mr_free mr_free` |
+| C | `void mr_free(void *p, uint32 len)`；NULL/invalid 打印后 return |
+| wrap | 本 pack `0x01ea7ab4`：`p-4`、`len=[p]+4` 再调 table[1] |
+| confidence | 签名/wrap **CONFIRMED**。bump 回收 **未闭环** → 不与 3/10 同 stage |
+
 ---
 
 ## 16. 计数（证据条目）

@@ -70,6 +70,15 @@ export {
   type FileChainReport,
 } from "./filechain.ts";
 export {
+  MEMCPY3,
+  memcpy2Forward,
+  rangesOverlap,
+  renderMemcpy3Markdown,
+  runMemcpy3Forensics,
+  scanMrTableSlotCalls,
+  type Memcpy3Report,
+} from "./memcpy3.ts";
+export {
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

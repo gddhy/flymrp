@@ -30,6 +30,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `file-chain-forensics.test.ts` is Stage 5-C.10J：`_mr_readFile` pack-file ABI 静态链与只读 handle 设计。5-C.10K 已实现 40/44/45/41。
 
+`memcpy-3-forensics.test.ts` is Stage 5-C.10L：table[3] `memcpy2` LIVE ABI 与 directory loop 后续 slot。**未实现** table[3]/[10]/[1]。
+
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
 `gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.

@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 3`）。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。见 `docs/stage5c10k-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 3`）。5-C.10L：table[3] memcpy2 只读取证，未实现。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。见 `docs/stage5c10l-progress.md`。
 
 ## Lua execution
 

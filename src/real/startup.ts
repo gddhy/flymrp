@@ -5,6 +5,7 @@
  * + table[100] pack_filename 128-byte data slot
  * + table[40]/[44]/[45]/[41] current-pack read-only file alias.
  * No cbRet bypass. No table[1] free / table[3] memcpy / table[10] strcmp.
+ * 5-C.10L forensics only (`src/real/memcpy3.ts`); production still stops at 3.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
 import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, MR_MAX_FILENAME_SIZE, PACK_FILENAME_SLOT, tableSlotIndex } from "../abi/layout.ts";
