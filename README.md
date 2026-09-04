@@ -2,7 +2,8 @@
 
 Browser-native Mythroad MRP runtime.
 
-Stage 5-C.10L（当前）：`table[3]` memcpy2 ABI + directory loop 只读取证，**未实现**。生产仍停在 `table[3]`。见 `docs/stage5c10l-progress.md`。  
+Stage 5-C.10M（当前）：实现 `table[3]` memcpy2（前向逐 byte，非 memmove）+ `table[10]` strcmp2（-1/0/1）。**未实现** `table[1]` mr_free。生产停在 `table[1]`。见 `docs/stage5c10m-progress.md`。  
+Stage 5-C.10L：`table[3]` memcpy2 ABI + directory loop 只读取证，当时**未实现**。当时生产停在 `table[3]`。见 `docs/stage5c10l-progress.md`。  
 Stage 5-C.10K：实现 current-pack 只读 file backend（table[40]/[44]/[45]/[41]）。当时生产停在 `table[3]` memcpy。见 `docs/stage5c10k-progress.md`。  
 Stage 5-C.10J：current-pack file ABI 只读取证 + 只读 handle 设计。当时**未实现** table[40]/41+。当时生产停在 `table[40]`。见 `docs/stage5c10j-progress.md`。  
 Stage 5-C.10I：实现 `table[100]` / `pack_filename` 128-byte data slot。当时生产停在 `table[40]`；LIVE filename 为 `"gssjxz.mrp"`。见 `docs/stage5c10i-progress.md`。  

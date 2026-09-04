@@ -462,7 +462,7 @@ export function renderMemcpy3Markdown(r: Memcpy3Report): string {
     "# table[3] memcpy2 forensics (5-C.10L)",
     "",
     `- handlers 40/44/45/41: ${r.handler40}/${r.handler44}/${r.handler45}/${r.handler41}`,
-    `- handlers 3/10/1: ${r.handler3}/${r.handler10}/${r.handler1} (must stay unimplemented)`,
+    `- handlers 3/10/1: ${r.handler3}/${r.handler10}/${r.handler1} (1 stays unimplemented)`,
     `- production/probe: ${r.productionThrown} / ${r.probeThrown}`,
     `- stub PC ${hx(c.pc)} LR ${hx(c.lr)} SP ${hx(c.sp)} CPSR ${hx(c.cpsr)} t=${c.tBit} insn=${c.insnCount}`,
     `- R0 dst ${hx(c.r[0]!)} R1 src ${hx(c.r[1]!)} R2 count ${c.r[2]} R3 ${hx(c.r[3]!)}`,
@@ -474,8 +474,8 @@ export function renderMemcpy3Markdown(r: Memcpy3Report): string {
     `- table3 callsites ${r.table3Calls.length} (readFile ${r.table3Calls.filter((x) => x.inReadFile).length})`,
     `- table10 callsites ${r.table10Calls.length} (readFile ${r.table10Calls.filter((x) => x.inReadFile).length})`,
     `- table1 callsites ${r.table1Calls.length}`,
-    `- next unimplemented in directory loop: table3 → table3 → table10 → … → table1`,
-    `- decision: ${r.decision} (implement 3+10 next; keep 1 separate)`,
+    `- directory loop after first table3: table3 → table10 → … → table1`,
+    `- decision: ${r.decision} (3+10 implemented in 5-C.10M; keep 1 separate)`,
     `- Stage 5-D: NOT STARTED`,
   ];
   return lines.join("\n");

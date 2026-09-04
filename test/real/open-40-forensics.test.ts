@@ -20,8 +20,8 @@ describe("5-C.10H table[40] / mr_open forensics", () => {
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
     expect(r.handler40).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.decision).toBe("B");
 

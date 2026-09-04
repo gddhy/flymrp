@@ -53,9 +53,9 @@ describe("5-C.1 compatibility gate", () => {
     expect(r.inspect?.format).toBe("MRPG");
     expect(r.inspect?.entry).toBe("start.mr");
     expect(r.startup).toBe("fail");
-    expect(r.failure?.message).toMatch(/UNKNOWN_REQUIRED_SLOT = 3/);
+    expect(r.failure?.message).toMatch(/UNKNOWN_REQUIRED_SLOT = 1/);
     expect(r.nativeAbi.unknown).toEqual([
-      expect.objectContaining({ family: "mr_table", code: 3, message: "UNKNOWN_REQUIRED_SLOT = 3" }),
+      expect.objectContaining({ family: "mr_table", code: 1, message: "UNKNOWN_REQUIRED_SLOT = 1" }),
     ]);
   });
 

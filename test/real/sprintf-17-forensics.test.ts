@@ -7,15 +7,15 @@ import { SPRINTF17, runSprintf17Forensics } from "../../src/real/sprintf17.ts";
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10F table[17] / sprintf_ forensics", () => {
-  it("LIVE %d is R2; handler[17] present; production continues past 17 through file ABI to table[3]", () => {
+  it("LIVE %d is R2; handler[17] present; production continues past 17 through file ABI to table[1]", () => {
     const r = runSprintf17Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
     expect(r.owner).toBe("gssjxz.mrp");
 
     expect(r.cpu.pc).toBe(SPRINTF17.stub);

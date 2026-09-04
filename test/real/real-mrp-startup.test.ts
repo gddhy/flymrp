@@ -9,8 +9,12 @@ import { REAL_MRP_BASELINE, runRealMrpStartup } from "../../src/real/startup.ts"
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const REAL_SHA = "77487205cd4db95fcf104392d9cc692ab122b06f7a04e14f49899277d9ac4263";
 
-describe("5-C.10K real MRP startup after current-pack read-only file backend", () => {
-  it("REAL_EXECUTED table40/44/45 raw MRP stream; stops at table[3] memcpy", () => {
+const HITS_TO_TABLE1 = [
+  25, 0, 125, 25, 0, 14, 130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3, 3, 10, 3, 3, 10, 3, 3, 10, 3, 3, 1,
+] as const;
+
+describe("5-C.10M real MRP startup after memcpy2/strcmp2", () => {
+  it("REAL_EXECUTED table3/10 directory scan; stops at table[1] mr_free", () => {
     expect(existsSync(REAL_APP)).toBe(true);
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runRealMrpStartup(bytes, { path: REAL_APP, consistencyRuns: 5 });
@@ -19,7 +23,7 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
     expect(r.mrp.package).toBe("gssjxz.mrp");
     expect(r.lua.realStartMrLoaded).toBe(true);
     expect(r.lua.exception?.isLuaVmError).toBe(false);
-    expect(r.lua.exception?.message).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.lua.exception?.message).toBe("UNKNOWN_REQUIRED_SLOT = 1");
     expect(r.lua.strCom.map((s) => [s.code, s.extra, s.ok])).toEqual([
       [601, 0, true],
       [800, 0, true],
@@ -51,9 +55,7 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
     expect(r.execution.table33Store).toBe(0);
     expect(r.execution.init2Reached).toBe(false);
     expect(r.mrTable.hits.every((h) => h.status !== "FORENSIC_BYPASSED")).toBe(true);
-    expect(r.mrTable.hits.map((h) => h.slot)).toEqual([
-      25, 0, 125, 25, 0, 14, 130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3,
-    ]);
+    expect(r.mrTable.hits.map((h) => h.slot)).toEqual([...HITS_TO_TABLE1]);
 
     const h17 = r.mrTable.hits.find((h) => h.slot === 17);
     expect(h17?.status).toBe("REAL_EXECUTED");
@@ -113,9 +115,15 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
     expect(bySlot[41]!.status).toBe("NOT_EXECUTED");
     expect(bySlot[41]!.guestReached).toBe(false);
     expect(bySlot[41]!.handlerPresent).toBe(true);
-    expect(bySlot[3]!.status).toBe("NOT_EXECUTED");
+    expect(bySlot[3]!.status).toBe("REAL_EXECUTED");
     expect(bySlot[3]!.guestReached).toBe(true);
-    expect(bySlot[3]!.handlerPresent).toBe(false);
+    expect(bySlot[3]!.handlerPresent).toBe(true);
+    expect(bySlot[10]!.status).toBe("REAL_EXECUTED");
+    expect(bySlot[10]!.guestReached).toBe(true);
+    expect(bySlot[10]!.handlerPresent).toBe(true);
+    expect(bySlot[1]!.status).toBe("NOT_EXECUTED");
+    expect(bySlot[1]!.guestReached).toBe(true);
+    expect(bySlot[1]!.handlerPresent).toBe(false);
 
     expect(r.mrTable.handlers).toEqual([
       { slot: 0, present: true },
@@ -130,7 +138,9 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
       { slot: 44, present: true },
       { slot: 45, present: true },
       { slot: 41, present: true },
-      { slot: 3, present: false },
+      { slot: 3, present: true },
+      { slot: 10, present: true },
+      { slot: 1, present: false },
     ]);
 
     expect(r.execution.cpu33?.pc).toBe(REAL_MRP_BASELINE.stub33);
@@ -144,23 +154,23 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
     expect(r.execution.cpu17?.r3).toBe(REAL_MRP_BASELINE.stub17);
     expect(r.execution.cpu17?.insnCount).toBe(183);
 
-    expect(r.execution.cpu?.pc).toBe(REAL_MRP_BASELINE.stub3);
-    expect(r.execution.cpu?.r0).toBe(0x01e7ff34);
-    expect(r.execution.cpu?.r1).toBe(0x00205864);
-    expect(r.execution.cpu?.r2).toBe(4);
+    expect(r.execution.cpu?.pc).toBe(REAL_MRP_BASELINE.stub1);
+    expect(r.execution.cpu?.r0).toBe(0x00206de0);
+    expect(r.execution.cpu?.r1).toBe(132);
+    expect(r.execution.cpu?.r2).toBe(REAL_MRP_BASELINE.stub1);
     expect(r.execution.cpu?.r3).toBe(REAL_MRP_BASELINE.stub3);
     expect(r.execution.cpu?.r5).toBe(1);
     expect(r.execution.cpu?.r6).toBe(REAL_MRP_BASELINE.sprintfBuffer);
     expect(r.execution.cpu?.r7).toBe(0x00206de4);
     expect(r.execution.cpu?.r9).toBe(REAL_MRP_BASELINE.erRw);
-    expect(r.execution.cpu?.lr).toBe(0x01ea8f55);
-    expect(r.execution.cpu?.sp).toBe(0x01e7ff08);
+    expect(r.execution.cpu?.lr).toBe(0x01ea7ac7);
+    expect(r.execution.cpu?.sp).toBe(0x01e7ff00);
     expect(r.execution.cpu?.cpsr).toBe(0x00000010);
-    expect(r.execution.cpu?.insnCount).toBe(332);
+    expect(r.execution.cpu?.insnCount).toBe(507);
 
-    expect(r.stop.reason).toBe("UNKNOWN_REQUIRED_SLOT = 3");
-    expect(r.stop.slot).toBe(3);
-    expect(r.stop.pc).toBe(REAL_MRP_BASELINE.stub3);
+    expect(r.stop.reason).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.stop.slot).toBe(1);
+    expect(r.stop.pc).toBe(REAL_MRP_BASELINE.stub1);
     expect(r.stop.owner).toBe("gssjxz.mrp");
 
     expect(r.progress.map((p) => [p.stage, p.status])).toEqual([
@@ -180,24 +190,28 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
       ["table44", "PASS"],
       ["table45", "PASS"],
       ["table41", "NOT REACHED"],
-      ["table3", "BLOCKED"],
+      ["table3", "PASS"],
+      ["table10", "PASS"],
+      ["table1", "BLOCKED"],
     ]);
 
     expect(r.baseline.deterministic).toBe(true);
-    expect(r.baseline.firstProductionBlocker).toBe("table[3]");
-    expect(r.baseline.firstPost130Blocker).toBe("table[3]");
+    expect(r.baseline.firstProductionBlocker).toBe("table[1]");
+    expect(r.baseline.firstPost130Blocker).toBe("table[1]");
     expect(r.forensicPrior.table130).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table38).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table33).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table17).toBe("REAL_EXECUTED");
+    expect(r.forensicPrior.table3).toBe("REAL_EXECUTED");
+    expect(r.forensicPrior.table10).toBe("REAL_EXECUTED");
     expect(r.consistency.runs).toBe(5);
     expect(r.consistency.mismatches).toEqual([]);
     const fp = r.consistency.fingerprints[0]!;
-    expect(fp.firstUnknownSlot).toBe(3);
-    expect(fp.stopPc).toBe(REAL_MRP_BASELINE.stub3);
-    expect(fp.armInsnCount).toBe(332);
+    expect(fp.firstUnknownSlot).toBe(1);
+    expect(fp.stopPc).toBe(REAL_MRP_BASELINE.stub1);
+    expect(fp.armInsnCount).toBe(507);
     expect(fp.luaInsnCount).toBe(71);
-    expect(fp.tableSlots).toEqual([25, 0, 125, 25, 0, 14, 130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3]);
+    expect(fp.tableSlots).toEqual([...HITS_TO_TABLE1]);
     expect(fp.table33Return).toBe(0);
     expect(fp.erRwPlus4358).toBe(0);
     expect(fp.sprintfFilename).toBe(REAL_MRP_BASELINE.sprintfExpected);
@@ -249,6 +263,51 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
     expect(r.mrTable.hits.some((h) => h.slot === 41)).toBe(false);
     expect(r.execution.file.reached41).toBe(false);
     expect(r.mrp.size).toBe(REAL_MRP_BASELINE.archiveBytes);
+
+    const first3 = r.execution.memcpy3[0];
+    expect(first3).toMatchObject({
+      dst: 0x01e7ff34,
+      src: 0x00205864,
+      count: 4,
+      ret: 0x01e7ff34,
+    });
+    expect(first3!.srcBytes.slice(0, 4)).toEqual([9, 0, 0, 0]);
+    expect(first3!.dstBytes.slice(0, 4)).toEqual([9, 0, 0, 0]);
+
+    const name3 = r.execution.memcpy3[1];
+    expect(name3).toMatchObject({
+      dst: 0x00206de4,
+      src: 0x00205868,
+      count: 9,
+      ret: 0x00206de4,
+    });
+    expect(String.fromCharCode(...name3!.dstBytes.slice(0, 8))).toBe("start.mr");
+    expect(name3!.dstBytes[8]).toBe(0);
+
+    expect(r.execution.strcmp10).toEqual([
+      { filename: "res_lang0.rc", tempName: "start.mr", ret: -1 },
+      { filename: "res_lang0.rc", tempName: "mrc_loader.ext", ret: 1 },
+      { filename: "res_lang0.rc", tempName: "res_lang0.rc", ret: 0 },
+    ]);
+    expect(r.execution.directory).toMatchObject({
+      names: ["start.mr", "mrc_loader.ext", "res_lang0.rc"],
+      visited: 3,
+      matchedName: "res_lang0.rc",
+      filePos: 7065,
+      fileLen: 17174,
+      archiveOffset: 7065,
+      archiveLength: 17174,
+      posLenMatch: true,
+    });
+    expect(r.execution.table1).toMatchObject({
+      r0: 0x00206de0,
+      r1: 132,
+      headerWord: 128,
+      userPtr: 0x00206de4,
+      returnConsumer: "none / not executed",
+    });
+    expect(r.mrTable.hits.filter((h) => h.slot === 3)).toHaveLength(8);
+    expect(r.mrTable.hits.filter((h) => h.slot === 10)).toHaveLength(3);
   });
 
   it("advance(N) before start stores N at ER_RW+0x4358 without changing baseline order", () => {
@@ -262,9 +321,9 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
       rt.start("start.mr");
       throw new Error("should stop");
     } catch (e) {
-      expect(e).toMatchObject({ message: "UNKNOWN_REQUIRED_SLOT = 3" });
+      expect(e).toMatchObject({ message: "UNKNOWN_REQUIRED_SLOT = 1" });
     }
-    expect(rt.unknownRequiredSlot).toBe(3);
+    expect(rt.unknownRequiredSlot).toBe(1);
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(1234);
@@ -292,11 +351,11 @@ describe("5-C.10K real MRP startup after current-pack read-only file backend", (
       rt.loadMrp(bytes);
       rt.start("start.mr");
     } catch {
-      /* UNKNOWN 3 */
+      /* UNKNOWN 1 */
     }
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(0);
-    expect(rt.unknownRequiredSlot).toBe(3);
+    expect(rt.unknownRequiredSlot).toBe(1);
   });
 });

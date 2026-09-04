@@ -101,4 +101,8 @@ export const IMPLEMENTED_C = [
   "mr_table/44/read",
   "mr_table/45/seek",
   "mr_table/41/close",
+  // Forward byte-copy. Not memmove. count==0 does not touch pointers.
+  "mr_table/3/memcpy2",
+  // Guest byte-string compare. unsigned char. Returns -1/0/1.
+  "mr_table/10/strcmp2",
 ] as const;

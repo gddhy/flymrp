@@ -13,8 +13,8 @@ describe("5-C.9 table[38] / asm_mr_platEx forensics", () => {
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 1");
     expect(r.skipped130With).toBe(0);
     expect(r.init2Reached).toBe(false);
 

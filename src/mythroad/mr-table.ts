@@ -36,7 +36,8 @@ export type ReadFileRecord = {
 /**
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
  * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
- * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias.
+ * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias /
+ * `[3]` `memcpy2` / `[10]` `strcmp2`.
  * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
  * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
  */
@@ -68,6 +69,8 @@ export class MrTableBridge {
 
   install(): void {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
+    this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
+    this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
@@ -207,6 +210,22 @@ export class MrTableBridge {
     return dst;
   }
 
+  /**
+   * `memcpy2(dest, src, count)` — mythroad.c `_mr_c_function_table[3]`.
+   * Forward byte copy. Not memmove. count==0 does not touch pointers.
+   */
+  memcpy(mem: GuestMemory, dest: number, src: number, count: number): number {
+    return memcpy2(mem, dest, src, count);
+  }
+
+  /**
+   * `strcmp2(cs, ct)` — mythroad.c `_mr_c_function_table[10]`.
+   * unsigned-char byte compare. Returns -1 / 0 / 1.
+   */
+  strcmp(mem: GuestMemory, cs: number, ct: number): number {
+    return strcmp2(mem, cs, ct);
+  }
+
   malloc(size: number): number {
     const want = size >>> 0;
     if (want === 0) return 0;
@@ -253,6 +272,40 @@ export class MrTableBridge {
   private noteRead(rec: ReadFileRecord): void {
     this.reads.push(rec);
     this.hooks.onRead?.(rec);
+  }
+}
+
+/**
+ * rxgj `string.c` `memcpy2`. Forward `read8` then `write8` per byte.
+ * Overlap is guest-visible self-overwrite, not memmove / TypedArray.set.
+ * `count === 0` returns dest without accessing either pointer.
+ */
+export function memcpy2(mem: GuestMemory, dest: number, src: number, count: number): number {
+  const dst = dest >>> 0;
+  const from = src >>> 0;
+  const n = count >>> 0;
+  if (n === 0) return dst;
+  for (let i = 0; i < n; i++) {
+    const b = mem.read8((from + i) >>> 0);
+    mem.write8((dst + i) >>> 0, b);
+  }
+  return dst;
+}
+
+/**
+ * rxgj `string.c` `strcmp2`. Loads into `unsigned char`, returns -1 / 0 / 1.
+ * Stops at the first difference or NUL. Does not decode UTF-8 / locale.
+ */
+export function strcmp2(mem: GuestMemory, cs: number, ct: number): number {
+  let a = cs >>> 0;
+  let b = ct >>> 0;
+  for (;;) {
+    const c1 = mem.read8(a) & 0xff;
+    const c2 = mem.read8(b) & 0xff;
+    a = (a + 1) >>> 0;
+    b = (b + 1) >>> 0;
+    if (c1 !== c2) return c1 < c2 ? -1 : 1;
+    if (c1 === 0) return 0;
   }
 }
 

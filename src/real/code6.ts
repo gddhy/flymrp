@@ -744,7 +744,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[3] memcpy (rxgj mythroad.c); not implemented this stage",
+      "table[1] mr_free (rxgj mythroad.c); not implemented this stage",
       "table[40]/[44]/[45] current-pack RDONLY file ABI is implemented; table[41] not reached yet",
       "ER_RW 19952-byte Image$$ layout",
     ],
