@@ -60,6 +60,16 @@ export {
   type Open40Report,
 } from "./open40.ts";
 export {
+  FILECHAIN,
+  FILE_SLOT_INVENTORY,
+  MINIMAL_STARTUP_FILE_SLOTS,
+  renderFileChainMarkdown,
+  runFileChainForensics,
+  specReadCount,
+  specSeek,
+  type FileChainReport,
+} from "./filechain.ts";
+export {
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

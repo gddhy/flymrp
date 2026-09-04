@@ -28,6 +28,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 未注册。5-C.10I 后 LIVE R0 为 pack filename，不再是空串。
 
+`file-chain-forensics.test.ts` is Stage 5-C.10J：`_mr_readFile` pack-file ABI 静态链与只读 handle 设计。不注册 table[40]/41+。
+
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
 `gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.

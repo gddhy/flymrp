@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`；table[40] 仍未实现。见 `docs/stage5c10i-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10J：file ABI 静态链已取证，未实现 table[40]/41+。见 `docs/stage5c10j-progress.md`。
 
 ## Lua execution
 

@@ -2,7 +2,8 @@
 
 Browser-native Mythroad MRP runtime.
 
-Stage 5-C.10I（当前）：实现 `table[100]` / `pack_filename` 128-byte data slot。生产仍停在 `table[40]`；LIVE filename 为 `"gssjxz.mrp"`。见 `docs/stage5c10i-progress.md`。  
+Stage 5-C.10J（当前）：current-pack file ABI 只读取证 + 只读 handle 设计。**未实现** table[40]/41+。生产仍停在 `table[40]`。见 `docs/stage5c10j-progress.md`。  
+Stage 5-C.10I：实现 `table[100]` / `pack_filename` 128-byte data slot。当时生产停在 `table[40]`；LIVE filename 为 `"gssjxz.mrp"`。见 `docs/stage5c10i-progress.md`。  
 Stage 5-C.10H：`table[40]` / `mr_open` 只读取证，**未实现**。当时空 filename 来自未写入的 `table[100]`。见 `docs/stage5c10h-progress.md`。  
 Stage 5-C.10G：`table[17]` / `sprintf_` 仅 **literal + `%d`**。当时生产停在 `table[40]`。见 `docs/stage5c10g-progress.md`。  
 Stage 5-C.10F：`table[17]` / `sprintf_` 只读取证，当时未实现。当时生产停在 `table[17]`。见 `docs/stage5c10f-progress.md`。  

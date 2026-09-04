@@ -318,8 +318,19 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | return | 成功正整数 handle；失败 **0**（不是 `MR_FAILED`） |
 | LIVE | stub `0x000100a0`；`r0=0x00200058` = `table[100]` `"gssjxz.mrp"`；`r1=1`；R6 仍是 `"res_lang0.rc"` |
 | provenance | guest `_mr_readFile` 打开 pack 路径，不是资源名。`table[100]` 现为 128-byte `pack_filename`，bindExt 时写入 `packName` |
-| 决策 | **情况 B 已完成 producer。** 本阶段仍 **不**实现 table[40] |
-| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现 `mr_open`。见 `docs/stage5c10i-progress.md` |
+| 决策 | **情况 B 已完成 producer。** 5-C.10J 仍 **不**实现 table[40]；静态下一 file slot 是 44 |
+| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现 `mr_open`。见 `docs/stage5c10j-progress.md` |
+
+### table[44]/[45]/[41] file ABI（5-C.10J 只读取证，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
+| C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
+| LIVE | 未续跑。生产停在 table[40] |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → seek SET → read payload → close。不用 info/getLen |
+| 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
+| confidence | wrapper/slot/C 对照 **CONFIRMED**。handle backend **未实现** |
 
 ### table[100] pack_filename（5-C.10I 已实现 data slot）
 
