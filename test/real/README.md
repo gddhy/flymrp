@@ -6,7 +6,7 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `test/fixtures/real/app.mrp` is a user-supplied unprotected MRP. Gate on that file is **INSPECTED**, not real-app green. `runCompatibilityGate()` with no bytes is still `REAL_BINARY_BLOCKED`.
 
-`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[40]`.
+`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[3]`.
 
 `cfunction-init.test.ts` is the isolated cfunction load: BLX → table[25] → table[14] memset zeros ER_RW.
 
@@ -24,11 +24,11 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `platex-38-abi.test.ts` is Stage 5-C.10C isolated ABI: platEx code 0x4c6 only.
 
-`real-mrp-startup.test.ts` is Stage 5-C.10I：真实 `app.mrp` 生产启动。`table[100]` pack_filename 已写入；table[17] `sprintf_` literal+`%d` REAL_EXECUTED，停在 table[40] `asm_mr_open`。No forensic bypass。
+`real-mrp-startup.test.ts` is Stage 5-C.10K：真实 `app.mrp` 生产启动。table[40]/[44]/[45] current-pack RDONLY **REAL_EXECUTED**（`archive.data`），停在 table[3] memcpy。No forensic bypass。
 
-`open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 未注册。5-C.10I 后 LIVE R0 为 pack filename，不再是空串。
+`open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 现已注册（5-C.10K）。LIVE R0 为 pack filename。
 
-`file-chain-forensics.test.ts` is Stage 5-C.10J：`_mr_readFile` pack-file ABI 静态链与只读 handle 设计。不注册 table[40]/41+。
+`file-chain-forensics.test.ts` is Stage 5-C.10J：`_mr_readFile` pack-file ABI 静态链与只读 handle 设计。5-C.10K 已实现 40/44/45/41。
 
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 

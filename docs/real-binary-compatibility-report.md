@@ -31,17 +31,17 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10J：file ABI 静态链已取证，未实现 table[40]/41+。见 `docs/stage5c10j-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 3`）。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。见 `docs/stage5c10k-progress.md`。
 
 ## Lua execution
 
-fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[17] `sprintf_` 后停在 table[40] `asm_mr_open`
+fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[40]/[44]/[45] current-pack file ABI 后停在 table[3] memcpy
 
 ## Native ABI
 
 - confirmed calls: `_com(3629,2913)`，`GetSysInfo`，`_strCom(601/800/801)`，`string.unpack("II")`
 - unknown calls: **none**（Lua）
-- unknown required slot: **40**（`asm_mr_open`；LIVE 到达，host 未实现。table[17] `sprintf_` literal+`%d` / table[33] `mr_getTime` / table[38] code 0x4c6 / table[130] case 7 已实现）
+- unknown required slot: **3**（memcpy；LIVE 到达，host 未实现。table[40]/[44]/[45] current-pack RDONLY / table[17] `sprintf_` literal+`%d` / table[33] `mr_getTime` / table[38] code 0x4c6 / table[130] case 7 已实现）
 
 ## EXT
 
@@ -50,7 +50,7 @@ fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[17] `sprintf_` 后
 - `arm_ext_call(1)`：kind=return，r0=0；table[0] 分配 8B guest；table[125] 读 `cfunction.ext` 220596B 进 guest
 - `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200178` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
 - `arm_ext_call(6)`：kind=**return**，r0=0（guest helper `0x01ea5e9d`；未实现 host helper）
-- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40] **STOP**
+- `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] **STOP**
 
 ## VFS
 

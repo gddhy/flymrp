@@ -168,6 +168,8 @@ export class MythroadRuntime {
     this.vfs.attach(this.archive);
     this.packName = this.archive.header.filename || "app.mrp";
     this.ext?.setPackTableName(this.packName);
+    // Old current-pack handles must not silently alias a newly loaded archive.
+    this.mrTable?.files.reset();
     return this.archive;
   }
 
@@ -292,6 +294,7 @@ export class MythroadRuntime {
     const owner = this.packName || "ext";
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       getClock: () => this.clock,
+      getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
       onUnknownSlot: (n) => {

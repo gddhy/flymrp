@@ -12,16 +12,16 @@ import {
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10H table[40] / mr_open forensics", () => {
-  it("LIVE filename is table[100] pack_filename; res_lang0.rc stays in R6; slot 40 stays unimplemented", () => {
+  it("LIVE filename is table[100] pack_filename; res_lang0.rc stays in R6; slot 40 is implemented", () => {
     const r = runOpen40Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
-    expect(r.handler40).toBe(false);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
+    expect(r.handler40).toBe(true);
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.decision).toBe("B");
 

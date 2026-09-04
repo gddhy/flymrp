@@ -18,12 +18,12 @@ import { FILE_ABI_SLOTS, OPEN40 } from "../../src/real/open40.ts";
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10J current-pack file ABI forensics", () => {
-  it("static CFG after table[40] is read/seek/close; production still stops at 40", () => {
+  it("static CFG after table[40] is read/seek/close; production now stops at table[3]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFileChainForensics(bytes);
 
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
     expect(r.packName).toBe("gssjxz.mrp");
     expect(r.packFilenameAt40).toBe("gssjxz.mrp");
     expect(r.resourceNameAt40).toBe(OPEN40.sprintfText);
@@ -32,10 +32,10 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     expect(r.entryR1).toBe(OPEN40.sprintfBuf);
     expect(r.lookfor).toBe(0);
 
-    expect(r.handlers[40]).toBe(false);
-    expect(r.handlers[41]).toBe(false);
-    expect(r.handlers[44]).toBe(false);
-    expect(r.handlers[45]).toBe(false);
+    expect(r.handlers[40]).toBe(true);
+    expect(r.handlers[41]).toBe(true);
+    expect(r.handlers[44]).toBe(true);
+    expect(r.handlers[45]).toBe(true);
     for (const s of NOT_REQUIRED_STARTUP_FILE_SLOTS) expect(r.handlers[s]).toBe(false);
     expect(r.handlers[14]).toBe(true);
     expect(r.handlers[0]).toBe(true);

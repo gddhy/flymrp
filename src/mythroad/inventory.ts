@@ -95,4 +95,10 @@ export const IMPLEMENTED_C = [
   // (MythroadRuntime.packName) with rxgj arm_ext_set_pack_table_name
   // memset+snprintf semantics. Not a function ABI / filesystem API.
   "mr_table/100/pack_filename",
+  // Deterministic read-only virtual file alias for the currently loaded
+  // MRP container. Other filenames and write modes remain unsupported.
+  "mr_table/40/current-pack/RDONLY",
+  "mr_table/44/read",
+  "mr_table/45/seek",
+  "mr_table/41/close",
 ] as const;

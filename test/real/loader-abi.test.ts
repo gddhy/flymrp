@@ -7,14 +7,14 @@ import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace } from "../../src/my
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.5 real loader chain", () => {
-  it("cfunction load + code 6 return, then stops at table[40]", () => {
+  it("cfunction load + code 6 return, then stops at table[3]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const tr = new RuntimeTrace();
     const rt = new MythroadRuntime({ graphics: new NullGraphicsBackend(), trace: tr, abiMode: "strict" });
     rt.loadMrp(bytes);
     expect(() => rt.start("start.mr")).toThrow(UnknownAbiError);
-    expect(rt.unknownRequiredSlot).toBe(40);
-    expect(rt.unknownEvents.some((e) => e.family === "mr_table" && e.code === 40)).toBe(true);
+    expect(rt.unknownRequiredSlot).toBe(3);
+    expect(rt.unknownEvents.some((e) => e.family === "mr_table" && e.code === 3)).toBe(true);
 
     const cf = rt.mrReads.find((r) => r.name === "cfunction.ext" && r.lookfor === 0);
     expect(cf).toBeTruthy();

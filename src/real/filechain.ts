@@ -1,7 +1,7 @@
 /**
- * Stage 5-C.10J — current-pack file ABI forensics + read-only handle design.
- * Read-only. Does not register table[40]/41+/file handles.
- * Production still stops at table[40]. Stage 5-D is not started.
+ * Stage 5-C.10J — `_mr_readFile` pack-file ABI forensics (static CFG).
+ * Production 5-C.10K implements 40/44/45/41; this probe still records LIVE handlers.
+ * Stage 5-D is not started.
  */
 import { EXT_CODE_ADDR, tableSlotIndex } from "../abi/layout.ts";
 import { ExtRuntime } from "../abi/runtime.ts";

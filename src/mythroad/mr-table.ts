@@ -3,6 +3,7 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { MR_SUCCESS } from "./constants.ts";
+import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
 import { aapcsSprintfVararg, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
 
@@ -34,13 +35,15 @@ export type ReadFileRecord = {
 
 /**
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
- * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only).
+ * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
+ * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias.
  * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
  * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
  */
 export class MrTableBridge {
   readonly allocs: AllocRecord[] = [];
   readonly reads: ReadFileRecord[] = [];
+  readonly files: CurrentPackFileBackend;
   unknownRequiredSlot: number | null = null;
   /**
    * Isolated-test clock when `hooks.getClock` is absent.
@@ -57,8 +60,11 @@ export class MrTableBridge {
       onAlloc?: (rec: AllocRecord) => void;
       onRead?: (rec: ReadFileRecord) => void;
       getClock?: () => number;
+      getPack?: () => PackFileSource | null;
     } = {},
-  ) {}
+  ) {
+    this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null);
+  }
 
   install(): void {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
@@ -68,6 +74,10 @@ export class MrTableBridge {
     this.ext.registerHandler(38, (_cpu, _mem, args) => this.platEx(args));
     this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
+    this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
+    this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
+    this.ext.registerHandler(44, (_cpu, mem, args) => this.files.read(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
+    this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -171,6 +181,19 @@ export class MrTableBridge {
       code,
       caller: "ext",
     });
+  }
+
+  /**
+   * table[40] = `asm_mr_open` = `mr_open`.
+   *
+   * `int32 mr_open(const char *filename, uint32 mode)`.
+   *
+   * Only `filename === current packName` and `mode === MR_FILE_RDONLY` (1)
+   * are implemented. Other names/modes are unsupported flymrp ABI
+   * (`UnknownAbiError`), not a guest-visible open failure (0).
+   */
+  open(mem: GuestMemory, nameAddr: number, mode: number): number {
+    return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
   }
 
   /**

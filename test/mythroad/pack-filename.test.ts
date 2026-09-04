@@ -47,7 +47,7 @@ describe("5-C.10I table[100] / pack_filename data slot", () => {
     new MrTableBridge(ext, new MythroadVfs(), "pack").install();
     expect(ext.table.handlers[PACK_FILENAME_SLOT]).toBeNull();
     expect(ext.table.isExec(PACK_FILENAME_SLOT)).toBe(false);
-    expect(ext.table.handlers[40]).toBeNull();
+    expect(ext.table.handlers[40]).toBeTruthy();
     expect(ext.table.handlers[17]).toBeTruthy();
   });
 

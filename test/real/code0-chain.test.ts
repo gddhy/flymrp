@@ -7,15 +7,15 @@ import { CODE0_CHAIN, runCode0ChainForensics } from "../../src/real/code0chain.t
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.8 mrc_init successor BLX / mr_table", () => {
-  it("after REAL_EXECUTED table[130], table[38] platEx runs; next unknown is table[40]; 0x01ea9254 is not reached", () => {
+  it("after REAL_EXECUTED table[130], table[38] platEx runs; next unknown is table[3]; 0x01ea9254 is not reached", () => {
     const r = runCode0ChainForensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 40");
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 3");
     expect(r.skipped130With).toBe(0);
-    expect(r.code0Slots).toEqual([130, 14, 38, 33, 17, 40]);
+    expect(r.code0Slots).toEqual([130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3]);
     expect(r.init2Reached).toBe(false);
 
     expect(r.extWord0).toBe(0x00010000);

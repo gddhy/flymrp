@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）。5-C.10I：LIVE filename = `"gssjxz.mrp"`（`table[100]`）。见 5-C.10I |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 3`（memcpy 未实现）。5-C.10K：table[40]/[44]/[45] current-pack RDONLY **REAL_EXECUTED**，读 `archive.data`。见 5-C.10K |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40] **STOP** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3] **STOP** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -308,29 +308,28 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | pack | 12 个 ER_RW+0x5c callsite；本次 LIVE 只需 `%d`；STATIC 另有 `%s`（未实现） |
 | confidence | 身份/AAPCS/LIVE `%d` 写入 **CONFIRMED**。见 `docs/stage5c10g-progress.md` |
 
-### table[40] asm_mr_open（5-C.10H 只读取证，未实现）
+### table[40] asm_mr_open（5-C.10K：仅 current-pack RDONLY）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[40] = asm_mr_open`；`fixR9.h` `#define asm_mr_open mr_open` |
 | C | `int32 mr_open(const char *filename, uint32 mode)` |
 | mode | `MR_FILE_RDONLY=1`（LIVE R1）。不是 POSIX `O_RDONLY=0` |
-| return | 成功正整数 handle；失败 **0**（不是 `MR_FAILED`） |
-| LIVE | stub `0x000100a0`；`r0=0x00200058` = `table[100]` `"gssjxz.mrp"`；`r1=1`；R6 仍是 `"res_lang0.rc"` |
-| provenance | guest `_mr_readFile` 打开 pack 路径，不是资源名。`table[100]` 现为 128-byte `pack_filename`，bindExt 时写入 `packName` |
-| 决策 | **情况 B 已完成 producer。** 5-C.10J 仍 **不**实现 table[40]；静态下一 file slot 是 44 |
-| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现 `mr_open`。见 `docs/stage5c10j-progress.md` |
+| flymrp | 仅 `filename === packName` 且 `mode === 1` → 正整数 handle，backing = `MRPArchive.data`。其它 path/mode → `UnknownAbiError` |
+| LIVE | stub `0x000100a0`；`r0=0x00200058` `"gssjxz.mrp"`；`r1=1`；返回 handle **1** **REAL_EXECUTED** |
+| 限制 | 不是完整文件系统。不是 any-filename fallback |
+| confidence | 身份/LIVE 数据流 **CONFIRMED**。见 `docs/stage5c10k-progress.md` |
 
-### table[44]/[45]/[41] file ABI（5-C.10J 只读取证，未实现）
+### table[44]/[45]/[41] file ABI（5-C.10K：current-pack 字节流）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
 | C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
-| LIVE | 未续跑。生产停在 table[40] |
-| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → seek SET → read payload → close。不用 info/getLen |
+| LIVE | read 16 header **match** `archive.data[0:16]`；seek CUR 224：16→240；read 5496 index **match** `archive.data[240:5736]`。table[41] 未到达 |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → **STOP memcpy table[3]** |
 | 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
-| confidence | wrapper/slot/C 对照 **CONFIRMED**。handle backend **未实现** |
+| confidence | wrapper/slot/C + LIVE header/index **CONFIRMED** |
 
 ### table[100] pack_filename（5-C.10I 已实现 data slot）
 
