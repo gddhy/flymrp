@@ -2,7 +2,8 @@
 
 Browser-native Mythroad MRP runtime.
 
-Stage 5-C.10D（当前）：`table[33]` / `asm_mr_getTime` 只读取证，**未实现**。生产仍停在 `table[33]`。见 `docs/stage5c10d-progress.md`。  
+Stage 5-C.10E（当前）：`table[33]` `mr_getTime` 接 `runtime.clock >>> 0`；真实 app 停在 `table[17]` `sprintf_`。见 `docs/stage5c10e-progress.md`。  
+Stage 5-C.10D：`table[33]` / `asm_mr_getTime` 只读取证，**未实现**。当时生产停在 `table[33]`。见 `docs/stage5c10d-progress.md`。  
 Stage 5-C.10C：`table[38]` 仅 `mr_platEx` code `0x4c6`（rxgj FULL `MR_SUCCESS`，无副作用）；真实 app 停在 `table[33]`。见 `docs/stage5c10c-progress.md`。  
 Stage 5-C.10B：`table[130]` 仅 case 7（rxgj FULL）；当时停在 `table[38]`。见 `docs/stage5c10b-progress.md`。  
 Stage 5-C.10A：真实 `app.mrp` 启动基线（实现 130 前停在 130）。见 `docs/stage5c10a-progress.md`。  

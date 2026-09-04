@@ -34,13 +34,19 @@ export type ReadFileRecord = {
 };
 
 /**
- * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only).
+ * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
+ * `[33]` (`mr_getTime`, deterministic runtime clock).
  * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
  */
 export class MrTableBridge {
   readonly allocs: AllocRecord[] = [];
   readonly reads: ReadFileRecord[] = [];
   unknownRequiredSlot: number | null = null;
+  /**
+   * Isolated-test clock when `hooks.getClock` is absent.
+   * Production always reads `MythroadRuntime.clock` via `getClock`.
+   */
+  clock = 0;
 
   constructor(
     readonly ext: ExtRuntime,
@@ -50,6 +56,7 @@ export class MrTableBridge {
       onUnknownSlot?: (n: number) => void;
       onAlloc?: (rec: AllocRecord) => void;
       onRead?: (rec: ReadFileRecord) => void;
+      getClock?: () => number;
     } = {},
   ) {}
 
@@ -59,6 +66,7 @@ export class MrTableBridge {
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
     this.ext.registerHandler(38, (_cpu, _mem, args) => this.platEx(args));
+    this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -89,6 +97,26 @@ export class MrTableBridge {
       code: input0,
       caller: "ext",
     });
+  }
+
+  /**
+   * table[33] = `asm_mr_getTime` = `mr_getTime`.
+   *
+   * `uint32 mr_getTime(void)` — zero-argument ABI. Incoming R0–R3 / stack
+   * are not parameters.
+   *
+   * mr_getTime is backed by flymrp's deterministic runtime clock.
+   * The ARM ABI exposes the low 32 bits as uint32 milliseconds.
+   * It does not use JavaScript wall-clock time.
+   *
+   * Guest-observable epoch is elapsed monotonic milliseconds since
+   * runtime start (`MythroadRuntime.clock` initial value 0). This is
+   * the rxgj FULL guest semantic (`get_uptime_ms() - dsmStartTime`),
+   * not a second host-timestamp layer.
+   */
+  getTime(): number {
+    const n = this.hooks.getClock ? this.hooks.getClock() : this.clock;
+    return n >>> 0;
   }
 
   /**

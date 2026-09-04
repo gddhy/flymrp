@@ -20,17 +20,17 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
     expect(st.blxImmTargets.some((t) => t.from === ((EXT_CODE_ADDR + 0x14) >>> 0) && t.to === 0x01ea5e0c)).toBe(true);
   });
 
-  it("memset lets code 6 enter guest; first fault is table[33]", () => {
+  it("memset lets code 6 enter guest; first fault is table[17] sprintf_", () => {
     const r = runCode6Forensics(new Uint8Array(readFileSync(REAL_APP)));
     expect(r.fault.loadBlxTaken).toBe(true);
     expect(r.fault.guestEntered).toBe(true);
     expect(r.fault.classification).toBe("ABI");
-    expect(r.fault.subtype).toBe("UNKNOWN_REQUIRED_SLOT = 33");
+    expect(r.fault.subtype).toBe("UNKNOWN_REQUIRED_SLOT = 17");
     expect(r.fault.site).toBe("arm_ext_call.table");
-    expect(r.fault.slot).toBe(33);
-    expect(r.fault.faultPc).toBe(0x10084);
-    expect(r.fault.r0).toBe(0x10084);
-    expect(r.fault.r1).toBe(0);
+    expect(r.fault.slot).toBe(17);
+    expect(r.fault.faultPc).toBe(0x10044);
+    expect(r.fault.r0).toBe(0x01e7ff74);
+    expect(r.fault.r1).toBe(0x01eaf204);
     expect(r.fault.r2).toBe(0);
     expect(r.fault.r9).toBe(0x0020021c);
     expect(r.fault.p).toBe(0x00200100);

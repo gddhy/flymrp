@@ -731,20 +731,20 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     requiredInitialization: [
       "mr_c_function_load(0) → BLX(1) → table[25] → malloc → table[14] memset → arm_ext_call(6)",
       slot25 ? "cfunction load touched table[25] (dynamic)" : "cfunction load did not touch table[25]",
-      unknownSlot === 33 ? "STOP: table[33] asm_mr_getTime — not implemented this stage" : "",
+      unknownSlot !== null ? `STOP: table[${unknownSlot}] — not implemented this stage` : "",
     ].filter(Boolean),
     confirmed: [
       "table[14] memset2(s,c,n) returns s; r0=dest r1=byte r2=size_t; GuestMemory.fill",
       "cfunction load completes after memset; P=0x00200100 helper=0x01ea5e9d ER_RW=0x0020021c",
       "arm_ext_call(6) enters guest helper 0x01ea5e9c Thumb with r0=P r1=6 r9=ER_RW and returns 0",
       "after code 6, ER_RW+0x10=0x7b0 (1968); ER_RW+0x20=0 (the R9+0x20 note is not this store)",
-      "strict first fault after memset: UNKNOWN_REQUIRED_SLOT = 33 during arm_ext_call(0)",
+      `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[130] case 7 + table[38] code 0x4c6 (rxgj FULL); production then stops at table[33]",
+      "table[17] sprintf_ (rxgj mythroad.c); not implemented this stage",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };

@@ -7,14 +7,14 @@ import { GETTIME33, runGetTime33Forensics } from "../../src/real/gettime33.ts";
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10D table[33] / asm_mr_getTime forensics", () => {
-  it("LIVE stub is zero-arg; return would STR ER_RW+0x4358; handler[33] absent", () => {
+  it("LIVE stub is zero-arg; handler[33] present; store helper target unchanged", () => {
     const r = runGetTime33Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
-    expect(r.handler33).toBe(false);
-    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 33");
-    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 33");
+    expect(r.handler33).toBe(true);
+    expect(r.productionThrown).toBe("UNKNOWN_REQUIRED_SLOT = 17");
+    expect(r.probeThrown).toBe("UNKNOWN_REQUIRED_SLOT = 17");
     expect(r.init2Reached).toBe(false);
     expect(r.owner).toBe("gssjxz.mrp");
 

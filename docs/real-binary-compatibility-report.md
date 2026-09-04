@@ -31,11 +31,11 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 33`）。5-C.10C：table[38] code 0x4c6 已执行；见 `docs/stage5c10c-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 17`）。5-C.10E：table[33] `mr_getTime` 已执行；见 `docs/stage5c10e-progress.md`。
 
 ## Lua execution
 
-fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[38] code 0x4c6 后停在 table[33]
+fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[33] `mr_getTime` 后停在 table[17] `sprintf_`
 
 ## Native ABI
 

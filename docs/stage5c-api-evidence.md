@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 33`（`asm_mr_getTime` 未实现）；table[130] case 7 与 table[38] code 0x4c6 已接线 |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 17`（`sprintf_` 未实现）；table[33] `mr_getTime` 已接线 |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,20 +284,27 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `asm_mr_getTime` **STOP**（LIVE，host 未实现） |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **STOP** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
-### table[33] asm_mr_getTime（5-C.10D 取证，未实现）
+### table[33] asm_mr_getTime（5-C.10E 已实现）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[33] = asm_mr_getTime`；`fixR9.h` `#define asm_mr_getTime mr_getTime` |
 | C | `uint32 mr_getTime(void)` |
-| FULL 桌面 | `get_uptime_ms()` (`CLOCK_MONOTONIC` ms) − `dsmStartTime` |
-| LIVE | stub `0x00010084`；零参数；入口 `r0=0x00010084`（BLX 目标）；host **未**实现 |
-| 本 init 返回 | 静态：STR `ER_RW+0x4358`；随后 `movs r0,#0x55`。LIVE 未执行 STR |
-| pack | GOT `6b80 3080 6840 4780` 共 4 处；含绝对值 store 与 `t_old-now` / `now+arg` / `now-old` |
-| confidence | 身份/单位/LIVE 到达 **CONFIRMED**。行为 **未**实现。见 `docs/stage5c10d-progress.md` |
+| flymrp | `runtime.clock >>> 0`（deterministic elapsed ms；非 Date.now） |
+| LIVE | stub `0x00010084`；零参数；`REAL_EXECUTED`；返回 0（未 advance）；STR `ER_RW+0x4358 = 0` |
+| confidence | 身份/单位/LIVE 执行 **CONFIRMED**。见 `docs/stage5c10e-progress.md` |
+
+### table[17] sprintf_（5-C.10E LIVE 到达，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[17] = sprintf_` |
+| C | `int sprintf_(char* buffer, const char* format, ...)` |
+| LIVE | stub `0x00010044`；`r0=0x01e7ff74` `r1="res_lang%d.rc"` `r2=0`；host **未**实现 |
+| confidence | 到达 **CONFIRMED**。行为 **未**实现 |
 
 ---
 
@@ -309,7 +316,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 |---|---|
 | CONFIRMED | 本阶段实现所依据的全部主路径 |
 | INFERRED | 0（无） |
-| UNKNOWN | `_plat*` 其它 code、未读完的 GUI/audio/network |
+| UNKNOWN | `_plat*` 其它 code、`sprintf_` / table[17]、未读完的 GUI/audio/network |
 
 ---
 

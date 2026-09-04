@@ -65,10 +65,10 @@ describe("5-C.10B table[130] case 7 ABI", () => {
     }
   });
 
-  it("registers table[38] code 0x4c6; does not register table[33]", () => {
+  it("registers table[38] code 0x4c6 and table[33] getTime", () => {
     const ext = wire();
     expect(!!ext.table.handlers[130]).toBe(true);
     expect(!!ext.table.handlers[38]).toBe(true);
-    expect(!!ext.table.handlers[33]).toBe(false);
+    expect(!!ext.table.handlers[33]).toBe(true);
   });
 });

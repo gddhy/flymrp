@@ -11,8 +11,8 @@ describe("5-C.6 table[130] / asm_mr_TestCom forensics", () => {
     const r = runTestCom130Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handlerPresent).toBe(true);
-    expect(r.thrown).toBe("UNKNOWN_REQUIRED_SLOT = 33");
-    expect(r.code0Slots).toEqual([130, 14, 38, 33]);
+    expect(r.thrown).toBe("UNKNOWN_REQUIRED_SLOT = 17");
+    expect(r.code0Slots).toEqual([130, 14, 38, 33, 17]);
 
     expect(r.cpu.pc).toBe(TESTCOM130.stubPc);
     expect(r.cpu.lr).toBe(0x01e9cf63);

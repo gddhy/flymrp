@@ -92,10 +92,10 @@ describe("5-C.10C table[38] mr_platEx code 0x4c6 ABI", () => {
     }
   });
 
-  it("registers table[38] only for 0x4c6; does not register table[33]", () => {
+  it("registers table[38] only for 0x4c6; table[33] is getTime", () => {
     const { ext } = wire();
     expect(!!ext.table.handlers[38]).toBe(true);
-    expect(!!ext.table.handlers[33]).toBe(false);
+    expect(!!ext.table.handlers[33]).toBe(true);
     expect(!!ext.table.handlers[130]).toBe(true);
   });
 });

@@ -1,7 +1,8 @@
 /**
- * Stage 5-C.10C — real MRP production startup.
- * table[130] case 7 + table[38] code 0x4c6 only (rxgj FULL). Does not implement [33].
- * No cbRet bypass. No backlight / Canvas / DOM side effects.
+ * Stage 5-C.10E — real MRP production startup.
+ * table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime
+ * (deterministic runtime.clock >>> 0). Does not implement [17] sprintf_.
+ * No cbRet bypass. No Date.now / performance.now.
  */
 import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, tableSlotIndex } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
@@ -21,6 +22,7 @@ export const REAL_MRP_BASELINE = {
   slot130: 130,
   slot38: 38,
   slot33: 33,
+  slot17: 17,
   p: 0x00200100,
   helper: 0x01ea5e9d,
   erRw: 0x0020021c,
@@ -28,10 +30,14 @@ export const REAL_MRP_BASELINE = {
   stub130: 0x00010208,
   stub38: 0x00010098,
   stub33: 0x00010084,
+  stub17: 0x00010044,
   case7: 7,
   case7Input1: 0x270f,
   erRw1cAfterCase7: 0x270d,
   platexCode: 0x4c6,
+  getTimeErOff: 0x4358,
+  storeFn: 0x01ea92c8,
+  init2: 0x01ea9254,
 } as const;
 
 export type CpuSnap = {
@@ -101,6 +107,8 @@ export type StartupFingerprint = {
   luaNativeSeq: string;
   tableSlots: number[];
   vfsReads: string[];
+  table33Return: number | null;
+  erRwPlus4358: number;
 };
 
 export type SlotStatusRow = {
@@ -159,9 +167,13 @@ export type RealMrpStartupReport = {
     armExtCallCode: number | null;
     cpu130: CpuSnap | null;
     cpu38: CpuSnap | null;
+    cpu33: CpuSnap | null;
     cpu: CpuSnap | null;
     table38Return: number | null;
     table38ReturnConsumer: string;
+    table33Return: number | null;
+    table33Store: number | null;
+    init2Reached: boolean;
   };
   mrTable: {
     hits: TableHit[];
@@ -362,6 +374,8 @@ function fingerprintOf(p: {
   natives: NativeCallRec[];
   tableSlots: number[];
   vfs: string[];
+  table33Return: number | null;
+  erRwPlus4358: number;
 }): StartupFingerprint {
   return {
     firstUnknownSlot: p.firstUnknownSlot,
@@ -381,6 +395,8 @@ function fingerprintOf(p: {
     ),
     tableSlots: p.tableSlots.slice(),
     vfsReads: p.vfs.slice(),
+    table33Return: p.table33Return,
+    erRwPlus4358: p.erRwPlus4358,
   };
 }
 
@@ -401,6 +417,8 @@ function diffFingerprints(a: StartupFingerprint, b: StartupFingerprint): string[
     "luaNativeSeq",
     "tableSlots",
     "vfsReads",
+    "table33Return",
+    "erRwPlus4358",
   ];
   const out: string[] = [];
   for (const k of keys) {
@@ -474,7 +492,11 @@ type OneRun = {
   extCalls: ExtCallRec[];
   cpu130: CpuSnap | null;
   cpu38: CpuSnap | null;
+  cpu33: CpuSnap | null;
   cpu: CpuSnap | null;
+  table33Return: number | null;
+  erRwPlus4358: number;
+  init2Reached: boolean;
   p: number;
   helper: number;
   erRw: number;
@@ -504,11 +526,13 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
   const extCalls: ExtCallRec[] = [];
   let cpu130: CpuSnap | null = null;
   let cpu38: CpuSnap | null = null;
+  let cpu33: CpuSnap | null = null;
   let cpu: CpuSnap | null = null;
   let p = 0;
   let helper = 0;
   let erRw = 0;
   let rwLen = 0;
+  let init2Reached = false;
   const handlerMap = new Map<number, boolean>();
 
   const origBind = rt.bindExt.bind(rt);
@@ -516,6 +540,12 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     origBind(ext);
     const e = rt.ext;
     if (!e) return;
+
+    const prevFetch = e.cpu.onBeforeFetch;
+    e.cpu.onBeforeFetch = (c) => {
+      if ((c.r[15] >>> 0) === REAL_MRP_BASELINE.init2) init2Reached = true;
+      return prevFetch ? prevFetch(c) : false;
+    };
 
     const origCall = e.arm_ext_call.bind(e);
     e.arm_ext_call = (code, input, inputAddr, inputLen) => {
@@ -558,7 +588,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
             ? "REAL_EXECUTED case 7 (rxgj FULL)"
             : n === 38
               ? "REAL_EXECUTED mr_platEx 0x4c6 (rxgj FULL); no side effects"
-              : "host handler"
+              : n === 33
+                ? "REAL_EXECUTED mr_getTime (runtime.clock >>> 0); no Date.now"
+                : "host handler"
           : "NOT_EXECUTED by host",
         pc: pc >>> 0,
         lr: c.r[14] >>> 0,
@@ -574,10 +606,12 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
         rwLen = p ? e.mem.read32(p + AEX_P_ER_RW_LEN_OFF) >>> 0 : 0;
       }
       if (n === 38) cpu38 = snapCpu(e);
+      if (n === 33) cpu33 = snapCpu(e);
       if (!had) cpu = snapCpu(e);
       handlerMap.set(130, !!e.table.handlers[130]);
       handlerMap.set(38, !!e.table.handlers[38]);
       handlerMap.set(33, !!e.table.handlers[33]);
+      handlerMap.set(17, !!e.table.handlers[17]);
       handlerMap.set(0, !!e.table.handlers[0]);
       handlerMap.set(14, !!e.table.handlers[14]);
       handlerMap.set(25, !!e.table.handlers[25]);
@@ -614,6 +648,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     rwLen = p ? rt.ext.mem.read32(p + AEX_P_ER_RW_LEN_OFF) >>> 0 : 0;
   }
   const erRwPlus1c = rt.ext && erRw ? rt.ext.mem.read32(erRw + 0x1c) >>> 0 : 0;
+  const table33Return = hits.find((h) => h.slot === 33)?.return ?? null;
+  const erRwPlus4358 =
+    rt.ext && erRw ? rt.ext.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0 : 0;
 
   return {
     natives,
@@ -621,7 +658,11 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     extCalls,
     cpu130,
     cpu38,
+    cpu33,
     cpu,
+    table33Return,
+    erRwPlus4358,
+    init2Reached,
     p,
     helper,
     erRw,
@@ -651,9 +692,11 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const post14 = i130 >= 0 && run.hits.slice(i130 + 1).some((h) => h.slot === 14);
   const hit38 = run.hits.find((h) => h.slot === 38);
   const hit33 = run.hits.find((h) => h.slot === 33);
+  const hit17 = run.hits.find((h) => h.slot === 17);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
+  const t17blocked = !!hit17 && hit17.status === "NOT_EXECUTED";
   return [
     { stage: "MRP parse", status: "PASS", note: "real app.mrp parsed" },
     {
@@ -709,11 +752,22 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     },
     {
       stage: "table33",
-      status: t33blocked ? "BLOCKED" : hit33 ? "PASS" : "NOT REACHED",
+      status: t33blocked ? "BLOCKED" : hit33?.status === "REAL_EXECUTED" ? "PASS" : hit33 ? "BLOCKED" : "NOT REACHED",
       note: t33blocked
         ? "UNKNOWN_REQUIRED_SLOT; NOT_EXECUTED by host"
-        : hit33
-          ? "guest reached table[33]"
+        : hit33?.status === "REAL_EXECUTED"
+          ? "REAL_EXECUTED mr_getTime (runtime.clock >>> 0)"
+          : hit33
+            ? "reached"
+            : "not reached on production path",
+    },
+    {
+      stage: "table17",
+      status: t17blocked ? "BLOCKED" : hit17 ? "PASS" : "NOT REACHED",
+      note: t17blocked
+        ? "UNKNOWN_REQUIRED_SLOT; sprintf_ NOT_EXECUTED by host"
+        : hit17
+          ? "guest reached table[17]"
           : "not reached on production path",
     },
   ];
@@ -753,6 +807,8 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         natives: run.natives,
         tableSlots: run.hits.map((h) => h.slot),
         vfs: vfsReads(run.records),
+        table33Return: run.table33Return,
+        erRwPlus4358: run.erRwPlus4358,
       }),
     );
   }
@@ -776,9 +832,10 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(130, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(38, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(33, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(17, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
-  const handlerSlots = [0, 14, 25, 125, 130, 38, 33];
+  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17];
   const handlers = handlerSlots.map((slot) => ({
     slot,
     present: run.handlerMap.get(slot) === true,
@@ -827,9 +884,13 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       armExtCallCode: code0?.code ?? 0,
       cpu130: run.cpu130,
       cpu38: run.cpu38,
+      cpu33: run.cpu33,
       cpu: run.cpu,
       table38Return: run.hits.find((h) => h.slot === 38)?.return ?? null,
       table38ReturnConsumer: describeTable38ReturnConsumer(run.hits),
+      table33Return: run.table33Return,
+      table33Store: run.erRwPlus4358,
+      init2Reached: run.init2Reached,
     },
     mrTable: { hits: run.hits, slots, handlers },
     stop: {
@@ -848,7 +909,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table130: run.hits.find((h) => h.slot === 130)?.status ?? "NOT_EXECUTED",
       table38: run.hits.find((h) => h.slot === 38)?.status ?? "NOT_EXECUTED",
       table33: run.hits.find((h) => h.slot === 33)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[38] is REAL_EXECUTED code 0x4c6 only, not FORENSIC_BYPASSED. table[33] is not implemented.",
+      note: "This run does not cbRet unknown slots. table[33] is REAL_EXECUTED mr_getTime via runtime.clock >>> 0, not FORENSIC_BYPASSED. table[17] sprintf_ is not implemented.",
     },
     consistency: {
       runs: nRuns,
@@ -863,16 +924,17 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu = r.execution.cpu;
   const cpu130 = r.execution.cpu130;
   const cpu38 = r.execution.cpu38;
+  const cpu33 = r.execution.cpu33;
   const lines = [
-    "# Real MRP Startup (Stage 5-C.10C)",
+    "# Real MRP Startup (Stage 5-C.10E)",
     "",
-    "Production path. table[130] case 7 + table[38] code 0x4c6 only (rxgj FULL).",
-    "No forensic bypass. No backlight / Canvas / DOM. Stage 5-D: **NOT STARTED**.",
+    "Production path. table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime",
+    "(deterministic `runtime.clock >>> 0`). No forensic bypass. No Date.now.",
+    "Stage 5-D: **NOT STARTED**.",
     "",
-    "This is rxgj FULL compatibility behavior for the observed",
-    "`mr_platEx(0x4c6, NULL, 0, NULL, NULL, NULL)` call.",
-    "It is not claimed to implement the complete `mr_platEx` API",
-    "or universal Mythroad platform behavior.",
+    "mr_getTime is backed by flymrp's deterministic runtime clock.",
+    "The ARM ABI exposes the low 32 bits as uint32 milliseconds.",
+    "It does not use JavaScript wall-clock time.",
     "",
     "## MRP",
     "",
@@ -937,6 +999,9 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- arm_ext_call code: ${r.execution.armExtCallCode}`,
     `- table38 return: ${r.execution.table38Return === null ? "—" : hx(r.execution.table38Return)}`,
     `- table38 return consumer: ${r.execution.table38ReturnConsumer}`,
+    `- table33 return: ${r.execution.table33Return === null ? "—" : hx(r.execution.table33Return)}`,
+    `- ER_RW+0x4358 store: ${hx(r.execution.table33Store ?? 0)}`,
+    `- 0x01ea9254 reached: ${r.execution.init2Reached}`,
     cpu130
       ? [
           "### table[130] entry",
@@ -954,6 +1019,14 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
           `- R9: ${hx(cpu38.r9)} SP: ${hx(cpu38.sp)} LR: ${hx(cpu38.lr)}`,
         ].join("\n")
       : "- table[38] CPU: (none)",
+    cpu33
+      ? [
+          "### table[33] entry",
+          `- PC: ${hx(cpu33.pc)}`,
+          `- R0-R3: ${hx(cpu33.r0)} ${hx(cpu33.r1)} ${hx(cpu33.r2)} ${hx(cpu33.r3)}`,
+          `- R9: ${hx(cpu33.r9)} SP: ${hx(cpu33.sp)} LR: ${hx(cpu33.lr)}`,
+        ].join("\n")
+      : "- table[33] CPU: (none)",
     cpu
       ? [
           "### STOP CPU",
@@ -1021,7 +1094,8 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "",
     `- 130 = ${r.forensicPrior.table130} (case 7 only; not the full TestCom switch)`,
     `- 38 = ${r.forensicPrior.table38} (code 0x4c6 only; not the complete mr_platEx API)`,
-    `- 33 = ${r.forensicPrior.table33}`,
+    `- 33 = ${r.forensicPrior.table33} (mr_getTime via runtime.clock >>> 0)`,
+    `- 17 = next UNKNOWN (sprintf_; not implemented)`,
     `- ${r.forensicPrior.note}`,
     "",
     "## Stage 5-D",

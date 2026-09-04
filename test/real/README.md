@@ -6,7 +6,7 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `test/fixtures/real/app.mrp` is a user-supplied unprotected MRP. Gate on that file is **INSPECTED**, not real-app green. `runCompatibilityGate()` with no bytes is still `REAL_BINARY_BLOCKED`.
 
-`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[33]`.
+`loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0, then stop at `table[17]`.
 
 `cfunction-init.test.ts` is the isolated cfunction load: BLX → table[25] → table[14] memset zeros ER_RW.
 
@@ -24,6 +24,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `platex-38-abi.test.ts` is Stage 5-C.10C isolated ABI: platEx code 0x4c6 only.
 
-`real-mrp-startup.test.ts` is Stage 5-C.10C：真实 `app.mrp` 生产启动。table[130] case 7 + table[38] 0x4c6 REAL_EXECUTED，停在 table[33]。No forensic bypass.
+`real-mrp-startup.test.ts` is Stage 5-C.10E：真实 `app.mrp` 生产启动。table[33] `mr_getTime` REAL_EXECUTED，停在 table[17] `sprintf_`。No forensic bypass.
 
-`gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 只读取证。Handler 未注册。
+`gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
+
+`gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.

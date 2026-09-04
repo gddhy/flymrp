@@ -74,6 +74,7 @@ export class MythroadRuntime {
   unknownRequiredSlot: number | null = null;
 
   state = MR_STATE_IDLE;
+  /** Elapsed monotonic milliseconds since runtime start. `mr_getTime` exposes `clock >>> 0`. */
   clock = 0;
   packName = "";
   entry = "_dsm";
@@ -289,6 +290,7 @@ export class MythroadRuntime {
     }
     const owner = this.packName || "ext";
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
+      getClock: () => this.clock,
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
       onUnknownSlot: (n) => {
