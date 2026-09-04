@@ -1,6 +1,8 @@
 /**
  * Stage 5-C.10F — table[17] / sprintf_ ABI forensics.
- * Read-only. Does not register table[17]. Does not write the guest buffer.
+ * Read-only snapshot of the first LIVE table[17] entry.
+ * Production now implements literal+%d (5-C.10G); this probe does not
+ * add extra handlers or forensic bypass.
  */
 import {
   AEX_P_ER_RW_OFF,
@@ -434,7 +436,7 @@ export function runSprintf17Forensics(mrp: Uint8Array): Sprintf17Report {
     const origD = e.table.dispatch.bind(e.table);
     e.table.dispatch = (c, mem, pc) => {
       const n = tableSlotIndex(pc);
-      if (n === SPRINTF17.slot) {
+      if (n === SPRINTF17.slot && !cpu) {
         cpu = snapCpu(e);
         p = e.owners.wrapper.p >>> 0;
         helper = e.owners.wrapper.helper >>> 0;
@@ -546,7 +548,8 @@ export function renderSprintf17Markdown(r: Sprintf17Report): string {
   return [
     "# table[17] / sprintf_ forensics (Stage 5-C.10F)",
     "",
-    "Forensics only. **table[17] is not implemented. Stage 5-D NOT STARTED.**",
+    "Forensics of the first LIVE table[17] entry. Production implements",
+    "literal bytes + `%d` only (5-C.10G). **Stage 5-D NOT STARTED.**",
     "",
     "## LIVE CPU at stub",
     "",

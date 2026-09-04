@@ -1,8 +1,8 @@
 /**
- * Stage 5-C.10E — real MRP production startup.
+ * Stage 5-C.10G — real MRP production startup.
  * table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime
- * (deterministic runtime.clock >>> 0). Does not implement [17] sprintf_.
- * No cbRet bypass. No Date.now / performance.now.
+ * + table[17] sprintf_ (literal bytes + `%d` only).
+ * No cbRet bypass. No host va_list / libc sprintf. No Date.now.
  */
 import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, tableSlotIndex } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
@@ -11,7 +11,7 @@ import { LuaChunkReader } from "../lua/chunk.ts";
 import { GET_OPCODE, GETARG_Bx, OP_CALL, OP_GETGLOBAL } from "../lua/opcodes.ts";
 import { TAG_FUNCTION, TAG_STRING, TAG_TABLE, type ColdProto } from "../lua/types.ts";
 import { MRPArchive } from "../mrp/archive.ts";
-import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace } from "../mythroad/index.ts";
+import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace, readGuestCString } from "../mythroad/index.ts";
 import { stackPreview, type TraceRecord } from "../mythroad/probe.ts";
 import { inspectBytes } from "./inspect.ts";
 
@@ -23,6 +23,7 @@ export const REAL_MRP_BASELINE = {
   slot38: 38,
   slot33: 33,
   slot17: 17,
+  slot40: 40,
   p: 0x00200100,
   helper: 0x01ea5e9d,
   erRw: 0x0020021c,
@@ -31,6 +32,7 @@ export const REAL_MRP_BASELINE = {
   stub38: 0x00010098,
   stub33: 0x00010084,
   stub17: 0x00010044,
+  stub40: 0x000100a0,
   case7: 7,
   case7Input1: 0x270f,
   erRw1cAfterCase7: 0x270d,
@@ -38,6 +40,11 @@ export const REAL_MRP_BASELINE = {
   getTimeErOff: 0x4358,
   storeFn: 0x01ea92c8,
   init2: 0x01ea9254,
+  sprintfBuffer: 0x01e7ff74,
+  sprintfFormat: 0x01eaf204,
+  sprintfExpected: "res_lang0.rc",
+  sprintfReturn: 12,
+  consumer: 0x01ea8cdc,
 } as const;
 
 export type CpuSnap = {
@@ -109,6 +116,7 @@ export type StartupFingerprint = {
   vfsReads: string[];
   table33Return: number | null;
   erRwPlus4358: number;
+  sprintfFilename: string;
 };
 
 export type SlotStatusRow = {
@@ -168,12 +176,26 @@ export type RealMrpStartupReport = {
     cpu130: CpuSnap | null;
     cpu38: CpuSnap | null;
     cpu33: CpuSnap | null;
+    cpu17: CpuSnap | null;
     cpu: CpuSnap | null;
     table38Return: number | null;
     table38ReturnConsumer: string;
     table33Return: number | null;
     table33Store: number | null;
     init2Reached: boolean;
+    sprintfFilename: string;
+    sprintfReturn: number | null;
+    sprintfNulTerminated: boolean;
+    sprintfBytes: number[];
+    table17Count: number;
+    consumer: {
+      reached: boolean;
+      pc: number;
+      r0: number;
+      r1: number;
+      name: string;
+    };
+    table125After17: boolean;
   };
   mrTable: {
     hits: TableHit[];
@@ -196,6 +218,7 @@ export type RealMrpStartupReport = {
     table130: ExecStatus;
     table38: ExecStatus;
     table33: ExecStatus;
+    table17: ExecStatus;
     note: string;
   };
   consistency: {
@@ -376,6 +399,7 @@ function fingerprintOf(p: {
   vfs: string[];
   table33Return: number | null;
   erRwPlus4358: number;
+  sprintfFilename: string;
 }): StartupFingerprint {
   return {
     firstUnknownSlot: p.firstUnknownSlot,
@@ -397,6 +421,7 @@ function fingerprintOf(p: {
     vfsReads: p.vfs.slice(),
     table33Return: p.table33Return,
     erRwPlus4358: p.erRwPlus4358,
+    sprintfFilename: p.sprintfFilename,
   };
 }
 
@@ -419,6 +444,7 @@ function diffFingerprints(a: StartupFingerprint, b: StartupFingerprint): string[
     "vfsReads",
     "table33Return",
     "erRwPlus4358",
+    "sprintfFilename",
   ];
   const out: string[] = [];
   for (const k of keys) {
@@ -493,10 +519,21 @@ type OneRun = {
   cpu130: CpuSnap | null;
   cpu38: CpuSnap | null;
   cpu33: CpuSnap | null;
+  cpu17: CpuSnap | null;
   cpu: CpuSnap | null;
   table33Return: number | null;
   erRwPlus4358: number;
   init2Reached: boolean;
+  sprintfFilename: string;
+  sprintfReturn: number | null;
+  sprintfNulTerminated: boolean;
+  sprintfBytes: number[];
+  table17Count: number;
+  consumerReached: boolean;
+  consumerR0: number;
+  consumerR1: number;
+  consumerName: string;
+  table125After17: boolean;
   p: number;
   helper: number;
   erRw: number;
@@ -527,12 +564,23 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
   let cpu130: CpuSnap | null = null;
   let cpu38: CpuSnap | null = null;
   let cpu33: CpuSnap | null = null;
+  let cpu17: CpuSnap | null = null;
   let cpu: CpuSnap | null = null;
   let p = 0;
   let helper = 0;
   let erRw = 0;
   let rwLen = 0;
   let init2Reached = false;
+  let sprintfFilename = "";
+  let sprintfReturn: number | null = null;
+  let sprintfNulTerminated = false;
+  let sprintfBytes: number[] = [];
+  let table17Count = 0;
+  let consumerReached = false;
+  let consumerR0 = 0;
+  let consumerR1 = 0;
+  let consumerName = "";
+  let table125After17 = false;
   const handlerMap = new Map<number, boolean>();
 
   const origBind = rt.bindExt.bind(rt);
@@ -543,7 +591,18 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
 
     const prevFetch = e.cpu.onBeforeFetch;
     e.cpu.onBeforeFetch = (c) => {
-      if ((c.r[15] >>> 0) === REAL_MRP_BASELINE.init2) init2Reached = true;
+      const pc = c.r[15] >>> 0;
+      if (pc === REAL_MRP_BASELINE.init2) init2Reached = true;
+      if (pc === REAL_MRP_BASELINE.consumer && !consumerReached) {
+        consumerReached = true;
+        consumerR0 = c.r[0] >>> 0;
+        consumerR1 = c.r[1] >>> 0;
+        try {
+          consumerName = readGuestCString(e.mem, consumerR1, 64);
+        } catch {
+          consumerName = "";
+        }
+      }
       return prevFetch ? prevFetch(c) : false;
     };
 
@@ -590,7 +649,9 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
               ? "REAL_EXECUTED mr_platEx 0x4c6 (rxgj FULL); no side effects"
               : n === 33
                 ? "REAL_EXECUTED mr_getTime (runtime.clock >>> 0); no Date.now"
-                : "host handler"
+                : n === 17
+                  ? "REAL_EXECUTED sprintf_ literal+%d (guest-aware; no host va_list)"
+                  : "host handler"
           : "NOT_EXECUTED by host",
         pc: pc >>> 0,
         lr: c.r[14] >>> 0,
@@ -607,17 +668,37 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
       }
       if (n === 38) cpu38 = snapCpu(e);
       if (n === 33) cpu33 = snapCpu(e);
+      if (n === 17 && !cpu17) cpu17 = snapCpu(e);
+      if (n === 17) table17Count++;
+      if (n === 125 && table17Count > 0) table125After17 = true;
       if (!had) cpu = snapCpu(e);
       handlerMap.set(130, !!e.table.handlers[130]);
       handlerMap.set(38, !!e.table.handlers[38]);
       handlerMap.set(33, !!e.table.handlers[33]);
       handlerMap.set(17, !!e.table.handlers[17]);
+      handlerMap.set(40, !!e.table.handlers[40]);
       handlerMap.set(0, !!e.table.handlers[0]);
       handlerMap.set(14, !!e.table.handlers[14]);
       handlerMap.set(25, !!e.table.handlers[25]);
       handlerMap.set(125, !!e.table.handlers[125]);
       origD(c, mem, pc);
       if (had) hit.return = c.r[0] >>> 0;
+      if (n === 17 && had) {
+        const buf = hit.arguments[0]!;
+        sprintfReturn = hit.return;
+        try {
+          sprintfFilename = readGuestCString(mem, buf, 64);
+          sprintfBytes = [];
+          for (let i = 0; i <= sprintfFilename.length; i++) {
+            sprintfBytes.push(mem.read8((buf + i) >>> 0) & 0xff);
+          }
+          sprintfNulTerminated = sprintfBytes[sprintfFilename.length] === 0;
+        } catch {
+          sprintfFilename = "";
+          sprintfBytes = [];
+          sprintfNulTerminated = false;
+        }
+      }
     };
   };
 
@@ -659,10 +740,21 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     cpu130,
     cpu38,
     cpu33,
+    cpu17,
     cpu,
     table33Return,
     erRwPlus4358,
     init2Reached,
+    sprintfFilename,
+    sprintfReturn,
+    sprintfNulTerminated,
+    sprintfBytes,
+    table17Count,
+    consumerReached,
+    consumerR0,
+    consumerR1,
+    consumerName,
+    table125After17,
     p,
     helper,
     erRw,
@@ -693,10 +785,12 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const hit38 = run.hits.find((h) => h.slot === 38);
   const hit33 = run.hits.find((h) => h.slot === 33);
   const hit17 = run.hits.find((h) => h.slot === 17);
+  const hit40 = run.hits.find((h) => h.slot === 40);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
   const t17blocked = !!hit17 && hit17.status === "NOT_EXECUTED";
+  const t40blocked = !!hit40 && hit40.status === "NOT_EXECUTED";
   return [
     { stage: "MRP parse", status: "PASS", note: "real app.mrp parsed" },
     {
@@ -763,11 +857,22 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     },
     {
       stage: "table17",
-      status: t17blocked ? "BLOCKED" : hit17 ? "PASS" : "NOT REACHED",
+      status: t17blocked ? "BLOCKED" : hit17?.status === "REAL_EXECUTED" ? "PASS" : hit17 ? "BLOCKED" : "NOT REACHED",
       note: t17blocked
         ? "UNKNOWN_REQUIRED_SLOT; sprintf_ NOT_EXECUTED by host"
-        : hit17
-          ? "guest reached table[17]"
+        : hit17?.status === "REAL_EXECUTED"
+          ? "REAL_EXECUTED sprintf_ literal+%d; LIVE buffer res_lang0.rc"
+          : hit17
+            ? "reached"
+            : "not reached on production path",
+    },
+    {
+      stage: "table40",
+      status: t40blocked ? "BLOCKED" : hit40 ? "PASS" : "NOT REACHED",
+      note: t40blocked
+        ? "UNKNOWN_REQUIRED_SLOT; asm_mr_open NOT_EXECUTED by host"
+        : hit40
+          ? "guest reached table[40]"
           : "not reached on production path",
     },
   ];
@@ -809,6 +914,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         vfs: vfsReads(run.records),
         table33Return: run.table33Return,
         erRwPlus4358: run.erRwPlus4358,
+        sprintfFilename: run.sprintfFilename,
       }),
     );
   }
@@ -833,9 +939,10 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(38, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(33, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(17, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(40, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
-  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17];
+  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40];
   const handlers = handlerSlots.map((slot) => ({
     slot,
     present: run.handlerMap.get(slot) === true,
@@ -885,12 +992,26 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       cpu130: run.cpu130,
       cpu38: run.cpu38,
       cpu33: run.cpu33,
+      cpu17: run.cpu17,
       cpu: run.cpu,
       table38Return: run.hits.find((h) => h.slot === 38)?.return ?? null,
       table38ReturnConsumer: describeTable38ReturnConsumer(run.hits),
       table33Return: run.table33Return,
       table33Store: run.erRwPlus4358,
       init2Reached: run.init2Reached,
+      sprintfFilename: run.sprintfFilename,
+      sprintfReturn: run.sprintfReturn,
+      sprintfNulTerminated: run.sprintfNulTerminated,
+      sprintfBytes: run.sprintfBytes,
+      table17Count: run.table17Count,
+      consumer: {
+        reached: run.consumerReached,
+        pc: REAL_MRP_BASELINE.consumer,
+        r0: run.consumerR0,
+        r1: run.consumerR1,
+        name: run.consumerName,
+      },
+      table125After17: run.table125After17,
     },
     mrTable: { hits: run.hits, slots, handlers },
     stop: {
@@ -909,7 +1030,8 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table130: run.hits.find((h) => h.slot === 130)?.status ?? "NOT_EXECUTED",
       table38: run.hits.find((h) => h.slot === 38)?.status ?? "NOT_EXECUTED",
       table33: run.hits.find((h) => h.slot === 33)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[33] is REAL_EXECUTED mr_getTime via runtime.clock >>> 0, not FORENSIC_BYPASSED. table[17] sprintf_ is not implemented.",
+      table17: run.hits.find((h) => h.slot === 17)?.status ?? "NOT_EXECUTED",
+      note: "This run does not cbRet unknown slots. table[17] is REAL_EXECUTED sprintf_ literal+%d, not FORENSIC_BYPASSED. table[40] asm_mr_open is not implemented.",
     },
     consistency: {
       runs: nRuns,
@@ -925,16 +1047,16 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu130 = r.execution.cpu130;
   const cpu38 = r.execution.cpu38;
   const cpu33 = r.execution.cpu33;
+  const cpu17 = r.execution.cpu17;
   const lines = [
-    "# Real MRP Startup (Stage 5-C.10E)",
+    "# Real MRP Startup (Stage 5-C.10G)",
     "",
     "Production path. table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime",
-    "(deterministic `runtime.clock >>> 0`). No forensic bypass. No Date.now.",
+    "+ table[17] sprintf_ (literal bytes + `%d` only). No forensic bypass. No host va_list.",
     "Stage 5-D: **NOT STARTED**.",
     "",
-    "mr_getTime is backed by flymrp's deterministic runtime clock.",
-    "The ARM ABI exposes the low 32 bits as uint32 milliseconds.",
-    "It does not use JavaScript wall-clock time.",
+    "Only the observed guest sprintf subset consisting of",
+    "literal bytes and %d is currently implemented.",
     "",
     "## MRP",
     "",
@@ -1002,6 +1124,12 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- table33 return: ${r.execution.table33Return === null ? "—" : hx(r.execution.table33Return)}`,
     `- ER_RW+0x4358 store: ${hx(r.execution.table33Store ?? 0)}`,
     `- 0x01ea9254 reached: ${r.execution.init2Reached}`,
+    `- sprintf filename: ${JSON.stringify(r.execution.sprintfFilename)}`,
+    `- sprintf return (excluding NUL): ${r.execution.sprintfReturn}`,
+    `- sprintf NUL: ${r.execution.sprintfNulTerminated}`,
+    `- table[17] count: ${r.execution.table17Count}`,
+    `- consumer 0x01ea8cdc reached: ${r.execution.consumer.reached} r0=${hx(r.execution.consumer.r0)} r1=${hx(r.execution.consumer.r1)} name=${JSON.stringify(r.execution.consumer.name)}`,
+    `- table[125] after table[17]: ${r.execution.table125After17}`,
     cpu130
       ? [
           "### table[130] entry",
@@ -1027,6 +1155,15 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
           `- R9: ${hx(cpu33.r9)} SP: ${hx(cpu33.sp)} LR: ${hx(cpu33.lr)}`,
         ].join("\n")
       : "- table[33] CPU: (none)",
+    cpu17
+      ? [
+          "### table[17] entry",
+          `- PC: ${hx(cpu17.pc)}`,
+          `- R0-R3: ${hx(cpu17.r0)} ${hx(cpu17.r1)} ${hx(cpu17.r2)} ${hx(cpu17.r3)}`,
+          `- R9: ${hx(cpu17.r9)} SP: ${hx(cpu17.sp)} LR: ${hx(cpu17.lr)}`,
+          `- insnCount: ${cpu17.insnCount}`,
+        ].join("\n")
+      : "- table[17] CPU: (none)",
     cpu
       ? [
           "### STOP CPU",
@@ -1095,7 +1232,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- 130 = ${r.forensicPrior.table130} (case 7 only; not the full TestCom switch)`,
     `- 38 = ${r.forensicPrior.table38} (code 0x4c6 only; not the complete mr_platEx API)`,
     `- 33 = ${r.forensicPrior.table33} (mr_getTime via runtime.clock >>> 0)`,
-    `- 17 = next UNKNOWN (sprintf_; not implemented)`,
+    `- 17 = ${r.forensicPrior.table17} (sprintf_ literal+%d only; not %s / full mpaland)`,
     `- ${r.forensicPrior.note}`,
     "",
     "## Stage 5-D",

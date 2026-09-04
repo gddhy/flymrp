@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 17`（`sprintf_` 未实现）；table[33] `mr_getTime` 已接线 |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）；table[17] `sprintf_` literal+`%d` 已接线 |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **STOP** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40] **STOP** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -297,15 +297,25 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | stub `0x00010084`；零参数；`REAL_EXECUTED`；返回 0（未 advance）；STR `ER_RW+0x4358 = 0` |
 | confidence | 身份/单位/LIVE 执行 **CONFIRMED**。见 `docs/stage5c10e-progress.md` |
 
-### table[17] sprintf_（5-C.10F LIVE 到达，未实现）
+### table[17] sprintf_（5-C.10G 已实现 literal+`%d`）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[17] = sprintf_`（mpaland/printf，非 libc） |
 | C | `int sprintf_(char* buffer, const char* format, ...)` |
-| LIVE | stub `0x00010044`；`r0=buffer` `r1="res_lang%d.rc"` `%d` **CONFIRMED** `R2=0`；`R3` 是 BLX stub |
-| pack | 12 个 ER_RW+0x5c callsite；LIVE 只需 `%d`；STATIC 另有 `%s` |
-| confidence | 身份/AAPCS/LIVE `%d` **CONFIRMED**。host **未**实现。见 `docs/stage5c10f-progress.md` |
+| flymrp | guest-aware literal bytes + `%d`（int32）。其它 specifier → `UnknownAbiError`。无 host va_list |
+| LIVE | stub `0x00010044`；`r0=buffer` `r1="res_lang%d.rc"` `%d` **CONFIRMED** `R2=0`；写入 `"res_lang0.rc\0"`；返回 12（不含 NUL） |
+| pack | 12 个 ER_RW+0x5c callsite；本次 LIVE 只需 `%d`；STATIC 另有 `%s`（未实现） |
+| confidence | 身份/AAPCS/LIVE `%d` 写入 **CONFIRMED**。见 `docs/stage5c10g-progress.md` |
+
+### table[40] asm_mr_open（5-C.10G LIVE 到达，未实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[40] = asm_mr_open`；`fixR9.h` `#define asm_mr_open mr_open` |
+| C | `int32 mr_open(const char *filename, uint32 mode)` |
+| LIVE | stub `0x000100a0`；`r0=0x00200058` 空 C 串；`r1=1`（`MR_FILE_RDONLY`）；`r2` 是 stub 残留 |
+| confidence | 身份 **CONFIRMED**（源码）。host **未**实现。见 `docs/stage5c10g-progress.md` |
 
 ---
 

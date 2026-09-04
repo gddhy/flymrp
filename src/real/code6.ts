@@ -744,7 +744,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[17] sprintf_ (rxgj mythroad.c); not implemented this stage",
+      "table[40] asm_mr_open (rxgj mythroad.c); not implemented this stage",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };

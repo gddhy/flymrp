@@ -90,7 +90,7 @@ describe("5-C.10E table[33] mr_getTime ABI", () => {
     const { ext } = wire();
     expect(!!ext.table.handlers[33]).toBe(true);
     expect(!!ext.table.handlers[38]).toBe(true);
-    expect(!!ext.table.handlers[17]).toBe(false);
+    expect(!!ext.table.handlers[17]).toBe(true);
     const src = [
       readFileSync(resolve(import.meta.dirname, "../../src/mythroad/mr-table.ts"), "utf8"),
       readFileSync(resolve(import.meta.dirname, "../../src/mythroad/runtime.ts"), "utf8"),

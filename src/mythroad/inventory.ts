@@ -88,4 +88,7 @@ export const IMPLEMENTED_C = [
   "mr_table/130/7",
   "mr_table/38/0x4c6",
   "mr_table/33/mr_getTime",
+  // Only the observed guest sprintf subset consisting of
+  // literal bytes and %d is currently implemented.
+  "mr_table/17/sprintf/%d",
 ] as const;

@@ -3,6 +3,7 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { MR_SUCCESS } from "./constants.ts";
+import { aapcsSprintfVararg, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
 
 /**
@@ -35,7 +36,7 @@ export type ReadFileRecord = {
 
 /**
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
- * `[33]` (`mr_getTime`, deterministic runtime clock).
+ * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only).
  * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
  */
 export class MrTableBridge {
@@ -67,6 +68,7 @@ export class MrTableBridge {
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
     this.ext.registerHandler(38, (_cpu, _mem, args) => this.platEx(args));
     this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
+    this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -117,6 +119,24 @@ export class MrTableBridge {
   getTime(): number {
     const n = this.hooks.getClock ? this.hooks.getClock() : this.clock;
     return n >>> 0;
+  }
+
+  /**
+   * table[17] = `sprintf_`.
+   *
+   * `int sprintf_(char *buffer, const char *format, ...)`.
+   *
+   * Only the observed guest sprintf subset consisting of
+   * literal bytes and `%d` is currently implemented.
+   *
+   * Guest-aware: R0=buffer, R1=format, first vararg=R2 (`format_arm` first_arg=2).
+   * `%d` is guest ARM int32. Other specifiers throw UnknownAbiError.
+   * Does not construct a host va_list.
+   *
+   * Return is bytes written excluding the trailing NUL (mpaland `sprintf_`).
+   */
+  sprintf(mem: GuestMemory, args: Uint32Array): number {
+    return guestSprintf(mem, args[0]! >>> 0, args[1]! >>> 0, (index) => aapcsSprintfVararg(args, index));
   }
 
   /**
