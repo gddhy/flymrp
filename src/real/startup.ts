@@ -1,10 +1,11 @@
 /**
- * Stage 5-C.10G — real MRP production startup.
+ * Stage 5-C.10I — real MRP production startup.
  * table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime
- * + table[17] sprintf_ (literal bytes + `%d` only).
- * No cbRet bypass. No host va_list / libc sprintf. No Date.now.
+ * + table[17] sprintf_ (literal bytes + `%d` only)
+ * + table[100] pack_filename 128-byte data slot.
+ * No cbRet bypass. No table[40] / mr_open. No host filesystem.
  */
-import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, tableSlotIndex } from "../abi/layout.ts";
+import { AEX_P_ER_RW_LEN_OFF, AEX_P_ER_RW_OFF, MR_MAX_FILENAME_SIZE, PACK_FILENAME_SLOT, tableSlotIndex } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { LuaRuntimeError } from "../err/errors.ts";
 import { LuaChunkReader } from "../lua/chunk.ts";
@@ -24,9 +25,9 @@ export const REAL_MRP_BASELINE = {
   slot33: 33,
   slot17: 17,
   slot40: 40,
-  p: 0x00200100,
+  p: 0x00200178,
   helper: 0x01ea5e9d,
-  erRw: 0x0020021c,
+  erRw: 0x00200294,
   rwLen: 19952,
   stub130: 0x00010208,
   stub38: 0x00010098,
@@ -45,6 +46,9 @@ export const REAL_MRP_BASELINE = {
   sprintfExpected: "res_lang0.rc",
   sprintfReturn: 12,
   consumer: 0x01ea8cdc,
+  packFilenameSlot: PACK_FILENAME_SLOT,
+  packFilenameAddr: 0x00200058,
+  packFilenameBytes: MR_MAX_FILENAME_SIZE,
 } as const;
 
 export type CpuSnap = {
@@ -117,6 +121,7 @@ export type StartupFingerprint = {
   table33Return: number | null;
   erRwPlus4358: number;
   sprintfFilename: string;
+  packFilename: string;
 };
 
 export type SlotStatusRow = {
@@ -170,6 +175,9 @@ export type RealMrpStartupReport = {
     rwLen: number;
     erRwPlus1c: number;
     calls: ExtCallRec[];
+    packFilenameAddr: number;
+    packFilenameBeforeCode0: string;
+    packFilenameBytes: number[];
   };
   execution: {
     armExtCallCode: number | null;
@@ -196,6 +204,8 @@ export type RealMrpStartupReport = {
       name: string;
     };
     table125After17: boolean;
+    packFilenameAt40: string;
+    packFilenameAddr: number;
   };
   mrTable: {
     hits: TableHit[];
@@ -400,6 +410,7 @@ function fingerprintOf(p: {
   table33Return: number | null;
   erRwPlus4358: number;
   sprintfFilename: string;
+  packFilename: string;
 }): StartupFingerprint {
   return {
     firstUnknownSlot: p.firstUnknownSlot,
@@ -422,6 +433,7 @@ function fingerprintOf(p: {
     table33Return: p.table33Return,
     erRwPlus4358: p.erRwPlus4358,
     sprintfFilename: p.sprintfFilename,
+    packFilename: p.packFilename,
   };
 }
 
@@ -445,6 +457,7 @@ function diffFingerprints(a: StartupFingerprint, b: StartupFingerprint): string[
     "table33Return",
     "erRwPlus4358",
     "sprintfFilename",
+    "packFilename",
   ];
   const out: string[] = [];
   for (const k of keys) {
@@ -534,6 +547,10 @@ type OneRun = {
   consumerR1: number;
   consumerName: string;
   table125After17: boolean;
+  packFilenameAddr: number;
+  packFilenameBeforeCode0: string;
+  packFilenameAt40: string;
+  packFilenameBytes: number[];
   p: number;
   helper: number;
   erRw: number;
@@ -581,6 +598,10 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
   let consumerR1 = 0;
   let consumerName = "";
   let table125After17 = false;
+  let packFilenameAddr = 0;
+  let packFilenameBeforeCode0 = "";
+  let packFilenameAt40 = "";
+  let packFilenameBytes: number[] = [];
   const handlerMap = new Map<number, boolean>();
 
   const origBind = rt.bindExt.bind(rt);
@@ -588,6 +609,13 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     origBind(ext);
     const e = rt.ext;
     if (!e) return;
+    packFilenameAddr = e.packFilenameAddr();
+    packFilenameBytes = [...e.mem.slice(packFilenameAddr, MR_MAX_FILENAME_SIZE)];
+    try {
+      packFilenameBeforeCode0 = readGuestCString(e.mem, packFilenameAddr, MR_MAX_FILENAME_SIZE);
+    } catch {
+      packFilenameBeforeCode0 = "";
+    }
 
     const prevFetch = e.cpu.onBeforeFetch;
     e.cpu.onBeforeFetch = (c) => {
@@ -671,6 +699,13 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
       if (n === 17 && !cpu17) cpu17 = snapCpu(e);
       if (n === 17) table17Count++;
       if (n === 125 && table17Count > 0) table125After17 = true;
+      if (n === 40 && !packFilenameAt40) {
+        try {
+          packFilenameAt40 = readGuestCString(mem, c.r[0] >>> 0, MR_MAX_FILENAME_SIZE);
+        } catch {
+          packFilenameAt40 = "";
+        }
+      }
       if (!had) cpu = snapCpu(e);
       handlerMap.set(130, !!e.table.handlers[130]);
       handlerMap.set(38, !!e.table.handlers[38]);
@@ -755,6 +790,10 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
     consumerR1,
     consumerName,
     table125After17,
+    packFilenameAddr,
+    packFilenameBeforeCode0,
+    packFilenameAt40,
+    packFilenameBytes,
     p,
     helper,
     erRw,
@@ -915,6 +954,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         table33Return: run.table33Return,
         erRwPlus4358: run.erRwPlus4358,
         sprintfFilename: run.sprintfFilename,
+        packFilename: run.packFilenameAt40,
       }),
     );
   }
@@ -986,6 +1026,9 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       rwLen: run.rwLen,
       erRwPlus1c: run.erRwPlus1c,
       calls: run.extCalls,
+      packFilenameAddr: run.packFilenameAddr,
+      packFilenameBeforeCode0: run.packFilenameBeforeCode0,
+      packFilenameBytes: run.packFilenameBytes,
     },
     execution: {
       armExtCallCode: code0?.code ?? 0,
@@ -1012,6 +1055,8 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         name: run.consumerName,
       },
       table125After17: run.table125After17,
+      packFilenameAt40: run.packFilenameAt40,
+      packFilenameAddr: run.packFilenameAddr,
     },
     mrTable: { hits: run.hits, slots, handlers },
     stop: {
@@ -1031,7 +1076,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table38: run.hits.find((h) => h.slot === 38)?.status ?? "NOT_EXECUTED",
       table33: run.hits.find((h) => h.slot === 33)?.status ?? "NOT_EXECUTED",
       table17: run.hits.find((h) => h.slot === 17)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[17] is REAL_EXECUTED sprintf_ literal+%d, not FORENSIC_BYPASSED. table[40] asm_mr_open is not implemented. 5-C.10H: empty filename is table[100] pack_filename, not res_lang0.rc.",
+      note: "This run does not cbRet unknown slots. table[17] is REAL_EXECUTED sprintf_ literal+%d, not FORENSIC_BYPASSED. table[40] asm_mr_open is not implemented. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1049,10 +1094,12 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
   const cpu33 = r.execution.cpu33;
   const cpu17 = r.execution.cpu17;
   const lines = [
-    "# Real MRP Startup (Stage 5-C.10G)",
+    "# Real MRP Startup (Stage 5-C.10I)",
     "",
     "Production path. table[130] case 7 + table[38] code 0x4c6 + table[33] mr_getTime",
-    "+ table[17] sprintf_ (literal bytes + `%d` only). No forensic bypass. No host va_list.",
+    "+ table[17] sprintf_ (literal bytes + `%d` only).",
+    "table[100] is a 128-byte pack_filename data slot populated at bindExt.",
+    "table[40] / mr_open is not implemented. No forensic bypass. No host va_list.",
     "Stage 5-D: **NOT STARTED**.",
     "",
     "Only the observed guest sprintf subset consisting of",
@@ -1110,6 +1157,9 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     `- ER_RW: ${hx(r.ext.erRw)}`,
     `- rwLen: ${r.ext.rwLen}`,
     `- ER_RW+0x1c: ${hx(r.ext.erRwPlus1c)}`,
+    `- pack_filename addr: ${hx(r.ext.packFilenameAddr)}`,
+    `- pack_filename before code0: ${JSON.stringify(r.ext.packFilenameBeforeCode0)}`,
+    `- pack_filename at table40: ${JSON.stringify(r.execution.packFilenameAt40)}`,
     "",
     ...r.ext.calls.map(
       (c) =>

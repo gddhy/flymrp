@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）；空 filename 来自 `table[100]`。见 5-C.10H |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）。5-C.10I：LIVE filename = `"gssjxz.mrp"`（`table[100]`）。见 5-C.10I |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -260,7 +260,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[14] = memset2`；`string.c` `memset2` |
 | ABI | `void *memset2(void *s, int c, size_t count)`：填 `c` 的低 8 位，返回 `s` |
-| 真实调用 | `r0=0x0020021c` `r1=0` `r2=19952`（ER_RW） |
+| 真实调用 | `r0=0x00200294` `r1=0` `r2=19952`（ER_RW） |
 | confidence | CONFIRMED |
 
 ### table[130] asm_mr_TestCom（5-C.10B：仅 case 7）
@@ -316,10 +316,21 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | C | `int32 mr_open(const char *filename, uint32 mode)` |
 | mode | `MR_FILE_RDONLY=1`（LIVE R1）。不是 POSIX `O_RDONLY=0` |
 | return | 成功正整数 handle；失败 **0**（不是 `MR_FAILED`） |
-| LIVE | stub `0x000100a0`；`r0=0x00200058` = `table[100]` 空 `pack_filename`；`r1=1`；R6 仍是 `"res_lang0.rc"` |
-| provenance | guest `_mr_readFile` 打开 pack 路径，不是资源名。`table[100]` 从未写入（8 字节 vs 真机 128） |
-| 决策 | **情况 B**：先修 `pack_filename` producer，不要实现 table[40] |
-| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现。见 `docs/stage5c10h-progress.md` |
+| LIVE | stub `0x000100a0`；`r0=0x00200058` = `table[100]` `"gssjxz.mrp"`；`r1=1`；R6 仍是 `"res_lang0.rc"` |
+| provenance | guest `_mr_readFile` 打开 pack 路径，不是资源名。`table[100]` 现为 128-byte `pack_filename`，bindExt 时写入 `packName` |
+| 决策 | **情况 B 已完成 producer。** 本阶段仍 **不**实现 table[40] |
+| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现 `mr_open`。见 `docs/stage5c10i-progress.md` |
+
+### table[100] pack_filename（5-C.10I 已实现 data slot）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[100] = (void*)pack_filename`；`char pack_filename[MR_MAX_FILENAME_SIZE]`（128） |
+| C | 不是 function。guest 读到的是 `char*` 指向 128 字节缓冲 |
+| copy | rxgj `arm_ext_set_pack_table_name`：`memset(dst,0,128)` + `snprintf(dst,128,"%s",name)` |
+| flymrp | `MythroadRuntime.packName`（MRP header filename / Lua `PackName`）。`bindExt` 时写入。无 host path / UTF-8 FS 转换 |
+| LIVE | 地址 `0x00200058`；内容 `"gssjxz.mrp\0"`；扩容使后续 P/ER_RW +0x78 |
+| confidence | 类型/大小/copy/生命周期/LIVE **CONFIRMED**。见 `docs/stage5c10i-progress.md` |
 
 ---
 

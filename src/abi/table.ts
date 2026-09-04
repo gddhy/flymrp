@@ -5,6 +5,8 @@ import {
   EXT_TABLE_ADDR,
   EXT_TABLE_COUNT,
   MR_IGNORE,
+  MR_MAX_FILENAME_SIZE,
+  PACK_FILENAME_SLOT,
   tableSlotAddr,
 } from "./layout.ts";
 
@@ -19,6 +21,11 @@ function range(lo: number, hi: number): number[] {
   const out: number[] = [];
   for (let i = lo; i <= hi; i++) out.push(i);
   return out;
+}
+
+/** Guest allocation size for a data slot. Most slots are u32; pack_filename is 128. */
+export function dataSlotAllocSize(n: number): number {
+  return n === PACK_FILENAME_SLOT ? MR_MAX_FILENAME_SIZE : 4;
 }
 
 export type TableHandler = (cpu: ARMCPU, mem: GuestMemory, args: Uint32Array) => number;
@@ -64,12 +71,12 @@ export class MrTable {
   }
 }
 
-export function initTableMemory(mem: GuestMemory, allocU32: (init: number) => number): void {
+export function initTableMemory(mem: GuestMemory, allocData: (n: number) => number): void {
   for (let n = 0; n < EXT_TABLE_COUNT; n++) {
     mem.write32(tableSlotAddr(n), tableSlotAddr(n));
   }
   for (const n of DATA_SLOTS) {
-    mem.write32(tableSlotAddr(n), allocU32(0));
+    mem.write32(tableSlotAddr(n), allocData(n));
   }
 }
 

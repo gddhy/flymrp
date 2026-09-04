@@ -24,9 +24,9 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `platex-38-abi.test.ts` is Stage 5-C.10C isolated ABI: platEx code 0x4c6 only.
 
-`real-mrp-startup.test.ts` is Stage 5-C.10G：真实 `app.mrp` 生产启动。table[17] `sprintf_` literal+`%d` REAL_EXECUTED，停在 table[40] `asm_mr_open`。No forensic bypass。
+`real-mrp-startup.test.ts` is Stage 5-C.10I：真实 `app.mrp` 生产启动。`table[100]` pack_filename 已写入；table[17] `sprintf_` literal+`%d` REAL_EXECUTED，停在 table[40] `asm_mr_open`。No forensic bypass。
 
-`open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 未注册。
+`open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 未注册。5-C.10I 后 LIVE R0 为 pack filename，不再是空串。
 
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 

@@ -16,13 +16,15 @@ import {
   EXT_TABLE_ADDR,
   EXT_TABLE_COUNT,
   MR_FAILED,
+  MR_MAX_FILENAME_SIZE,
   MR_SUCCESS,
+  PACK_FILENAME_SLOT,
   stackTop,
   tableSlotAddr,
 } from "./layout.ts";
 import { mapExtImage, parseExtImage, type MappedExt } from "./loader.ts";
 import { ModuleOwners } from "./owners.ts";
-import { DATA_SLOTS, MrTable, cbRet, initTableMemory } from "./table.ts";
+import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table.ts";
 
 export const DEFAULT_INSN_BUDGET = 1_000_000;
 
@@ -92,10 +94,32 @@ export class ExtRuntime {
   }
 
   private initTable(): void {
-    initTableMemory(this.mem, (init) => this.allocU32(init));
+    initTableMemory(this.mem, (n) => {
+      const size = dataSlotAllocSize(n);
+      const addr = this.alloc(size);
+      this.mem.fill(addr, 0, align8(Math.max(size, 1)));
+      return addr;
+    });
     for (let n = 0; n < EXT_TABLE_COUNT; n++) {
       this.mem.write32(n * 4, this.mem.read32(tableSlotAddr(n)));
     }
+  }
+
+  packFilenameAddr(): number {
+    return this.mem.read32(tableSlotAddr(PACK_FILENAME_SLOT)) >>> 0;
+  }
+
+  /**
+   * rxgj `arm_ext_set_pack_table_name`: zero 128 bytes, then
+   * `snprintf(dst, 128, "%s", name)`. Reuses the existing table[100] buffer.
+   */
+  setPackTableName(name: string | null | undefined): void {
+    const addr = this.packFilenameAddr();
+    if (!addr) return;
+    this.mem.fill(addr, 0, MR_MAX_FILENAME_SIZE);
+    const src = name ?? "";
+    const n = Math.min(src.length, MR_MAX_FILENAME_SIZE - 1);
+    for (let i = 0; i < n; i++) this.mem.write8(addr + i, src.charCodeAt(i) & 0xff);
   }
 
   private installBuiltinHandlers(): void {

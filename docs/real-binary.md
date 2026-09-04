@@ -6,7 +6,8 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-Stage 5-C.10H：`table[40]` / `mr_open` 只读取证，未实现。空 filename 来自 `table[100]`。见 `docs/stage5c10h-progress.md`。  
+Stage 5-C.10I：实现 `table[100]` / `pack_filename` 128-byte data slot。生产仍停在 table[40]；LIVE filename 为 `"gssjxz.mrp"`。见 `docs/stage5c10i-progress.md`。  
+Stage 5-C.10H：`table[40]` / `mr_open` 只读取证，未实现。当时空 filename 来自 `table[100]`。见 `docs/stage5c10h-progress.md`。  
 Stage 5-C.10G：`table[17]` / `sprintf_` 仅 literal + `%d`。当时生产停在 table[40] `asm_mr_open`。见 `docs/stage5c10g-progress.md`。  
 Stage 5-C.10F：`table[17]` / `sprintf_` 只读取证，未实现。当时生产停在 table[17]。见 `docs/stage5c10f-progress.md`。  
 Stage 5-C.10E：`table[33]` `mr_getTime` 接 deterministic `runtime.clock >>> 0`。当时停在 table[17]。见 `docs/stage5c10e-progress.md`。  
@@ -38,7 +39,7 @@ npx tsx tools/real/forensics-40.ts test/fixtures/real/app.mrp
 
 | 路径 | 作用 |
 |---|---|
-| `src/real/startup.ts` | 5-C.10A 真实 MRP 生产启动基线（不实现未知 ABI） |
+| `src/real/startup.ts` | 5-C.10I 真实 MRP 生产启动基线（table[100] pack_filename；不实现 table[40]） |
 | `src/real/open40.ts` | 5-C.10H table[40] / `mr_open` 只读取证 |
 | `src/real/gate.ts` | parse → load → 有限 step → report |
 | `src/real/readiness.ts` | READY / PARTIAL / BLOCKED 审计 |

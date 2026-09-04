@@ -91,4 +91,8 @@ export const IMPLEMENTED_C = [
   // Only the observed guest sprintf subset consisting of
   // literal bytes and %d is currently implemented.
   "mr_table/17/sprintf/%d",
+  // 128-byte guest data slot. Populated from current pack identity
+  // (MythroadRuntime.packName) with rxgj arm_ext_set_pack_table_name
+  // memset+snprintf semantics. Not a function ABI / filesystem API.
+  "mr_table/100/pack_filename",
 ] as const;

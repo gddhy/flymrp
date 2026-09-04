@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10H：table[40] 只读取证，未实现；空 filename 来自 `table[100]`。见 `docs/stage5c10h-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`；table[40] 仍未实现。见 `docs/stage5c10i-progress.md`。
 
 ## Lua execution
 
@@ -48,7 +48,7 @@ fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 table[17] `sprintf_` 后
 - modules: `mrc_loader.ext`, `cfunction.ext`
 - `arm_ext_load(mrc_loader, code=0)`：**r0=3**
 - `arm_ext_call(1)`：kind=return，r0=0；table[0] 分配 8B guest；table[125] 读 `cfunction.ext` 220596B 进 guest
-- `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200100` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
+- `arm_ext_load(cfunction, code=0)`：BLX(1) → table[25] P=`0x00200178` helper=`0x01ea5e9d`；table[0] malloc(19956)；table[14] memset(ER_RW,0,19952)；**ret=0**
 - `arm_ext_call(6)`：kind=**return**，r0=0（guest helper `0x01ea5e9d`；未实现 host helper）
 - `arm_ext_call(0)`：table[130] case 7 **REAL_EXECUTED**（r0=`0x270f`，ER_RW+0x1c=`0x270d`）→ table[14] → table[38] code 0x4c6 **REAL_EXECUTED** → table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40] **STOP**
 

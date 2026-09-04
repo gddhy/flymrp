@@ -735,7 +735,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     ].filter(Boolean),
     confirmed: [
       "table[14] memset2(s,c,n) returns s; r0=dest r1=byte r2=size_t; GuestMemory.fill",
-      "cfunction load completes after memset; P=0x00200100 helper=0x01ea5e9d ER_RW=0x0020021c",
+      "cfunction load completes after memset; P=0x00200178 helper=0x01ea5e9d ER_RW=0x00200294",
       "arm_ext_call(6) enters guest helper 0x01ea5e9c Thumb with r0=P r1=6 r9=ER_RW and returns 0",
       "after code 6, ER_RW+0x10=0x7b0 (1968); ER_RW+0x20=0 (the R9+0x20 note is not this store)",
       `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
@@ -745,7 +745,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     ],
     unknown: [
       "table[40] asm_mr_open (rxgj mythroad.c); not implemented this stage",
-      "table[100] pack_filename never populated; LIVE mr_open filename is empty",
+      "table[40] asm_mr_open still unimplemented; LIVE filename is table[100] pack_filename",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };
@@ -863,7 +863,7 @@ export function renderCode6Markdown(r: Code6ForensicsReport): string {
     "",
     "P source (**CONFIRMED**): guest BLX body calls `table[25]` `_mr_c_function_new(helper, 20)` → dest+4 and `owners.wrapper/active`. Guest then `table[0] mr_malloc(19956)` and `table[14] memset(ER_RW,0,19952)`.",
     "",
-    "R9 (**CONFIRMED**): host writes r9=`P.start_of_ER_RW` inside `arm_ext_call`. Observed at code 6 entry: R9=`0x0020021c`. Isolated load still ends with R9=0.",
+    "R9 (**CONFIRMED**): host writes r9=`P.start_of_ER_RW` inside `arm_ext_call`. Observed at code 6 entry: R9=`0x00200294`. Isolated load still ends with R9=0.",
     "",
     "Owner routing (**CONFIRMED** `routeCall`): code 6 → active || wrapper. Both hold P/helper. `800` completed so `rt.ext` stays bound through the later `801` code 0 fault.",
     "",

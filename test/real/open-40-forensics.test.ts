@@ -12,7 +12,7 @@ import {
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.10H table[40] / mr_open forensics", () => {
-  it("LIVE filename is empty pack_filename; res_lang0.rc stays in R6; slot 40 stays unimplemented", () => {
+  it("LIVE filename is table[100] pack_filename; res_lang0.rc stays in R6; slot 40 stays unimplemented", () => {
     const r = runOpen40Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handler130).toBe(true);
@@ -33,19 +33,25 @@ describe("5-C.10H table[40] / mr_open forensics", () => {
     expect(r.cpu.r[2]).toBe(OPEN40.stub);
     expect(r.cpu.r[5]).toBe(OPEN40.filename);
     expect(r.cpu.r[6]).toBe(OPEN40.sprintfBuf);
-    expect(r.cpu.r9).toBe(0x0020021c);
+    expect(r.cpu.r9).toBe(0x00200294);
     expect(r.cpu.cpsr).toBe(0x10);
     expect(r.cpu.tBit).toBe(0);
     expect(r.cpu.insnCount).toBe(221);
-    expect(r.p).toBe(0x00200100);
-    expect(r.erRw).toBe(0x0020021c);
+    expect(r.p).toBe(0x00200178);
+    expect(r.erRw).toBe(0x00200294);
 
-    expect(r.r0Text).toBe("");
+    expect(r.r0Text).toBe(r.owner);
+    expect(r.r0Text).not.toBe("");
+    expect(r.r0Text).not.toBe(OPEN40.sprintfText);
     expect(r.r6Text).toBe(OPEN40.sprintfText);
     expect(r.packPtr).toBe(OPEN40.filename);
     expect(r.packPtr).toBe(r.heapExpected);
+    expect(r.packAllocSize).toBe(OPEN40.flymrpPackBytes);
     expect(r.packDataSlotIndex).toBe(11);
-    expect(r.packBytes).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(r.packBytes).toHaveLength(128);
+    expect(r.packBytes[r.r0Text.length]).toBe(0);
+    expect(r.packBytes.slice(0, r.r0Text.length)).toEqual([...r.r0Text].map((c) => c.charCodeAt(0)));
+    expect(r.packBytes.slice(r.r0Text.length + 1).every((b) => b === 0)).toBe(true);
     expect(r.erRwPackWord).toBe(0);
     expect(r.writes).toEqual([]);
     expect(r.filenameFromMalloc).toBe(false);

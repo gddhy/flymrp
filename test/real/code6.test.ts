@@ -32,11 +32,11 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
     expect(r.fault.r0).toBe(0x00200058);
     expect(r.fault.r1).toBe(1);
     expect(r.fault.r2).toBe(0x000100a0);
-    expect(r.fault.r9).toBe(0x0020021c);
-    expect(r.fault.p).toBe(0x00200100);
+    expect(r.fault.r9).toBe(0x00200294);
+    expect(r.fault.p).toBe(0x00200178);
     expect(r.fault.helper).toBe(0x01ea5e9d);
-    expect(r.fault.erRw).toBe(0x0020021c);
-    expect(r.preCall?.route).toEqual({ p: 0x00200100, helper: 0x01ea5e9d });
+    expect(r.fault.erRw).toBe(0x00200294);
+    expect(r.preCall?.route).toEqual({ p: 0x00200178, helper: 0x01ea5e9d });
     expect(r.code6Call).toMatchObject({
       entered: true,
       kind: "return",
@@ -44,7 +44,7 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
       helper: 0x01ea5e9d,
       firstPc: 0x01ea5e9c,
       tBit: 1,
-      r9: 0x0020021c,
+      r9: 0x00200294,
       erRwWord10: 0x7b0,
       erRwWord20: 0,
     });

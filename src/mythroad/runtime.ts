@@ -167,6 +167,7 @@ export class MythroadRuntime {
     this.archive = MRPArchive.parse(bytes);
     this.vfs.attach(this.archive);
     this.packName = this.archive.header.filename || "app.mrp";
+    this.ext?.setPackTableName(this.packName);
     return this.archive;
   }
 
@@ -311,6 +312,7 @@ export class MythroadRuntime {
       },
     });
     bridge.install();
+    rt.setPackTableName(this.packName);
     this.mrTable = bridge;
     this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
   }

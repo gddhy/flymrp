@@ -9,8 +9,8 @@ import { REAL_MRP_BASELINE, runRealMrpStartup } from "../../src/real/startup.ts"
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const REAL_SHA = "77487205cd4db95fcf104392d9cc692ab122b06f7a04e14f49899277d9ac4263";
 
-describe("5-C.10G real MRP startup after table[17] sprintf_ %d", () => {
-  it("REAL_EXECUTED table[17] writes res_lang0.rc, then stops at table[40]", () => {
+describe("5-C.10I real MRP startup after table[100] pack_filename", () => {
+  it("REAL_EXECUTED table[17] writes res_lang0.rc; table[100] is pack filename; stops at table[40]", () => {
     expect(existsSync(REAL_APP)).toBe(true);
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runRealMrpStartup(bytes, { path: REAL_APP, consistencyRuns: 5 });
@@ -81,9 +81,20 @@ describe("5-C.10G real MRP startup after table[17] sprintf_ %d", () => {
     const h40 = r.mrTable.hits.find((h) => h.slot === 40);
     expect(h40?.status).toBe("NOT_EXECUTED");
     expect(h40?.pc).toBe(REAL_MRP_BASELINE.stub40);
-    expect(h40?.arguments[0]).toBe(0x00200058);
+    expect(h40?.arguments[0]).toBe(REAL_MRP_BASELINE.packFilenameAddr);
     expect(h40?.arguments[1]).toBe(1);
     expect(h40?.arguments[2]).toBe(REAL_MRP_BASELINE.stub40);
+
+    expect(r.ext.packFilenameAddr).toBe(REAL_MRP_BASELINE.packFilenameAddr);
+    expect(r.ext.packFilenameBytes).toHaveLength(REAL_MRP_BASELINE.packFilenameBytes);
+    expect(r.ext.packFilenameBeforeCode0).toBe(r.mrp.package);
+    expect(r.execution.packFilenameAt40).toBe(r.mrp.package);
+    expect(r.execution.packFilenameAt40).toBe(r.ext.packFilenameBeforeCode0);
+    expect(r.execution.packFilenameAt40).not.toBe(REAL_MRP_BASELINE.sprintfExpected);
+    expect(r.execution.packFilenameAt40).not.toBe("app.mrp");
+    expect(r.ext.packFilenameBytes[r.mrp.package.length]).toBe(0);
+    expect(r.ext.packFilenameBytes.slice(r.mrp.package.length + 1).every((b) => b === 0)).toBe(true);
+    expect(r.mrTable.handlers.some((h) => h.slot === REAL_MRP_BASELINE.packFilenameSlot)).toBe(false);
 
     const bySlot = Object.fromEntries(r.mrTable.slots.map((s) => [s.slot, s]));
     expect(bySlot[130]!.status).toBe("REAL_EXECUTED");
@@ -120,11 +131,12 @@ describe("5-C.10G real MRP startup after table[17] sprintf_ %d", () => {
     expect(r.execution.cpu17?.insnCount).toBe(183);
 
     expect(r.execution.cpu?.pc).toBe(REAL_MRP_BASELINE.stub40);
-    expect(r.execution.cpu?.r0).toBe(0x00200058);
+    expect(r.execution.cpu?.r0).toBe(REAL_MRP_BASELINE.packFilenameAddr);
+    expect(r.execution.cpu?.r0).toBe(r.ext.packFilenameAddr);
     expect(r.execution.cpu?.r1).toBe(1);
     expect(r.execution.cpu?.r2).toBe(REAL_MRP_BASELINE.stub40);
     expect(r.execution.cpu?.r3).toBe(0x01e7ff6c);
-    expect(r.execution.cpu?.r5).toBe(0x00200058);
+    expect(r.execution.cpu?.r5).toBe(REAL_MRP_BASELINE.packFilenameAddr);
     expect(r.execution.cpu?.r6).toBe(REAL_MRP_BASELINE.sprintfBuffer);
     expect(r.execution.cpu?.r7).toBe(REAL_MRP_BASELINE.erRw);
     expect(r.execution.cpu?.r9).toBe(REAL_MRP_BASELINE.erRw);
@@ -172,6 +184,11 @@ describe("5-C.10G real MRP startup after table[17] sprintf_ %d", () => {
     expect(fp.table33Return).toBe(0);
     expect(fp.erRwPlus4358).toBe(0);
     expect(fp.sprintfFilename).toBe(REAL_MRP_BASELINE.sprintfExpected);
+    expect(fp.packFilename).toBe(r.mrp.package);
+    expect(fp.p).toBe(REAL_MRP_BASELINE.p);
+    expect(fp.helper).toBe(REAL_MRP_BASELINE.helper);
+    expect(fp.erRw).toBe(REAL_MRP_BASELINE.erRw);
+    expect(fp.rwLen).toBe(REAL_MRP_BASELINE.rwLen);
     expect(r.stage5d).toBe("NOT STARTED");
   });
 

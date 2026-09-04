@@ -8,6 +8,9 @@ export const EXT_MEM_SIZE = 32 * 1024 * 1024;
 export const EXT_TABLE_ADDR = EXT_BASE_ADDR;
 export const EXT_TABLE_COUNT = 150;
 export const EXT_TABLE_BYTES = EXT_TABLE_COUNT * 4;
+/** rxgj `mr.h` / `pack_filename[MR_MAX_FILENAME_SIZE]`. table[100] data slot. */
+export const MR_MAX_FILENAME_SIZE = 128;
+export const PACK_FILENAME_SLOT = 100;
 export const EXT_STOP_ADDR = 0x0007_fff0;
 export const EXT_HEAP_ADDR = 0x0020_0000;
 export const EXT_STACK_ADDR = 0x01e0_0000;

@@ -1,4 +1,4 @@
-import { EXT_STACK_ADDR, EXT_TABLE_COUNT, tableSlotIndex } from "../abi/layout.ts";
+import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
@@ -18,8 +18,6 @@ export const MR_TESTCOM_CASE7 = 7;
  */
 export const MR_PLATEX_CODE_4C6 = 0x4c6;
 
-const MR_MAX_FILENAME_SIZE = 128;
-
 export type AllocRecord = {
   size: number;
   alignedSize: number;
@@ -37,6 +35,7 @@ export type ReadFileRecord = {
 /**
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
  * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only).
+ * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
  * Uses the existing EXT bump heap. Does not implement `mr_free` (table[1]).
  */
 export class MrTableBridge {

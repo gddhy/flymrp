@@ -1,15 +1,17 @@
 /**
  * Stage 5-C.10H — table[40] / mr_open ABI + filename provenance forensics.
- * Read-only. Does not register table[40]. Does not fill table[100].
- * Does not rewrite empty filenames. Stage 5-D is not started.
+ * Read-only. Does not register table[40]. Does not rewrite filenames.
+ * table[100] is populated by production bindExt (5-C.10I), not by this probe.
+ * Stage 5-D is not started.
  */
 import {
   EXT_CODE_ADDR,
   EXT_HEAP_ADDR,
+  MR_MAX_FILENAME_SIZE,
   tableSlotAddr,
   tableSlotIndex,
 } from "../abi/layout.ts";
-import { DATA_SLOTS as DATA_SLOT_SET } from "../abi/table.ts";
+import { DATA_SLOTS as DATA_SLOT_SET, dataSlotAllocSize } from "../abi/table.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { decodeThumb16, isThumb32Prefix } from "../hot/decode-thumb16.ts";
 import { decodeThumb32 } from "../hot/decode-thumb32.ts";
@@ -40,8 +42,8 @@ export const OPEN40 = {
   sprintfText: "res_lang0.rc",
   mode: MR_FILE_RDONLY,
   packSlot: 100,
-  nativePackBytes: 128,
-  flymrpPackBytes: 8,
+  nativePackBytes: MR_MAX_FILENAME_SIZE,
+  flymrpPackBytes: MR_MAX_FILENAME_SIZE,
   enc: {
     wrapLdrPc: 0x4a03,
     wrapPush: 0xb580,
@@ -345,6 +347,20 @@ function dataSlotIndex(slot: number): number {
   return -1;
 }
 
+function align8(n: number): number {
+  return (n + 7) & ~7;
+}
+
+/** Guest addr of a DATA_SLOT buffer after sequential 8-aligned bump allocs. */
+function expectedDataSlotAddr(slot: number): number {
+  let addr = EXT_HEAP_ADDR;
+  for (const n of DATA_SLOT_SET) {
+    if (n === slot) return addr;
+    addr = (addr + align8(Math.max(dataSlotAllocSize(n), 1))) >>> 0;
+  }
+  return 0;
+}
+
 function thrownMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -457,7 +473,7 @@ export function runOpen40Forensics(mrp: Uint8Array): Open40Report {
         r6Text = cstr(mem, c.r[6] >>> 0);
         packSlotAddr = tableSlotAddr(OPEN40.packSlot);
         packPtr = mem.read32(packSlotAddr) >>> 0;
-        packBytes = [...mem.slice(packPtr, 8)];
+        packBytes = [...mem.slice(packPtr, OPEN40.flymrpPackBytes)];
         erRwPackWord = mem.read32((erRw + 0x190) >>> 0) >>> 0;
         mallocs = rt.mrAllocs.map((a) => ({
           size: a.size,
@@ -519,7 +535,7 @@ export function runOpen40Forensics(mrp: Uint8Array): Open40Report {
     packBytes,
     packAllocSize,
     packDataSlotIndex,
-    heapExpected: (EXT_HEAP_ADDR + packDataSlotIndex * OPEN40.flymrpPackBytes) >>> 0,
+    heapExpected: expectedDataSlotAddr(OPEN40.packSlot),
     erRwPackWord,
     writes,
     mallocs,
@@ -626,7 +642,7 @@ export function renderOpen40Markdown(r: Open40Report): string {
     `- VFS exists res_lang0.rc: ${r.vfsExistsResLang}`,
     `- VFS exists "": ${r.vfsExistsEmpty}`,
     `- table125 after sprintf: ${r.table125AfterSprintf}`,
-    `- decision: ${r.decision} (do not implement table[40] yet)`,
+    `- decision: ${r.decision} (pack_filename producer is implemented; do not implement table[40] this stage)`,
     "",
     "Stage 5-D: NOT STARTED.",
     "",
