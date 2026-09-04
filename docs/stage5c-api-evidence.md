@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 1`（mr_free 未实现）。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。见 5-C.10M |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 1`（mr_free 未实现）。5-C.10N：table[1] ownership/header 只读取证。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。见 5-C.10N |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -363,15 +363,16 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | `"res_lang0.rc"` vs `start.mr` → -1；vs `mrc_loader.ext` → 1；vs `res_lang0.rc` → 0 |
 | confidence | identity/unsigned-char/-1/0/1/LIVE **CONFIRMED**。不是完整 libc strcmp |
 
-### table[1] mr_free（5-C.10M LIVE 到达，未实现）
+### table[1] mr_free（5-C.10N LIVE 到达，未实现）
 
 | 字段 | 值 |
 |---|---|
 | source | `_mr_c_function_table[1] = (void*)asm_mr_free`；`fixR9.h` `#define asm_mr_free mr_free` |
-| C | `void mr_free(void *p, uint32 len)`；NULL/invalid 打印后 return |
-| wrap | 本 pack `0x01ea7ab4`：`p-4`、`len=[p]+4` 再调 table[1] |
-| LIVE | 本笔是 **free TempName scratch**，不是 indexbuf。R0=`0x00206de0`（header，wrap 已 SUB #4）R1=132 headerWord=128 user=`0x00206de4`。handler 未执行 |
-| confidence | 签名/wrap/LIVE **CONFIRMED**。bump 回收 **未闭环** → 本阶段不实现 |
+| C | `void mr_free(void *p, uint32 len)`。C 返回 void。`aex_t001` 总是 `R0=MR_SUCCESS` |
+| wrap | 本 pack `mrc_malloc`/`mrc_free`：table0 收 N+4，guest 在 raw 写 N，返回 payload；free 把 payload-4 与 N+4 交给 table[1] |
+| LIVE | **free TempName scratch**。table0(132)→`0x00206de0`（返回时 header=0）；guest wrap 写 128；table1 R0=`0x00206de0` R1=132 payload=`0x00206de4` `"res_lang0.rc"`。registry 记 raw/header，与 R0/R1 匹配。handler 未执行 |
+| allocator | rxgj `mem.c` first-fit，完全依赖 caller len，free 写 8B metadata。flymrp table0 是 bump + `allocs[]`，不复用。本 startup 下一笔 malloc 17174，不复用 132 |
+| confidence | identity/wrap/header 归属/LIVE/registry **CONFIRMED**。本阶段不实现。见 `docs/stage5c10n-progress.md` |
 
 ---
 

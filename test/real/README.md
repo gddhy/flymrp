@@ -32,6 +32,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `memcpy-3-forensics.test.ts` is Stage 5-C.10L：table[3] `memcpy2` LIVE 首笔 ABI 与 directory loop 后续 slot。5-C.10M 已实现 3/10；该取证仍锁第一笔 table[3]，生产停在 table[1]。
 
+`free-1-forensics.test.ts` is Stage 5-C.10N：table[1] `mr_free` ownership / allocation header 只读取证。不实现 table[1]。生产停在 table[1]。
+
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
 `gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.

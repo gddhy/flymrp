@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 1`）。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。未实现 table[1] mr_free。见 `docs/stage5c10m-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 1`）。5-C.10N：table[1] ownership/header 只读取证，未实现。5-C.10M：table[3] memcpy2 + table[10] strcmp2 **REAL_EXECUTED**。见 `docs/stage5c10n-progress.md`。
 
 ## Lua execution
 
@@ -75,7 +75,7 @@ not observed
 
 ## Failure
 
-`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。guest 自己扫 MRP directory 并命中 `res_lang0.rc`。第一个真实失败是 **table[1]** `mr_free`（本阶段不实现）。未进入 Stage 5-D。
+`mrc_loader.ext` 已读入 `cfunction.ext`。cfunction load 完成（含 memset）。`arm_ext_call(6)` guest 返回 0。guest 自己扫 MRP directory 并命中 `res_lang0.rc`。第一个真实失败是 **table[1]** `mr_free`（5-C.10N 已取证 header/ownership，本阶段不实现）。未进入 Stage 5-D。
 
 ## Readiness
 

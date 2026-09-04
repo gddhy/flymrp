@@ -79,6 +79,15 @@ export {
   type Memcpy3Report,
 } from "./memcpy3.ts";
 export {
+  FREE1,
+  firstFitReuseSameSize,
+  flymrpBumpSecond,
+  realLGmemSize,
+  renderFree1Markdown,
+  runFree1Forensics,
+  type Free1Report,
+} from "./free1.ts";
+export {
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

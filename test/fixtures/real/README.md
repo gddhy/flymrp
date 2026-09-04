@@ -18,6 +18,6 @@ User-supplied unprotected MRP (original at `/Users/zixing/Downloads/app.mrp` was
 
 `mrc_loader.ext` SHA-256 `d36151ee3c119717305afe4b1f0ba47f0f0154f8ba6f2c5081d6402c8eddd938`（与 rxgj 记录的 SkyEngine 232 字节 loader 相同）。
 
-**real-app green: false。** Stage 5-C.10M：table[3] memcpy2 + table[10] strcmp2 已实现。生产停在 `UNKNOWN_REQUIRED_SLOT = 1`（mr_free）。见 `docs/stage5c10m-progress.md`。
+**real-app green: false。** Stage 5-C.10N：table[1] mr_free 只读取证，未实现。生产停在 `UNKNOWN_REQUIRED_SLOT = 1`。见 `docs/stage5c10n-progress.md`。
 
 不要把第二份 `start.mr`（含 `sdk_key.dat` / IMEI）当成要跑的入口；`readFile("start.mr")` 只取第一份。不要改原文件。

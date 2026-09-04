@@ -6,7 +6,8 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-Stage 5-C.10M：实现 `table[3]` memcpy2 + `table[10]` strcmp2。未实现 `table[1]`。生产停在 table[1]。见 `docs/stage5c10m-progress.md`。  
+Stage 5-C.10N：`table[1]` / `mr_free` ownership + allocation header 只读取证。未实现 table[1]。生产停在 table[1]。见 `docs/stage5c10n-progress.md`。  
+Stage 5-C.10M：实现 `table[3]` memcpy2 + `table[10]` strcmp2。当时未实现 `table[1]`。当时生产停在 table[1]。见 `docs/stage5c10m-progress.md`。  
 Stage 5-C.10L：`table[3]` memcpy2 ABI + directory loop 只读取证，当时未实现。当时生产停在 table[3]。见 `docs/stage5c10l-progress.md`。  
 Stage 5-C.10K：实现 current-pack 只读 file backend（table[40]/[44]/[45]/[41]）。当时生产停在 table[3] memcpy。见 `docs/stage5c10k-progress.md`。  
 Stage 5-C.10J：current-pack file ABI 只读取证。当时未实现 table[40]/41+。见 `docs/stage5c10j-progress.md`。  
@@ -37,6 +38,7 @@ npx tsx tools/real/startup-baseline.ts test/fixtures/real/app.mrp
 npx tsx tools/real/forensics-40.ts test/fixtures/real/app.mrp
 npx tsx tools/real/forensics-file-chain.ts test/fixtures/real/app.mrp
 npx tsx tools/real/forensics-3.ts test/fixtures/real/app.mrp
+npx tsx tools/real/forensics-1.ts test/fixtures/real/app.mrp
 ```
 
 无参数：打印 fixture 是否存在 + loader readiness。有文件也不声称 real-app green。
@@ -46,6 +48,7 @@ npx tsx tools/real/forensics-3.ts test/fixtures/real/app.mrp
 | 路径 | 作用 |
 |---|---|
 | `src/real/startup.ts` | 5-C.10M 真实 MRP 生产启动基线（table[3]/[10] REAL_EXECUTED；停在 table[1]） |
+| `src/real/free1.ts` | 5-C.10N table[1] mr_free ownership / header 只读取证（不实现 table[1]） |
 | `src/real/memcpy3.ts` | 5-C.10L table[3] memcpy2 / directory loop 只读取证（当时不实现 3/10/1） |
 | `src/real/open40.ts` | 5-C.10H table[40] / `mr_open` 只读取证 |
 | `src/real/filechain.ts` | 5-C.10J file ABI 静态链 / 只读 handle 设计（不实现） |
