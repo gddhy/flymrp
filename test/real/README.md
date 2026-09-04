@@ -26,6 +26,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `real-mrp-startup.test.ts` is Stage 5-C.10G：真实 `app.mrp` 生产启动。table[17] `sprintf_` literal+`%d` REAL_EXECUTED，停在 table[40] `asm_mr_open`。No forensic bypass。
 
+`open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 未注册。
+
 `gettime-33-forensics.test.ts` is Stage 5-C.10D：table[33] / `asm_mr_getTime` 调用点取证。Handler 现已注册。
 
 `gettime-33-abi.test.ts` is Stage 5-C.10E isolated ABI: `runtime.clock >>> 0` / uint32 wrap / advance / zero-arg.

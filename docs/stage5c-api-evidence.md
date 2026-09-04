@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）；table[17] `sprintf_` literal+`%d` 已接线 |
+| 停点 | `UNKNOWN_REQUIRED_SLOT = 40`（`asm_mr_open` 未实现）；空 filename 来自 `table[100]`。见 5-C.10H |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -308,14 +308,18 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | pack | 12 个 ER_RW+0x5c callsite；本次 LIVE 只需 `%d`；STATIC 另有 `%s`（未实现） |
 | confidence | 身份/AAPCS/LIVE `%d` 写入 **CONFIRMED**。见 `docs/stage5c10g-progress.md` |
 
-### table[40] asm_mr_open（5-C.10G LIVE 到达，未实现）
+### table[40] asm_mr_open（5-C.10H 只读取证，未实现）
 
 | 字段 | 值 |
 |---|---|
 | source | `mythroad.c` `_mr_c_function_table[40] = asm_mr_open`；`fixR9.h` `#define asm_mr_open mr_open` |
 | C | `int32 mr_open(const char *filename, uint32 mode)` |
-| LIVE | stub `0x000100a0`；`r0=0x00200058` 空 C 串；`r1=1`（`MR_FILE_RDONLY`）；`r2` 是 stub 残留 |
-| confidence | 身份 **CONFIRMED**（源码）。host **未**实现。见 `docs/stage5c10g-progress.md` |
+| mode | `MR_FILE_RDONLY=1`（LIVE R1）。不是 POSIX `O_RDONLY=0` |
+| return | 成功正整数 handle；失败 **0**（不是 `MR_FAILED`） |
+| LIVE | stub `0x000100a0`；`r0=0x00200058` = `table[100]` 空 `pack_filename`；`r1=1`；R6 仍是 `"res_lang0.rc"` |
+| provenance | guest `_mr_readFile` 打开 pack 路径，不是资源名。`table[100]` 从未写入（8 字节 vs 真机 128） |
+| 决策 | **情况 B**：先修 `pack_filename` producer，不要实现 table[40] |
+| confidence | 身份/LIVE 数据流 **CONFIRMED**。host **未**实现。见 `docs/stage5c10h-progress.md` |
 
 ---
 

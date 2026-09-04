@@ -6,7 +6,8 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-Stage 5-C.10G：`table[17]` / `sprintf_` 仅 literal + `%d`。生产停在 table[40] `asm_mr_open`。见 `docs/stage5c10g-progress.md`。  
+Stage 5-C.10H：`table[40]` / `mr_open` 只读取证，未实现。空 filename 来自 `table[100]`。见 `docs/stage5c10h-progress.md`。  
+Stage 5-C.10G：`table[17]` / `sprintf_` 仅 literal + `%d`。当时生产停在 table[40] `asm_mr_open`。见 `docs/stage5c10g-progress.md`。  
 Stage 5-C.10F：`table[17]` / `sprintf_` 只读取证，未实现。当时生产停在 table[17]。见 `docs/stage5c10f-progress.md`。  
 Stage 5-C.10E：`table[33]` `mr_getTime` 接 deterministic `runtime.clock >>> 0`。当时停在 table[17]。见 `docs/stage5c10e-progress.md`。  
 Stage 5-C.10D：`table[33]` / `asm_mr_getTime` 只读取证，未实现。当时生产停在 table[33]。见 `docs/stage5c10d-progress.md`。  
@@ -28,6 +29,7 @@ npx tsx tools/real/inspect.ts
 npx tsx tools/real/inspect.ts path/to/app.mrp
 npx tsx tools/real/run-app.ts
 npx tsx tools/real/startup-baseline.ts test/fixtures/real/app.mrp
+npx tsx tools/real/forensics-40.ts test/fixtures/real/app.mrp
 ```
 
 无参数：打印 fixture 是否存在 + loader readiness。有文件也不声称 real-app green。
@@ -37,6 +39,7 @@ npx tsx tools/real/startup-baseline.ts test/fixtures/real/app.mrp
 | 路径 | 作用 |
 |---|---|
 | `src/real/startup.ts` | 5-C.10A 真实 MRP 生产启动基线（不实现未知 ABI） |
+| `src/real/open40.ts` | 5-C.10H table[40] / `mr_open` 只读取证 |
 | `src/real/gate.ts` | parse → load → 有限 step → report |
 | `src/real/readiness.ts` | READY / PARTIAL / BLOCKED 审计 |
 | `src/mythroad/probe.ts` | 可选 trace（默认关） |

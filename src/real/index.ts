@@ -52,6 +52,14 @@ export {
   type GetTime33Report,
 } from "./gettime33.ts";
 export {
+  OPEN40,
+  FILE_ABI_SLOTS,
+  MR_OPEN_MODES,
+  renderOpen40Markdown,
+  runOpen40Forensics,
+  type Open40Report,
+} from "./open40.ts";
+export {
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

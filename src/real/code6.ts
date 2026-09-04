@@ -745,6 +745,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     ],
     unknown: [
       "table[40] asm_mr_open (rxgj mythroad.c); not implemented this stage",
+      "table[100] pack_filename never populated; LIVE mr_open filename is empty",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };

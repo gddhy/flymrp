@@ -31,7 +31,7 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10G：table[17] `sprintf_` 仅 literal+`%d`；见 `docs/stage5c10g-progress.md`。
+fail（`UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 40`）。5-C.10H：table[40] 只读取证，未实现；空 filename 来自 `table[100]`。见 `docs/stage5c10h-progress.md`。
 
 ## Lua execution
 

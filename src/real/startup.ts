@@ -1031,7 +1031,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table38: run.hits.find((h) => h.slot === 38)?.status ?? "NOT_EXECUTED",
       table33: run.hits.find((h) => h.slot === 33)?.status ?? "NOT_EXECUTED",
       table17: run.hits.find((h) => h.slot === 17)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[17] is REAL_EXECUTED sprintf_ literal+%d, not FORENSIC_BYPASSED. table[40] asm_mr_open is not implemented.",
+      note: "This run does not cbRet unknown slots. table[17] is REAL_EXECUTED sprintf_ literal+%d, not FORENSIC_BYPASSED. table[40] asm_mr_open is not implemented. 5-C.10H: empty filename is table[100] pack_filename, not res_lang0.rc.",
     },
     consistency: {
       runs: nRuns,
