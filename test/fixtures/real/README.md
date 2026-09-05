@@ -18,6 +18,6 @@ User-supplied unprotected MRP (original at `/Users/zixing/Downloads/app.mrp` was
 
 `mrc_loader.ext` SHA-256 `d36151ee3c119717305afe4b1f0ba47f0f0154f8ba6f2c5081d6402c8eddd938`（与 rxgj 记录的 SkyEngine 232 字节 loader 相同）。
 
-**real-app green: false。** guest inflate 完成；`arm_ext_call(0)` NORMAL RETURN；Lua resumes。Stage 5-C **COMPLETE**。Stage 5-D **STARTED**（持续帧/输入未闭环）。见 `docs/autonomous-progress.md`。
+**realAppGreen** 只在 playable path 上为 true（dialog → title → start → map → DOWN）。startup-only inspect 仍不是 green。Stage 5-C **COMPLETE**。Stage 5-D playable gate **COMPLETE**。见 `docs/autonomous-progress.md`。
 
 不要把第二份 `start.mr`（含 `sdk_key.dat` / IMEI）当成要跑的入口；`readFile("start.mr")` 只取第一份。不要改原文件。

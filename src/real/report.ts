@@ -2,10 +2,13 @@ import type { InspectResult } from "./inspect.ts";
 import type { ReadinessItem } from "./readiness.ts";
 import type { UnknownAbiEvent } from "../mythroad/probe.ts";
 import type { TraceRecord } from "../mythroad/probe.ts";
+import type { PlayablePathResult } from "./playable.ts";
 
 export type CompatibilityReport = {
   status: "REAL_BINARY_BLOCKED" | "SYNTHETIC_ONLY" | "INSPECTED";
-  realAppGreen: false;
+  /** True only after the real-app playable path (title → gameplay + input). */
+  realAppGreen: boolean;
+  playable: PlayablePathResult | null;
   identity: {
     path: string | null;
     sha256: string | null;
@@ -31,6 +34,7 @@ export function emptyBlockedReport(notes: string[] = []): CompatibilityReport {
   return {
     status: "REAL_BINARY_BLOCKED",
     realAppGreen: false,
+    playable: null,
     identity: { path: null, sha256: null, size: 0 },
     inspect: null,
     readiness: [],
@@ -57,6 +61,20 @@ export function renderCompatibilityReport(r: CompatibilityReport): string {
     `real-app green: **${r.realAppGreen}**`,
     `fixtureKind: ${r.fixtureKind}`,
     "",
+    r.playable
+      ? [
+          "## Playable gate",
+          "",
+          `- sound dialog: ${r.playable.soundDialog}`,
+          `- title screen: ${r.playable.titleScreen}`,
+          `- start game: ${r.playable.startGame}`,
+          `- gameplay frame: ${r.playable.gameplayFrame}`,
+          `- gameplay input: ${r.playable.gameplayInput}`,
+          `- unknownRequiredSlot: ${r.playable.unknownRequiredSlot ?? "null"}`,
+          `- input: ${r.playable.inputSequence.join(" → ") || "(none)"}`,
+          "",
+        ].join("\n")
+      : "",
     "## Binary identity",
     "",
     `- path: ${r.identity.path ?? "(none)"}`,

@@ -55,6 +55,32 @@ describe("5-B synthetic input", () => {
     expect(rt.pollEvent()).toMatchObject({ type: MR_KEY_RELEASE, p1: MR_KEY_UP });
   });
 
+  it("Mythroad key map press/release matches source codes", () => {
+    const keys = [
+      ["UP", MR_KEY_UP],
+      ["DOWN", MR_KEY_DOWN],
+      ["LEFT", MR_KEY_LEFT],
+      ["RIGHT", MR_KEY_RIGHT],
+      ["FIRE", MR_KEY_FIRE],
+      ["SOFTLEFT", MR_KEY_SOFTLEFT],
+      ["SOFTRIGHT", MR_KEY_SOFTRIGHT],
+    ] as const;
+    expect(MR_KEY_UP).toBe(12);
+    expect(MR_KEY_DOWN).toBe(13);
+    expect(MR_KEY_LEFT).toBe(14);
+    expect(MR_KEY_RIGHT).toBe(15);
+    expect(MR_KEY_SOFTLEFT).toBe(17);
+    expect(MR_KEY_SOFTRIGHT).toBe(18);
+    expect(MR_KEY_FIRE).toBe(20);
+    for (const [alias, code] of keys) {
+      const rt = new MythroadRuntime();
+      rt.input.press(alias);
+      expect(rt.pollEvent()).toMatchObject({ kind: EV_KEY, type: MR_KEY_PRESS, p1: code });
+      rt.input.release(alias);
+      expect(rt.pollEvent()).toMatchObject({ kind: EV_KEY, type: MR_KEY_RELEASE, p1: code });
+    }
+  });
+
   it("unknown key is EventError", () => {
     const rt = new MythroadRuntime();
     expect(() => rt.input.press("NOPE")).toThrow(EventError);

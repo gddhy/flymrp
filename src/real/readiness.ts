@@ -17,14 +17,14 @@ export function loaderReadiness(): ReadinessItem[] {
     { item: "nested MRP", status: "PARTIAL", reason: "openNested exists; no real nested pack" },
     { item: "FileStart / FileEnd", status: "PARTIAL", reason: "header fields parsed; real FileLen=382778" },
     { item: "gzip", status: "PARTIAL", reason: "1F 8B + inflate; real stored entries inflate" },
-    { item: "EXT MRPGCMAP", status: "PARTIAL", reason: "cfunction load + code 6 guest return 0; guest inflate completes; arm_ext_call(0) NORMAL RETURN; Lua resumes; Stage 5-C COMPLETE; Stage 5-D STARTED (event/frames/input)" },
+    { item: "EXT MRPGCMAP", status: "PARTIAL", reason: "cfunction load + code 6 guest return 0; guest inflate completes; arm_ext_call(0) NORMAL RETURN; Lua resumes; Stage 5-C COMPLETE; Stage 5-D playable path PASS on this fixture; not 100% Mythroad" },
     { item: "stripped ARM ELF-like", status: "PARTIAL", reason: "PT_LOAD relocate path; fixtures only" },
     { item: "P / ER_RW", status: "PARTIAL", reason: "real table[25] sets P/helper; memset zeros ER_RW; R9 set at arm_ext_call" },
     { item: "150-slot mr_table", status: "PARTIAL", reason: "slots 0/14/25/125/130(case 7)/38(0x4c6+SWITCHPATH)/33/17/40/44/45/41/43 + 3/10/1/9/30/37/26/42/49/5/35/61/15/6/18/7/122/123/29/78/31/32/80/120/57/58/145 wired; plat 1205 PASS; AppFS EFS PASS; timer+getScreenInfo+DrawBitmap PASS; play/stopSound SUCCESS no device; platDrawChar generated gb16" },
     { item: "nested EXT owner", status: "PARTIAL", reason: "ModuleOwners in Stage 4; fixtures only" },
     { item: "Lua chunk loading", status: "PARTIAL", reason: "first start.mr; 801/1, 801/6, and 801/0 return to Lua; arm_ext_call(0) NORMAL RETURN; Lua resumed" },
     { item: "_runFile / restart", status: "PARTIAL", reason: "state machine exists; synthetic only" },
-    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; inflate POP + SHA-256 match; arm_ext_call(0) returns; Lua resumes; Stage 5-C COMPLETE; Stage 5-D timer/Canvas/SOFTRIGHT pixel reaction PASS; audio is SUCCESS no device; generated gb16; not a device-LCD green" },
+    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; playable path PASS (dialog→title→intro→map+DOWN); realAppGreen is playable-path green; audio device output unsupported; generated gb16 not UC2; AppFS in-memory; not 100% Mythroad" },
     { item: "魔塔II.jar / DRM", status: "BLOCKED", reason: "no jar in workspace; DRM not attempted" },
   ];
 }

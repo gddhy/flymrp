@@ -1,7 +1,18 @@
 # Autonomous real-MRP progress
 
 长期目标：真实 `test/fixtures/real/app.mrp` 在 flymrp 中完成启动并进入稳定可交互运行。  
-**不要 push。** Stage 5-C **COMPLETE**。Stage 5-D **STARTED**。
+**不要 push。** Stage 5-C **COMPLETE**。Stage 5-D playable gate **COMPLETE**。剩余 font/audio/persist/network 为 OPTIONAL。
+
+Playable Gate:
+
+```text
+sound dialog         PASS
+title screen         PASS
+start game           PASS
+gameplay frame       PASS
+gameplay input       PASS
+realAppGreen         true
+```
 
 基线 HEAD（goal 开始时）：`fc03f8c` / `84e17c3`。以实际 HEAD 为准。
 
@@ -89,6 +100,7 @@
 | winCreate/Release IGNORE | return `MR_IGNORE` | window objects / focus | rxgj FULL `dsm.c` same | GUI-heavy apps |
 | timer owner not LR-range | owner = current \|\| active \|\| wrapper | full LR-range module resolve | LIVE start after AppFS uses current/wrapper | nested EXT timer callbacks |
 | generated gb16 (timer path) | metrics + packed bits | real `gb16.uc2` | startup text already used generated glyphs | later fonts |
+| platDrawChar generated gb16 | RGB565 blit + last fontSize | real `gb16.uc2` | LIVE gameplay text uses 145; HUD/map operable | unread dialogue tofu |
 | C `_DrawBitmap` rop `DRAW_BM_*` | COPY/TRANSPARENT/GRAY/OR/XOR/NOT + sprite rotate | pixel-perfect device blit / `DrawBitmapEx` | LIVE blit uses guest RGB565; Lua `BM_COPY=0` is a different alias | mixing the two enums |
 | Canvas2D RGB565 present | guest cache → RGBA ImageData | dirty-rect / DOM-only backend | present is host conversion; guest pixels unchanged | assuming 5/6-bit expand matches a phone LCD |
 | this-fixture key remap | PRESS+FIRE → ER_RW+180 `0x0109` | universal Mythroad key map | LIVE gssjxz `mrc_event` write; start.mr packs `iii` 12 bytes | other apps / 20-byte `mr_c_event_st` |
@@ -486,12 +498,50 @@ unknown            null
 
 **commit:** Implement confirmed platDrawChar ABI
 
+---
+
+### 2026-09-05 — playable gate / realAppGreen
+
+**starting blocker:** 标题屏之后还没有「开始游戏 → 地图 → 真实按键反应」闭环；`realAppGreen` 仍表示 title-only。
+
+**analysis:**
+
+* 标题默认选中「开始游戏」。FIRE（SELECT=20）进入开场旁白；再 FIRE 进入地图 HUD。
+* SOFTLEFT 在标题上不进游戏。
+* 开场旁白 checksum `2367559949`（「按任意键进入」）。
+* 再 FIRE 后 table[145] 已关；稳定地图 checksum `2054893696`（LV 40 / 飞行 / 草地）。
+* UP 在出生点不改像素；DOWN 改 checksum 并出现方向箭头/对话盒。
+* 测试等 checksum / 稳定帧，不只写死 24 帧。
+
+**implementation:**
+
+* `runPlayablePath`：dialog → SOFTRIGHT → title → FIRE → intro → FIRE → map → DOWN。
+* `realAppGreen = true` 仅当 playable path 全过。startup `steps: 0` 仍为 false。
+* `ExtRuntime.onExtCall` 记录 insn，不改 ABI。
+
+**tests:** `playable-gate` + gate `playable: true` + Mythroad key press/release 回归。
+
+**real-run:**
+
+```text
+input              SOFTRIGHT → FIRE → FIRE → DOWN
+sound dialog       798243022
+title              2567031015
+intro              2367559949
+gameplay           2054893696
+DOWN               checksum changes
+arm_ext_call(0)    return r0=0 insn=1,596,592
+arm_ext_call(1)    extract insn=5,096,611
+unknown            null
+realAppGreen       true
+```
+
+**commit:** Prove real app playable path and set realAppGreen
+
 ## Current blocker
 
 ```text
-startup + title + intro + platDrawChar PASS
-map/HUD reached on this fixture
-remaining: playable gate (gameplay input + realAppGreen)
-optional: UC2 font, real audio device, persist EFS, network/SMS
-realAppGreen stays false until playable DoD
+REAL APP PLAYABLE GATE = PASS
+realAppGreen = true
+remaining optional: UC2 font, audio device, persist AppFS, network/SMS, ARM slice
 ```

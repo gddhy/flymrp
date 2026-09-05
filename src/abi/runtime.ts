@@ -80,6 +80,7 @@ export class ExtRuntime {
   insnBudget = DEFAULT_INSN_BUDGET;
   lastKind: ExtStopKind = ExtStopKind.Return;
   bridgeCalls = 0;
+  onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
 
   constructor() {
     this.mem = createExtMemory();
@@ -228,7 +229,7 @@ export class ExtRuntime {
   arm_ext_call(code: number, input?: Uint8Array | null, inputAddr?: number, inputLen?: number): ExtCallResult {
     const { p, helper } = this.routeCall(code);
     if (!p || !helper) {
-      return {
+      const failed: ExtCallResult = {
         kind: ExtStopKind.AbiFault,
         ret: MR_FAILED,
         r0: MR_FAILED,
@@ -237,6 +238,8 @@ export class ExtRuntime {
         output: new Uint8Array(),
         insnCount: 0,
       };
+      this.onExtCall?.(code, failed);
+      return failed;
     }
     let inAddr = inputAddr ?? 0;
     let inLen = inputLen ?? (input ? input.length : 0);
@@ -289,12 +292,14 @@ export class ExtRuntime {
         output = new Uint8Array();
       }
     }
-    return {
+    const out: ExtCallResult = {
       ...result,
       outputAddr: outPtr,
       outputLen: outLen,
       output,
     };
+    this.onExtCall?.(code, out);
+    return out;
   }
 
   runGuest(

@@ -49,12 +49,30 @@ describe("5-C.1 compatibility gate", () => {
     const r = runCompatibilityGate({ path, fixtureKind: "real", steps: 0 });
     expect(r.status).toBe("INSPECTED");
     expect(r.realAppGreen).toBe(false);
+    expect(r.playable).toBeNull();
     expect(r.inspect?.classification).toBe("CONFIRMED");
     expect(r.inspect?.format).toBe("MRPG");
     expect(r.inspect?.entry).toBe("start.mr");
     expect(r.startup).toBe("pass");
     expect(r.failure).toBeFalsy();
     expect(r.nativeAbi.unknown).toEqual([]);
+  });
+
+  it("real app.mrp playable path is green", () => {
+    const path = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
+    const r = runCompatibilityGate({ path, fixtureKind: "real", playable: true });
+    expect(r.status).toBe("INSPECTED");
+    expect(r.realAppGreen).toBe(true);
+    expect(r.playable?.ok).toBe(true);
+    expect(r.playable?.soundDialog).toBe(true);
+    expect(r.playable?.titleScreen).toBe(true);
+    expect(r.playable?.startGame).toBe(true);
+    expect(r.playable?.gameplayFrame).toBe(true);
+    expect(r.playable?.gameplayInput).toBe(true);
+    expect(r.playable?.unknownRequiredSlot).toBeNull();
+    expect(r.startup).toBe("pass");
+    expect(r.failure).toBeFalsy();
+    expect(r.notes.join(" ")).toMatch(/verified playable path/);
   });
 
   it("unknown bytes do not become a fake app pass", () => {

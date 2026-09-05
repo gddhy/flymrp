@@ -4,6 +4,7 @@ import { MythroadRuntime, NullGraphicsBackend } from "../mythroad/index.ts";
 import { RuntimeTrace } from "../mythroad/probe.ts";
 import { inspectBytes, type InspectResult } from "./inspect.ts";
 import { emptyBlockedReport, renderCompatibilityReport, tracesToConfirmedNatives, type CompatibilityReport } from "./report.ts";
+import { runPlayablePath } from "./playable.ts";
 import { loaderReadiness } from "./readiness.ts";
 
 const REAL_CANDIDATES = ["start.mr", "app.mrp", "魔塔II.jar", "motta.mrp"];
@@ -14,6 +15,11 @@ export type GateOptions = {
   fixtureKind?: InspectResult["fixtureKind"];
   steps?: number;
   entry?: string;
+  /**
+   * Run the real-app playable path (sound dialog → title → start → map → input).
+   * Startup-only `steps` never sets `realAppGreen`.
+   */
+  playable?: boolean;
 };
 
 export function discoverRealBinaries(dir: string): string[] {
@@ -66,12 +72,44 @@ export function runCompatibilityGate(opts: GateOptions = {}): CompatibilityRepor
     return report;
   }
 
+  const entry = opts.entry ?? inspect.entry ?? "start.mr";
+  if (opts.playable && fixtureKind === "real") {
+    const tr = new RuntimeTrace();
+    const rt = new MythroadRuntime({ trace: tr, abiMode: "strict" });
+    try {
+      rt.loadMrp(bytes);
+      const playable = runPlayablePath(rt, { entry });
+      report.playable = playable;
+      report.startup = playable.soundDialog ? "pass" : "fail";
+      report.luaExecution = playable.soundDialog ? "pass" : "fail";
+      report.realAppGreen = playable.ok;
+      if (playable.ok) {
+        report.notes.push("real app.mrp has a verified playable path");
+        report.notes.push("audio device output unsupported");
+        report.notes.push("generated gb16; not device UC2");
+      } else {
+        report.failure = { message: playable.failure ?? "playable path incomplete", sequence: [] };
+      }
+    } catch (e) {
+      report.startup = report.startup === "pass" ? "pass" : "fail";
+      report.luaExecution = "fail";
+      report.realAppGreen = false;
+      report.failure = {
+        message: e instanceof Error ? e.message : String(e),
+        sequence: tr.records.slice(-8).map((r) => r.sequence),
+      };
+    }
+    fillTrace(report, inspect, tr, rt);
+    return report;
+  }
+
+  if (opts.playable) report.notes.push("playable gate is real-app only; not green");
+
   const g = new NullGraphicsBackend();
   const tr = new RuntimeTrace();
   const rt = new MythroadRuntime({ graphics: g, trace: tr, abiMode: "strict" });
   try {
     rt.loadMrp(bytes);
-    const entry = opts.entry ?? inspect.entry ?? "start.mr";
     rt.start(entry);
     report.startup = "pass";
     report.luaExecution = "pass";
@@ -88,6 +126,18 @@ export function runCompatibilityGate(opts: GateOptions = {}): CompatibilityRepor
     };
   }
 
+  fillTrace(report, inspect, tr, rt);
+  report.graphics.commands = g.commands.map((c) => c.op);
+  if (fixtureKind !== "real") report.realAppGreen = false;
+  return report;
+}
+
+function fillTrace(
+  report: CompatibilityReport,
+  inspect: InspectResult,
+  tr: RuntimeTrace,
+  rt: MythroadRuntime,
+): void {
   report.nativeAbi.confirmed = tracesToConfirmedNatives(tr.records);
   report.nativeAbi.unknown = rt.unknownEvents;
   report.ext.modules = inspect.extModules.map((m) => m.name);
@@ -96,12 +146,9 @@ export function runCompatibilityGate(opts: GateOptions = {}): CompatibilityRepor
     tr.records.filter((r) => r.operation.startsWith("vfs_")).map((r) => String((r.arguments as { name?: string })?.name ?? "")),
   ).filter(Boolean);
   report.vfs.missing = report.vfs.accessed.filter((n) => !rt.vfs.exists(n) && n !== "start.mr");
-  report.graphics.commands = g.commands.map((c) => c.op);
   report.timer.callbacks = tr.records.filter((r) => r.operation === "timer_start").length;
   report.events.observed = tr.records.filter((r) => r.operation === "event").length;
   report.restart = tr.records.some((r) => r.operation === "restart" || r.operation === "run_file") ? "observed" : "not observed";
-  if (fixtureKind !== "real") report.realAppGreen = false;
-  return report;
 }
 
 export function gateMarkdown(opts: GateOptions = {}): string {

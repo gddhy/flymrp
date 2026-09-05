@@ -4,7 +4,7 @@ These tests exercise inspection, optional trace, and the compatibility gate.
 
 They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
-`test/fixtures/real/app.mrp` is a user-supplied unprotected MRP. Gate on that file is **INSPECTED**, not real-app green. `runCompatibilityGate()` with no bytes is still `REAL_BINARY_BLOCKED`.
+`test/fixtures/real/app.mrp` is a user-supplied unprotected MRP. Startup-only gate (`steps: 0`) is **INSPECTED** and not green. `playable: true` is the playable-path green. `runCompatibilityGate()` with no bytes is still `REAL_BINARY_BLOCKED`.
 
 `loader-abi.test.ts` is the real-app chain: `start.mr` → `mrc_loader.ext` → `cfunction.ext` load → `arm_ext_call(6)` guest return 0 → guest inflate → `arm_ext_call(0)` NORMAL RETURN.
 

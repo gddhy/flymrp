@@ -7,6 +7,13 @@ export {
   type GateOptions,
 } from "./gate.ts";
 export {
+  GSSJXZ_FP,
+  frameChecksum,
+  runPlayablePath,
+  type PlayableExtCall,
+  type PlayablePathResult,
+} from "./playable.ts";
+export {
   renderCompatibilityReport,
   emptyBlockedReport,
   type CompatibilityReport,

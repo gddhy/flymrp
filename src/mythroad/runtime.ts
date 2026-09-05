@@ -1,4 +1,4 @@
-import { ExtFault } from "../abi/fault.ts";
+import { ExtFault, type ExtCallResult } from "../abi/fault.ts";
 import { DEFAULT_INSN_BUDGET, ExtRuntime, MAX_INSN_BUDGET } from "../abi/runtime.ts";
 import { LuaRuntimeError, UnknownAbiError } from "../err/errors.ts";
 import { TAG_STRING } from "../lua/types.ts";
@@ -55,6 +55,8 @@ export type MythroadRuntimeOptions = {
    * Not an execution slice. Omitted → `DEFAULT_INSN_BUDGET`. Clamped to `MAX_INSN_BUDGET`.
    */
   armInstructionBudget?: number;
+  /** Observes each `arm_ext_call`. Does not change ABI. */
+  onExtCall?: (code: number, out: ExtCallResult) => void;
 };
 
 /**
@@ -107,6 +109,7 @@ export class MythroadRuntime {
   readonly armInstructionBudget: number;
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
+  onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
@@ -133,6 +136,7 @@ export class MythroadRuntime {
     this.randSeed = this.profile.randSeed;
     this.entry = opts.entry ?? "_dsm";
     this.param = opts.param ?? "";
+    this.onExtCall = opts.onExtCall ?? null;
     this.strCom = createStrCom({
       getVfs: () => this.vfs,
       getExt: () => this.ext,
@@ -349,6 +353,7 @@ export class MythroadRuntime {
     bridge.install();
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;
+    rt.onExtCall = this.onExtCall;
     this.mrTable = bridge;
     this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
   }
