@@ -149,4 +149,6 @@ export const IMPLEMENTED_C = [
   "mr_table/32/mr_timerStop",
   // Host ScreenBuffer width/height, bit=16. Not a guest framebuffer pointer.
   "mr_table/80/mr_getScreenInfo",
+  // C _DrawBitmap. Guest RGB565 source. ROP from mr_helper.h enum (COPY=2).
+  "mr_table/120/DrawBitmap",
 ] as const;

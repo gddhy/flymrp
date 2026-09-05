@@ -33,7 +33,17 @@ export type { AllocRecord, ReadFileRecord } from "./mr-table.ts";
 export { MythroadVfs } from "./vfs.ts";
 export { MythroadTimer } from "./timer.ts";
 export { EventQueue, EV_TIMER, EV_SYSTEM, EV_CUSTOM, EV_KEY } from "./events.ts";
-export { NullGraphicsBackend, ScreenBuffer, makeRgb565, asI16 } from "./graphics.ts";
+export {
+  NullGraphicsBackend,
+  ScreenBuffer,
+  makeRgb565,
+  asI16,
+  DRAW_BM_COPY,
+  DRAW_BM_TRANSPARENT,
+  DRAW_BM_OR,
+  DRAW_BM_XOR,
+  MR_SPRITE_TRANSPARENT,
+} from "./graphics.ts";
 export type { DrawCommand, GraphicsBackend } from "./graphics.ts";
 export { InputBackend, resolveKey } from "./input.ts";
 export { defaultProfile } from "./profile.ts";

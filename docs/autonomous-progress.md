@@ -47,6 +47,7 @@
 | 31 | mr_timerStart | PARTIAL | uint16 ms; LIVE 80; owner = current/active/wrapper |
 | 32 | mr_timerStop | PARTIAL | zero-arg; leftover R0 ignored |
 | 80 | mr_getScreenInfo | PARTIAL | host 240×320 bit=16 |
+| 120 | _DrawBitmap | PARTIAL | C rop `DRAW_BM_*` (COPY=2); guest RGB565 via GuestMemory; not Lua `BM_COPY=0` |
 
 ### other
 
@@ -54,8 +55,8 @@
 |---|---|
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
 | Lua resume after `arm_ext_call(0)` | SUPPORTED on this fixture path |
-| graphics | PARTIAL | 1 rect + 1 text + presents; no Canvas backend yet |
-| timer / event / input | PARTIAL | EXT timer armed (80ms); fire/dealtimer/event/input 未证 |
+| graphics | PARTIAL | DrawRect + DrawText + DrawBitmap + present; no Canvas backend yet |
+| timer / event / input | PARTIAL | timer fire + `arm_ext_call(2)` LIVE; input reaches Lua `dealevent`, EXT reaction 未证 |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
@@ -85,6 +86,7 @@
 | winCreate/Release IGNORE | return `MR_IGNORE` | window objects / focus | rxgj FULL `dsm.c` same | GUI-heavy apps |
 | timer owner not LR-range | owner = current \|\| active \|\| wrapper | full LR-range module resolve | LIVE start after AppFS uses current/wrapper | nested EXT timer callbacks |
 | generated gb16 (timer path) | metrics + packed bits | real `gb16.uc2` | startup text already used generated glyphs | later fonts |
+| C `_DrawBitmap` rop `DRAW_BM_*` | COPY/TRANSPARENT/GRAY/OR/XOR/NOT + sprite rotate | pixel-perfect device blit / `DrawBitmapEx` | LIVE blit uses guest RGB565; Lua `BM_COPY=0` is a different alias | mixing the two enums |
 | flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
 | getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
 
@@ -364,13 +366,33 @@ Stage 5-D          STARTED
 
 **commit:** Implement confirmed timer and getScreenInfo ABI
 
+---
+
+### 2026-09-05 — table[120] `_DrawBitmap`
+
+**starting blocker:** `UNKNOWN_REQUIRED_SLOT = 120` on first `advance(80)+step`
+
+**analysis:**
+
+* `_mr_c_function_table[120] = asm_DrawBitmap`. C 10-arg `_DrawBitmap`.
+* AAPCS: r0–r3 = p,x,y,w; `[sp+0..+20]` = h,rop,trans,sx,sy,mw.
+* C rop enum `BM_COPY=2` / `BM_TRANSPARENT=6`（`mr_helper.h`），不是 Lua 测试别名 `BM_COPY=0`。
+
+**implementation:** `ScreenBuffer.drawBitmapRop` + `MrTableBridge.drawBitmapRop`；guest `p` 经 `GuestMemory.read16`；`p=0` no-op SUCCESS。
+
+**tests:** `test/real/drawbitmap-120-abi.test.ts`
+
+**real-run:** start 后 `advance(80)+step` 三次：`arm_ext_call(2)` RETURN；flushes 持续增加；timer 保持 80ms；无 unknown slot。
+
+**commit:** Implement confirmed DrawBitmap blit ABI
+
 ## Current blocker
 
 ```text
-start() completed
-timer armed 80ms but not yet fired
-no runtime.advance / dealtimer / multi-frame / input
+start() + timer loop PASS
+input: Lua dealevent exists and calls _strCom(801,...,1)
+EXT application reaction / Canvas / frozen multi-frame tests 未完成
 category       EVENT
 ```
 
-Next: `runtime.advance(80+)` → timer due → `EV_TIMER` → `dealtimer` / `arm_ext_call(2)` → multi-frame + input. Do **not** announce REAL MRP EXECUTION SUCCESS yet.
+Do **not** announce REAL MRP EXECUTION SUCCESS yet.

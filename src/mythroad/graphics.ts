@@ -7,6 +7,25 @@ export function asI16(v: number): number {
   return (v << 16) >> 16;
 }
 
+/** C `mr_helper.h` `_DrawBitmap` rop enum. Not the Lua `BM_COPY=0` test alias. */
+export const DRAW_BM_OR = 0;
+export const DRAW_BM_XOR = 1;
+export const DRAW_BM_COPY = 2;
+export const DRAW_BM_NOT = 3;
+export const DRAW_BM_MERGENOT = 4;
+export const DRAW_BM_ANDNOT = 5;
+export const DRAW_BM_TRANSPARENT = 6;
+export const DRAW_BM_AND = 7;
+export const DRAW_BM_GRAY = 8;
+export const DRAW_BM_REVERSE = 9;
+export const MR_SPRITE_INDEX_MASK = 0x03ff;
+export const MR_SPRITE_TRANSPARENT = 0x0400;
+export const MR_TILE_SHIFT = 11;
+export const MR_ROTATE_0 = 0;
+export const MR_ROTATE_90 = 1;
+export const MR_ROTATE_180 = 2;
+export const MR_ROTATE_270 = 3;
+
 /**
  * Mythroad `mr_screenBuf` RGB565 cache.
  * Host-owned screen memory, not a guest heap pointer.
@@ -65,6 +84,139 @@ export class ScreenBuffer {
         if (px < 0 || px >= this.width) continue;
         this.pixels[dest + px] = color;
       }
+    }
+  }
+
+  /**
+   * rxgj `_DrawBitmap` into this RGB565 cache.
+   * `readPixel(i)` is guest pixel `p[i]` (uint16 index, not a host pointer).
+   */
+  drawBitmapRop(
+    readPixel: (i: number) => number,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    rop: number,
+    trans: number,
+    sx: number,
+    sy: number,
+    mw: number,
+  ): void {
+    const maxX = Math.min(this.width, x + w);
+    const maxY = Math.min(this.height, y + h);
+    const minX = Math.max(0, x);
+    const minY = Math.max(0, y);
+    if (maxY <= minY || maxX <= minX) return;
+    const t = trans & 0xffff;
+    const blitW = w | 0;
+    if ((rop & 0xffff) > MR_SPRITE_TRANSPARENT) {
+      const bitmapRop = rop & MR_SPRITE_INDEX_MASK;
+      const mode = (rop >>> MR_TILE_SHIFT) & 0x3;
+      const flip = (rop >>> MR_TILE_SHIFT) & 0x4;
+      if (bitmapRop === DRAW_BM_TRANSPARENT) {
+        for (let dy = minY; dy < maxY; dy++) {
+          const dest = dy * this.width;
+          for (let dx = minX; dx < maxX; dx++) {
+            const src = readPixel((dy - y) * blitW + (dx - x)) & 0xffff;
+            if (src !== t) this.pixels[dest + dx] = src;
+          }
+        }
+        return;
+      }
+      if (bitmapRop !== DRAW_BM_COPY) return;
+      for (let dy = minY; dy < maxY; dy++) {
+        const dest = dy * this.width;
+        for (let dx = minX; dx < maxX; dx++) {
+          const relX = dx - x;
+          const relY = dy - y;
+          let srcI = 0;
+          switch (mode) {
+            case MR_ROTATE_0:
+              srcI = (flip ? h - 1 - relY : relY) * blitW + relX;
+              break;
+            case MR_ROTATE_90:
+              srcI = (flip ? h - 1 - relX : relX) * blitW + (w - 1 - relY);
+              break;
+            case MR_ROTATE_180:
+              srcI = (flip ? relY : h - 1 - relY) * blitW + (w - 1 - relX);
+              break;
+            case MR_ROTATE_270:
+              srcI = (flip ? relX : h - 1 - relX) * blitW + relY;
+              break;
+            default:
+              continue;
+          }
+          this.pixels[dest + dx] = readPixel(srcI) & 0xffff;
+        }
+      }
+      return;
+    }
+    const srcAt = (dx: number, dy: number) => readPixel((dy - y + sy) * mw + (dx - x + sx)) & 0xffff;
+    switch (rop & 0xffff) {
+      case DRAW_BM_TRANSPARENT:
+        for (let dy = minY; dy < maxY; dy++) {
+          const dest = dy * this.width;
+          for (let dx = minX; dx < maxX; dx++) {
+            const src = srcAt(dx, dy);
+            if (src !== t) this.pixels[dest + dx] = src;
+          }
+        }
+        break;
+      case DRAW_BM_COPY:
+        for (let dy = minY; dy < maxY; dy++) {
+          const dest = dy * this.width;
+          for (let dx = minX; dx < maxX; dx++) this.pixels[dest + dx] = srcAt(dx, dy);
+        }
+        break;
+      case DRAW_BM_GRAY:
+      case DRAW_BM_OR:
+      case DRAW_BM_XOR:
+      case DRAW_BM_NOT:
+      case DRAW_BM_MERGENOT:
+      case DRAW_BM_ANDNOT:
+      case DRAW_BM_AND:
+      case DRAW_BM_REVERSE:
+        for (let dy = minY; dy < maxY; dy++) {
+          const dest = dy * this.width;
+          for (let dx = minX; dx < maxX; dx++) {
+            const src = srcAt(dx, dy);
+            const dst = this.pixels[dest + dx]! & 0xffff;
+            switch (rop & 0xffff) {
+              case DRAW_BM_GRAY:
+                if (src !== t) {
+                  const r5 = (src & 0xf800) >>> 11;
+                  const g5 = (src & 0x7e0) >>> 6;
+                  const b5 = src & 0x1f;
+                  const gray = ((r5 * 60 + g5 * 118 + b5 * 22) / 25) | 0;
+                  this.pixels[dest + dx] = makeRgb565(gray, gray, gray);
+                }
+                break;
+              case DRAW_BM_REVERSE:
+                if (src !== t) this.pixels[dest + dx] = (~src) & 0xffff;
+                break;
+              case DRAW_BM_OR:
+                this.pixels[dest + dx] = (src | dst) & 0xffff;
+                break;
+              case DRAW_BM_XOR:
+                this.pixels[dest + dx] = (src ^ dst) & 0xffff;
+                break;
+              case DRAW_BM_NOT:
+                this.pixels[dest + dx] = (~src) & 0xffff;
+                break;
+              case DRAW_BM_MERGENOT:
+                this.pixels[dest + dx] = ((~src) | dst) & 0xffff;
+                break;
+              case DRAW_BM_ANDNOT:
+                this.pixels[dest + dx] = ((~src) & dst) & 0xffff;
+                break;
+              case DRAW_BM_AND:
+                this.pixels[dest + dx] = (src & dst) & 0xffff;
+                break;
+            }
+          }
+        }
+        break;
     }
   }
 }

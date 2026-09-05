@@ -181,6 +181,7 @@ export class MrTableBridge {
     this.ext.registerHandler(122, (_cpu, _mem, args) => this.drawRect(args));
     this.ext.registerHandler(123, (_cpu, mem, args) => this.drawText(mem, args));
     this.ext.registerHandler(29, (_cpu, mem, args) => this.drawBitmap(mem, args));
+    this.ext.registerHandler(120, (cpu, mem, args) => this.drawBitmapRop(cpu.r[13] >>> 0, mem, args));
     this.ext.registerHandler(31, (_cpu, _mem, args) => this.timerStart(args[0]! >>> 0));
     this.ext.registerHandler(32, (_cpu, _mem, _args) => this.timerStop());
     this.ext.registerHandler(80, (_cpu, mem, args) => this.getScreenInfo(mem, args[0]! >>> 0));
@@ -469,6 +470,32 @@ export class MrTableBridge {
         }
       }
     }
+    this.hooks.onFlush?.(x, y, w, h);
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[120] = `asm_DrawBitmap` = `_DrawBitmap`.
+   * C: `void _DrawBitmap(uint16 *p, int16 x, int16 y, uint16 w, uint16 h,
+   * uint16 rop, uint16 transcoler, int16 sx, int16 sy, int16 mw)`.
+   * AAPCS: r0-r3 = p,x,y,w; [sp+0..+20] = h,rop,trans,sx,sy,mw.
+   * Writes the host RGB565 cache. Guest `p` is never a host pointer.
+   */
+  drawBitmapRop(sp: number, mem: GuestMemory, args: Uint32Array): number {
+    const p = args[0]! >>> 0;
+    const x = asI16(args[1]!);
+    const y = asI16(args[2]!);
+    const w = args[3]! & 0xffff;
+    const stack = sp >>> 0;
+    const h = mem.read32(stack) & 0xffff;
+    const rop = mem.read32((stack + 4) >>> 0) & 0xffff;
+    const trans = mem.read32((stack + 8) >>> 0) & 0xffff;
+    const sx = asI16(mem.read32((stack + 12) >>> 0));
+    const sy = asI16(mem.read32((stack + 16) >>> 0));
+    const mw = asI16(mem.read32((stack + 20) >>> 0));
+    if (!p) return MR_SUCCESS;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    screen.drawBitmapRop((i) => mem.read16((p + (i << 1)) >>> 0), x, y, w, h, rop, trans, sx, sy, mw);
     this.hooks.onFlush?.(x, y, w, h);
     return MR_SUCCESS;
   }
