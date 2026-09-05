@@ -29,6 +29,8 @@ export const MR_SEEK_CUR = 1;
 export const MR_SEEK_END = 2;
 
 export const MR_IS_FILE = 1;
+export const MR_IS_DIR = 2;
+export const MR_IS_INVALID = 8;
 export const MR_FILE_STATE_NIL = 0;
 export const MR_FILE_STATE_OPEN = 1;
 export const MR_FILE_STATE_CLOSED = 2;

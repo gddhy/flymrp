@@ -91,6 +91,7 @@ export {
   ARM_INSN_BUDGET_THROWN,
   UNKNOWN_SLOT_30_THROWN,
   UNKNOWN_SLOT_42_THROWN,
+  UNKNOWN_SLOT_49_THROWN,
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

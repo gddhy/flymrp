@@ -9,7 +9,8 @@
  * Guest inflate completes inside ARM/Thumb; host gunzip is verification-only.
  * table[30] mr_getCharBitmap + table[37] mr_plat(1206) + table[26] mr_printf are REAL_EXECUTED.
  * Production ARM watchdog is configurable (`armInstructionBudget`, default 2e6, max 20e6).
- * First remaining blocker: table[42] mr_info (not implemented).
+ * table[42] mr_info is REAL_EXECUTED (pack name → IS_FILE; else IS_INVALID).
+ * First remaining blocker: table[49] mr_mkDir (not implemented).
  * No cbRet bypass. No gzip/inflate host ABI.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
@@ -65,13 +66,17 @@ export const REAL_MRP_BASELINE = {
   stub26: 0x00010068,
   slot42: 42,
   stub42: 0x000100a8,
-  stopPc: 0x000100a8,
-  stopLr: 0x01ea7aaf,
-  stopR0: 0x01eb0884,
-  stopR1: 0x000100a8,
+  slot49: 49,
+  stub49: 0x000100c4,
+  stopPc: 0x000100c4,
+  stopLr: 0x01ea89b3,
+  stopR0: 0x01eb0234,
+  stopR1: 0x000100c4,
   infoName: "dbglog.txt",
+  infoName2: "gsidbak",
+  mkdirName: "gsidbak",
   inflateInsnCount: 1_404_897,
-  productionInsnCount: 1_405_023,
+  productionInsnCount: 1_405_059,
   gzipOutLen: 30192,
   gzipAlloc: 30196,
   gzipMagic: [0x1f, 0x8b] as const,
@@ -84,7 +89,7 @@ export const REAL_MRP_BASELINE = {
   budgetStopPc: 0x01ea1ee8,
   budgetStopLr: 0x01ea1f83,
   insnBudget: DEFAULT_INSN_BUDGET,
-  totalHitCount: 3554,
+  totalHitCount: 3557,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -112,8 +117,10 @@ export const REAL_MRP_BASELINE = {
 export const ARM_INSN_BUDGET_THROWN = "EXT fault abi-fault at 0x0 (arm_ext_call kind=abi-fault)";
 /** Historical 5-C.10Q/R stop. table[30] is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_30_THROWN = "UNKNOWN_REQUIRED_SLOT = 30";
-/** Production stop after getCharBitmap/plat/printf: table[42] mr_info. */
+/** Historical stop after getCharBitmap/plat/printf. table[42] is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_42_THROWN = "UNKNOWN_REQUIRED_SLOT = 42";
+/** Production stop after mr_info: table[49] mr_mkDir. */
+export const UNKNOWN_SLOT_49_THROWN = "UNKNOWN_REQUIRED_SLOT = 49";
 
 export type CpuSnap = {
   pc: number;
@@ -1022,6 +1029,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
       handlerMap.set(37, !!e.table.handlers[37]);
       handlerMap.set(26, !!e.table.handlers[26]);
       handlerMap.set(42, !!e.table.handlers[42]);
+      handlerMap.set(49, !!e.table.handlers[49]);
       handlerMap.set(0, !!e.table.handlers[0]);
       handlerMap.set(14, !!e.table.handlers[14]);
       handlerMap.set(25, !!e.table.handlers[25]);
@@ -1320,6 +1328,7 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const hit37 = run.hits.find((h) => h.slot === 37);
   const hit26 = run.hits.find((h) => h.slot === 26);
   const hit42 = run.hits.find((h) => h.slot === 42);
+  const hit49 = run.hits.find((h) => h.slot === 49);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
@@ -1528,9 +1537,18 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
       stage: "table42",
       status: hit42?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 42 ? "BLOCKED" : "NOT REACHED",
       note: hit42?.status === "REAL_EXECUTED"
-        ? "REAL_EXECUTED mr_info"
+        ? "REAL_EXECUTED mr_info (pack name IS_FILE; else IS_INVALID)"
         : run.unknownSlot === 42
           ? "UNKNOWN_REQUIRED_SLOT; mr_info NOT_EXECUTED by host; LIVE name dbglog.txt"
+          : "not reached",
+    },
+    {
+      stage: "table49",
+      status: hit49?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 49 ? "BLOCKED" : "NOT REACHED",
+      note: hit49?.status === "REAL_EXECUTED"
+        ? "REAL_EXECUTED mr_mkDir"
+        : run.unknownSlot === 49
+          ? "UNKNOWN_REQUIRED_SLOT; mr_mkDir NOT_EXECUTED by host; LIVE name gsidbak"
           : "not reached",
     },
   ];
@@ -1623,9 +1641,10 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(37, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(26, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(42, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(49, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
-  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9, 30, 37, 26];
+  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9, 30, 37, 26, 42];
   const handlers = handlerSlots.map((slot) => ({
     slot,
     present: run.handlerMap.get(slot) === true,
@@ -1743,7 +1762,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
       table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
       table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30] mr_getCharBitmap, table[37] mr_plat(1206), and table[26] mr_printf are REAL_EXECUTED. First remaining blocker is table[42] mr_info (LIVE dbglog.txt). table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30] mr_getCharBitmap, table[37] mr_plat(1206), table[26] mr_printf, and table[42] mr_info are REAL_EXECUTED. First remaining blocker is table[49] mr_mkDir (LIVE gsidbak). table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1804,7 +1823,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
     "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
     "table[9] memcmp2 is REAL_EXECUTED (unsigned char; exact *su1-*su2; early exit).",
-    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is table[42] mr_info.",
+    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is table[49] mr_mkDir.",
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
     "Stage 5-D: **NOT STARTED**.",
     "",

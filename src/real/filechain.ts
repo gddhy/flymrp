@@ -77,7 +77,7 @@ export const FILE_SEEK_ORIGINS = {
 } as const;
 
 export const MINIMAL_STARTUP_FILE_SLOTS = [40, 44, 45, 41] as const;
-export const NOT_REQUIRED_STARTUP_FILE_SLOTS = [39, 42, 43, 46, 47, 48, 49, 50, 51, 52, 53] as const;
+export const NOT_REQUIRED_STARTUP_FILE_SLOTS = [39, 43, 46, 47, 48, 49, 50, 51, 52, 53] as const;
 
 export type PicFileWrap = {
   pc: number;

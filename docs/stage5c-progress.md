@@ -1,6 +1,6 @@
 # Stage 5-C：Real Mythroad Compatibility Layer
 
-状态：核心文件/inflate 路径已接通。Stage 5-C **NOT COMPLETE**（`table[42]` `mr_info` FILE）。**不要进入 Stage 5-D。**
+状态：核心文件/inflate 路径已接通。Stage 5-C **NOT COMPLETE**（`table[49]` `mr_mkDir` FILE）。**不要进入 Stage 5-D。**
 
 范围：以 rxgj FULL Mythroad（`MR_VERSION=1968`）为证据，补齐真实应用运行所需的 P0 兼容层：
 
@@ -12,7 +12,7 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 Stage 3 CPU **未改**。Stage 4 EXT ABI：5-C.10I 将 `table[100]` 从 8-byte scalar 改为 128-byte `pack_filename` buffer（`src/abi`）。5-C.10K 注册 table[40]/[44]/[45]/[41] current-pack 只读 alias。
 
 真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。  
-当前增量：自主推进。table[30]/[37]/[26] **REAL_EXECUTED**。guest inflate **PASS**；`arm_ext_call(0)` / Lua **未**恢复。Stage 5-C **NOT COMPLETE**（`table[42]` `mr_info`，LIVE `dbglog.txt`）。见 `docs/autonomous-progress.md`。**不要进入 Stage 5-D。**
+当前增量：自主推进。table[30]/[37]/[26]/[42] **REAL_EXECUTED**。guest inflate **PASS**；`arm_ext_call(0)` / Lua **未**恢复。Stage 5-C **NOT COMPLETE**（`table[49]` `mr_mkDir`，LIVE `gsidbak`）。见 `docs/autonomous-progress.md`。**不要进入 Stage 5-D。**
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 
@@ -102,7 +102,7 @@ stdlib 安装使 `LuaVM` 的 intern/closure 基数上升（bench `intern=57 cl=4
 * Pluto 不持久化 Lua function。
 * `_plat` / `_platEx` 各 code、指针类 `_strCom`/`_com`、socket/SMS/WAP、GUI、audio：未实现。
 * `BitmapShowEx` 像素指针：不实现。
-* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10R + `docs/autonomous-progress.md`）。`魔塔II.jar` 仍无。生产停点：`table[42]` `mr_info`（FILE，LIVE `dbglog.txt`）。table[30]/[37]/[26] 已 REAL_EXECUTED。5-C.10R：inflate POP 返回 + 输出 SHA-256 对照；Stage 5-C 未过 completion gate。5-C.10Q：guest inflate 完成（1,404,897 insn）；ARM watchdog 默认 2e6。5-C.10P：table[9] `memcmp2`；gzip magic `1F 8B` equal。5-C.10O：table[1] registry-only `mr_free`；`_mr_readFile("res_lang0.rc")` 已完整成功。5-C.10N：table[1] ownership/header 只读取证。5-C.10M：table[3] `memcpy2` + table[10] `strcmp2` 已实现。5-C.10L：table[3] `memcpy2` 只读取证。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。5-C.10J：file ABI 静态链已取证。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`。5-C.10H：空 filename 曾是 `table[100]` 未写入，不是 `res_lang0.rc`。5-C.10G：table[17] `sprintf_` 仅 literal+`%d`。5-C.10E：`table[33]` `mr_getTime` 接 `runtime.clock >>> 0`。
+* 真实 fixture：`test/fixtures/real/app.mrp`（见 5-C.1–5-C.10R + `docs/autonomous-progress.md`）。`魔塔II.jar` 仍无。生产停点：`table[49]` `mr_mkDir`（FILE，LIVE `gsidbak`）。table[30]/[37]/[26]/[42] 已 REAL_EXECUTED。5-C.10R：inflate POP 返回 + 输出 SHA-256 对照；Stage 5-C 未过 completion gate。5-C.10Q：guest inflate 完成（1,404,897 insn）；ARM watchdog 默认 2e6。5-C.10P：table[9] `memcmp2`；gzip magic `1F 8B` equal。5-C.10O：table[1] registry-only `mr_free`；`_mr_readFile("res_lang0.rc")` 已完整成功。5-C.10N：table[1] ownership/header 只读取证。5-C.10M：table[3] `memcpy2` + table[10] `strcmp2` 已实现。5-C.10L：table[3] `memcpy2` 只读取证。5-C.10K：current-pack RDONLY file alias 已接 `MRPArchive.data`。5-C.10J：file ABI 静态链已取证。5-C.10I：`table[100]` / `pack_filename` 已写入 `"gssjxz.mrp"`。5-C.10H：空 filename 曾是 `table[100]` 未写入，不是 `res_lang0.rc`。5-C.10G：table[17] `sprintf_` 仅 literal+`%d`。5-C.10E：`table[33]` `mr_getTime` 接 `runtime.clock >>> 0`。
 * pack 切换无真实 FS，只跑当前 VFS 中的 startfile。
 
 ---

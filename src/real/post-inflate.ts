@@ -57,14 +57,14 @@ export const POST_INFLATE = {
   table30Blx: 0x01eaadaa,
   table30Lr: 0x01eaadad,
   table30Fn: 0x01eaad6c,
-  hitCount: 3554,
+  hitCount: 3557,
   table0: 43,
   table1: 40,
   table3: 3440,
   table3Inflate: 3432,
   table1Teardown: 37,
   slotRle:
-    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42",
+    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49",
   liveAllocs: 2,
   mrAllocs: 44,
   bump: 0x00215078,
@@ -547,11 +547,13 @@ export function runPostInflateStartup(
     luaResume: run.lua.resumed ? ("PASS" as GateStatus) : ("NOT REACHED" as GateStatus),
     stage5cComplete: false,
     recommendStage5d: false,
-    blocker: run.unknownSlot === 42
-      ? "table[42] mr_info"
-      : run.unknownSlot === 30
-        ? "table[30] mr_getCharBitmap"
-        : run.thrown || "(none)",
+    blocker: run.unknownSlot === 49
+      ? "table[49] mr_mkDir"
+      : run.unknownSlot === 42
+        ? "table[42] mr_info"
+        : run.unknownSlot === 30
+          ? "table[30] mr_getCharBitmap"
+          : run.thrown || "(none)",
     category: POST_INFLATE.blockerCategory,
   };
   if (

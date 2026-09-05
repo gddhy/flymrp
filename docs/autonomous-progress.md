@@ -27,7 +27,8 @@
 | 37 | mr_plat | PARTIAL | only code 1206 → `MR_CHINESE` 1000 |
 | 38 | mr_platEx | PARTIAL | only 0x4c6 → `MR_SUCCESS` |
 | 40/44/45/41 | file | PARTIAL | current-pack RDONLY alias |
-| 42 | mr_info | BLOCKED | LIVE `dbglog.txt` |
+| 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
+| 49 | mr_mkDir | BLOCKED | LIVE `gsidbak` |
 | 100 | pack_filename | SUPPORTED | 128-byte data slot |
 | 125 | readFile | SUPPORTED | VFS member |
 | 130 | TestCom | PARTIAL | case 7 only |
@@ -50,6 +51,7 @@
 |---|---|---|---|---|
 | registry-only `mr_free` | retire live bump allocs | origin_mem reuse/coalesce | guest does not depend on reuse yet | later allocator-sensitive code |
 | current-pack RDONLY file | open/read/seek/close pack bytes | other names, write, EFS | `_mr_readFile` uses pack name | `dbglog.txt` / `game.sav` need a separate namespace |
+| mr_info pack-only | pack name IS_FILE; else INVALID | writable EFS / dirs | LIVE `dbglog.txt`/`gsidbak` are not installed files | mkdir/open-create will need an in-memory writable namespace |
 | sprintf `%d` only | LIVE `res_lang%d.rc` | `%s` / width | only one production sprintf so far | new format → `UnknownAbiError` |
 | platEx 0x4c6 only | `MR_SUCCESS` no side effects | other platEx codes | only 0x4c6 observed | later platform probes |
 | plat 1206 only | `MR_CHINESE` | other plat codes | only 1206 observed | later device queries |
@@ -95,14 +97,30 @@ Lua                not resumed
 
 ---
 
+### 2026-09-05 — table[42] mr_info
+
+**starting blocker:** `table[42] mr_info("dbglog.txt")`
+
+**analysis:** `mr_info` 是平台文件系统查询。LIVE 先查 `dbglog.txt`，再查 `gsidbak`。rxgj：MRP 内资源不是已安装 EFS。
+
+**implementation:** pack name → `MR_IS_FILE`；其它（含 archive member）→ `MR_IS_INVALID`。
+
+**real-run:**
+
+```text
+previous blocker   table[42]
+new blocker        table[49] mr_mkDir  name=gsidbak
+ARM insn           1,405,059
+Lua insn           71
+hits               3557
+```
+
 ## Current blocker
 
 ```text
-table[42]  mr_info("dbglog.txt")
-PC=0x000100a8  LR=0x01ea7aaf  R0=0x01eb0884
+table[49]  mr_mkDir("gsidbak")
+PC=0x000100c4  LR=0x01ea89b3  R0=0x01eb0234
 category   FILE
 ```
 
-`mr_info` 返回 `MR_IS_FILE=1` / `MR_IS_DIR=2` / `MR_IS_INVALID=8`。  
-rxgj 明确：当前 MRP 内资源不是已安装 EFS，不能报 `MR_IS_FILE`。  
-`dbglog.txt` 不在 pack 内，下一步按“无 writable EFS → `MR_IS_INVALID`”实现，并禁止把 archive member 报成已安装文件。
+下一步需要最小正确的 **in-memory writable namespace**（与 current-pack RDONLY / archive resource 分开），不能把 `gsidbak` 伪装成 pack 资源。

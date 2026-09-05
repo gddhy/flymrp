@@ -6,7 +6,7 @@
 
 工作区有用户提供的真实 `test/fixtures/real/app.mrp`（蜀山剑侠传 / `gssjxz.mrp`）。Inspection **CONFIRMED**，startup **未通过**，**real-app green = false**。
 
-当前：table[30]/[37]/[26] **REAL_EXECUTED**。生产停在 table[42] `mr_info`（LIVE `dbglog.txt`）。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md`。  
+当前：table[30]/[37]/[26]/[42] **REAL_EXECUTED**。生产停在 table[49] `mr_mkDir`（LIVE `gsidbak`）。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md`。  
 Stage 5-C.10R：生产路径确认 inflate POP 返回 + 输出 SHA-256 对照。当时停在 table[30]。见 `docs/stage5c10r-progress.md`。  
 Stage 5-C.10Q：guest inflate 完成；当时停在 table[30] `mr_getCharBitmap`。ARM watchdog 默认可配置 2e6 / 上限 20e6。见 `docs/stage5c10q-progress.md`。  
 Stage 5-C.10N：`table[1]` / `mr_free` ownership + allocation header 只读取证。当时未实现 table[1]。当时生产停在 table[1]。见 `docs/stage5c10n-progress.md`。  
@@ -50,7 +50,7 @@ npx tsx tools/real/forensics-1.ts test/fixtures/real/app.mrp
 
 | 路径 | 作用 |
 |---|---|
-| `src/real/startup.ts` | 真实 MRP 生产启动基线（guest inflate 完成；停在 table[42] `mr_info`） |
+| `src/real/startup.ts` | 真实 MRP 生产启动基线（guest inflate 完成；停在 table[49] `mr_mkDir`） |
 | `src/real/inflate-budget.ts` | 5-C.10Q forensic ARM watchdog sweep / inflate progress |
 | `src/real/post-inflate.ts` | 5-C.10R post-inflate continuation / Stage 5-C completion gate |
 | `src/real/free1.ts` | 5-C.10N table[1] mr_free ownership / header 只读取证（不实现 table[1]） |

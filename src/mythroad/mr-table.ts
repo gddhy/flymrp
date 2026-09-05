@@ -2,7 +2,7 @@ import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex }
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
-import { MR_CHINESE, MR_GET_HANDSET_LG, MR_SUCCESS } from "./constants.ts";
+import { MR_CHINESE, MR_GET_HANDSET_LG, MR_IS_FILE, MR_IS_INVALID, MR_SUCCESS } from "./constants.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
 import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
@@ -98,6 +98,7 @@ export class MrTableBridge {
     );
     this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
+    this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -234,6 +235,25 @@ export class MrTableBridge {
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
     return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
+  }
+
+  /**
+   * table[42] = `asm_mr_info` = `mr_info`.
+   *
+   * C: `int32 mr_info(const char *filename)`.
+   * Returns `MR_IS_FILE` / `MR_IS_DIR` / `MR_IS_INVALID`.
+   *
+   * Only the current pack name is a known file (the RDONLY alias).
+   * Archive members are source payloads, not installed EFS files
+   * (rxgj aex_t042). Missing / unbacked names, including `dbglog.txt`,
+   * return `MR_IS_INVALID`. Not a writable VFS.
+   */
+  lastInfo = "";
+  info(filename: string): number {
+    this.lastInfo = filename;
+    const pack = this.hooks.getPack?.();
+    if (pack && filename && filename === pack.name) return MR_IS_FILE;
+    return MR_IS_INVALID;
   }
 
   /**

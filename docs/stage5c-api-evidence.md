@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `table[42]` `mr_info`（FILE）。LIVE name `dbglog.txt`。table[30]/[37]/[26] 已 REAL_EXECUTED。inflate POP + SHA-256 对照仍成立；Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md` |
+| 停点 | `table[49]` `mr_mkDir`（FILE）。LIVE name `gsidbak`。table[42] `mr_info` 已 REAL_EXECUTED（`dbglog.txt`/`gsidbak` → `MR_IS_INVALID`）。Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md` |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **PASS** → table[30]/[37]/[26] **REAL_EXECUTED** → **STOP table[42]** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **PASS** → table[30]/[37]/[26]/[42] **REAL_EXECUTED** → **STOP table[49]** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -327,7 +327,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
 | C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
 | LIVE | read 16 header **match** `archive.data[0:16]`；seek CUR 224：16→240；read 5496 index **match** `archive.data[240:5736]`。table[41] 未到达 |
-| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate complete → table[30]/[37]/[26] → **STOP table[42] `mr_info("dbglog.txt")`** |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate complete → table[30]/[37]/[26]/[42] → **STOP table[49] `mr_mkDir("gsidbak")`** |
 | 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
 | confidence | wrapper/slot/C + LIVE header/index **CONFIRMED** |
 
@@ -411,14 +411,23 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | LIVE | `SDK%s%dv%d%s)` 与 `SDKv%d.%d.%d.%2d(%dv%d%s)` **REAL_EXECUTED** |
 | confidence | LIVE subset CONFIRMED。不是完整 libc printf |
 
-### table[42] mr_info（BLOCKED）
+### table[42] mr_info（已实现）
 
 | 字段 | 值 |
 |---|---|
 | source | `_mr_c_function_table[42] = asm_mr_info`；`int32 mr_info(const char *filename)` |
 | 返回 | `MR_IS_FILE=1` / `MR_IS_DIR=2` / `MR_IS_INVALID=8` |
-| LIVE | R0=`0x01eb0884` name=`dbglog.txt` stub=`0x000100a8` LR=`0x01ea7aaf` |
+| flymrp | 仅 current pack name → `MR_IS_FILE`。archive member / `dbglog.txt` / 其它 → `MR_IS_INVALID` |
+| LIVE | `dbglog.txt` 然后 `gsidbak` → `MR_IS_INVALID` **REAL_EXECUTED** |
 | 注意 | rxgj：当前 MRP 内条目不是已安装 EFS，不能报 `MR_IS_FILE` 以免跳过解包 |
+| confidence | 身份 + LIVE 查询 CONFIRMED。writable EFS 未实现 |
+
+### table[49] mr_mkDir（BLOCKED）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[49] = asm_mr_mkDir`；`int32 mr_mkDir(const char *name)` |
+| LIVE | name=`gsidbak` stub=`0x000100c4` LR=`0x01ea89b3` |
 | confidence | 身份 CONFIRMED。实现未落地 |
 
 ---
