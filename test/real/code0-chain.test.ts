@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { CODE0_CHAIN, runCode0ChainForensics } from "../../src/real/code0chain.ts";
-import { UNKNOWN_SLOT_35_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_PLATEX_1204_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -13,11 +13,11 @@ describe("5-C.8 mrc_init successor BLX / mr_table", () => {
 
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
-    expect(r.productionThrown).toBe(UNKNOWN_SLOT_35_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_SLOT_35_THROWN);
+    expect(r.productionThrown).toBe(UNKNOWN_PLATEX_1204_THROWN);
+    expect(r.probeThrown).toBe(UNKNOWN_PLATEX_1204_THROWN);
     expect(r.skipped130With).toBe(0);
     expect(r.code0Slots.slice(0, 31)).toEqual([130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3, 3, 10, 3, 3, 10, 3, 3, 10, 3, 3, 1, 1, 0, 45, 44, 41, 9, 9]);
-    expect(r.code0Slots.at(-1)).toBe(35);
+    expect(r.code0Slots.at(-1)).toBe(38);
     expect(r.init2Reached).toBe(false);
 
     expect(r.extWord0).toBe(0x00010000);

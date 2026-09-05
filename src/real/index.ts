@@ -93,6 +93,7 @@ export {
   UNKNOWN_SLOT_42_THROWN,
   UNKNOWN_SLOT_49_THROWN,
   UNKNOWN_SLOT_35_THROWN,
+  UNKNOWN_PLATEX_1204_THROWN,
   REAL_MRP_BASELINE,
   renderRealMrpStartupMarkdown,
   runRealMrpStartup,

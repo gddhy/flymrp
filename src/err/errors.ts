@@ -33,6 +33,12 @@ export class UnknownAbiError extends NativeAbiError {
   }
 }
 
+/** Only `mr_table` unknown slots. platEx / other families are not slot numbers. */
+export function unknownTableSlot(e: unknown): number | null {
+  if (e instanceof UnknownAbiError && e.family === "mr_table" && typeof e.code === "number") return e.code;
+  return null;
+}
+
 /** VFS / virtual FD / ROM+RAM overlay. */
 export class VfsError extends FlymrpError {}
 

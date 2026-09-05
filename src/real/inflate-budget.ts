@@ -9,7 +9,7 @@ import { ExtStopKind } from "../abi/fault.ts";
 import { EXT_CODE_ADDR, EXT_TABLE_ADDR, EXT_TABLE_COUNT, tableSlotIndex } from "../abi/layout.ts";
 import { mapExtImage, parseExtImage } from "../abi/loader.ts";
 import { DEFAULT_INSN_BUDGET } from "../abi/runtime.ts";
-import { UnknownAbiError } from "../err/errors.ts";
+import { unknownTableSlot } from "../err/errors.ts";
 import { ARMCPU } from "../hot/cpu.ts";
 import { decodeThumb16, isThumb32Prefix } from "../hot/decode-thumb16.ts";
 import { decodeThumb32 } from "../hot/decode-thumb32.ts";
@@ -550,8 +550,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
   } catch (e) {
     thrown = errText(e);
     thrownType = errType(e);
-    if (e instanceof UnknownAbiError && typeof e.code === "number") unknownSlot = e.code;
-    else unknownSlot = rt.unknownRequiredSlot;
+    unknownSlot = unknownTableSlot(e) ?? rt.unknownRequiredSlot;
   }
   const wallMs = performance.now() - t0;
 

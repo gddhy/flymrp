@@ -1,6 +1,6 @@
 # Stage 5-C：Real Mythroad Compatibility Layer
 
-状态：核心文件/inflate 路径已接通。Stage 5-C **NOT COMPLETE**（`table[35]` `mr_getUserInfo` PLATFORM）。**不要进入 Stage 5-D。**
+状态：核心文件/inflate 路径已接通。Stage 5-C **NOT COMPLETE**（`mr_platEx(1204)` `MR_SWITCHPATH` FILE）。**不要进入 Stage 5-D。**
 
 范围：以 rxgj FULL Mythroad（`MR_VERSION=1968`）为证据，补齐真实应用运行所需的 P0 兼容层：
 
@@ -12,7 +12,7 @@ Lua → Mythroad API → resource/file → timer/event → EXT
 Stage 3 CPU **未改**。Stage 4 EXT ABI：5-C.10I 将 `table[100]` 从 8-byte scalar 改为 128-byte `pack_filename` buffer（`src/abi`）。5-C.10K 注册 table[40]/[44]/[45]/[41] current-pack 只读 alias。
 
 真实 fixture：`test/fixtures/real/app.mrp`（蜀山剑侠传）。**不是 real-app green。** 见 `docs/real-binary-compatibility-report.md`。  
-当前增量：自主推进。table[30]/[37]/[26]/[42]/[49]/[5] **REAL_EXECUTED**。guest inflate **PASS**；`arm_ext_call(0)` / Lua **未**恢复。Stage 5-C **NOT COMPLETE**（`table[35]` `mr_getUserInfo`）。见 `docs/autonomous-progress.md`。**不要进入 Stage 5-D。**
+当前增量：自主推进。table[35]/[61]/[15]/[6]/[18]/[7] **REAL_EXECUTED**。guest inflate **PASS**；`arm_ext_call(0)` / Lua **未**恢复。Stage 5-C **NOT COMPLETE**（`mr_platEx(1204)` `MR_SWITCHPATH` LIVE `'Y'`）。见 `docs/autonomous-progress.md`。**不要进入 Stage 5-D。**
 
 证据：`docs/stage5c-api-evidence.md`。真实 binary 说明：`test/fixtures/real/README.md`。
 

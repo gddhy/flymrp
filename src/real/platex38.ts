@@ -197,7 +197,7 @@ export function runPlatex38Forensics(mrp: Uint8Array): Platex38Report {
     e.table.dispatch = (cpu, mem, pc) => {
       const n = tableSlotIndex(pc);
       if (n === 130 && watching0) reached130 = true;
-      if (n === PLATEX38.slot && watching0) {
+      if (n === PLATEX38.slot && watching0 && !hit) {
         hit = snap38(e);
         handler130 = !!e.table.handlers[130];
         handler38 = !!e.table.handlers[38];

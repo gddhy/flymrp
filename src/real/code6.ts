@@ -675,6 +675,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
   const slot25 = cfSlots.some((s) => s.slot === 25);
   const loadBlxTaken = cfunctionExecPcs.includes(0x01ea5e0c);
   const unknownSlot = thrown instanceof UnknownAbiError && thrown.family === "mr_table" ? Number(thrown.code) : null;
+  const platEx =
+    thrown instanceof UnknownAbiError && thrown.family === "mr_platEx" ? thrown : null;
   const ctx = lastCtx ?? {
     slot: unknownSlot,
     cpu: emptyCpu(),
@@ -714,6 +716,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
         subtype: `UNKNOWN_REQUIRED_SLOT = ${unknownSlot}`,
         kind: "UNKNOWN_REQUIRED_SLOT",
       })
+    : platEx
+      ? faultFromCtx({ ...ctx, slot: 38 }, {
+          guestEntered,
+          loadBlxTaken,
+          site: "arm_ext_call.table",
+          classification: "ABI",
+          subtype: platEx.message,
+          kind: "UNKNOWN_PLATEX",
+        })
     : budget
       ? faultFromCtx(faultCtx, {
           guestEntered,
@@ -753,6 +764,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       slot25 ? "cfunction load touched table[25] (dynamic)" : "cfunction load did not touch table[25]",
       unknownSlot !== null
         ? `STOP: table[${unknownSlot}] — not implemented this stage`
+        : platEx
+          ? `STOP: ${platEx.message}`
         : budget
           ? "STOP: ARM insn watchdog during guest inflate after memcmp2"
           : "",
@@ -764,13 +777,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       "after code 6, ER_RW+0x10=0x7b0 (1968); ER_RW+0x20=0 (the R9+0x20 note is not this store)",
       budget
         ? "strict first fault after memset: ARM_INSN_BUDGET during arm_ext_call(0) guest inflate"
+        : platEx
+          ? `strict first fault after memset: ${platEx.message} during arm_ext_call(0)`
         : `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[9] memcmp2 is implemented; guest gzip/inflate completes; table[30]/[37]/[26]/[42]/[49]/[5] are REAL_EXECUTED; next slot is table[35] mr_getUserInfo",
+      "table[9] memcmp2 is implemented; guest gzip/inflate completes; table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] are REAL_EXECUTED; next is mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'",
       "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41] current-pack RDONLY file ABI is implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],

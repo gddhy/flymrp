@@ -305,8 +305,22 @@ export class MythroadRuntime {
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       getClock: () => this.clock,
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
+      getProfile: () => this.profile,
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
+      onUnknownAbi: (info) => {
+        const ev = {
+          caller: "ext",
+          family: info.family,
+          code: info.code,
+          arguments: [info.code],
+          argumentTypes: ["number"],
+          returnContext: "ext",
+          message: info.message,
+        };
+        this.unknownEvents.push(ev);
+        this.trace?.noteUnknown(ev);
+      },
       onUnknownSlot: (n) => {
         this.unknownRequiredSlot = n;
         const message = `UNKNOWN_REQUIRED_SLOT = ${n}`;

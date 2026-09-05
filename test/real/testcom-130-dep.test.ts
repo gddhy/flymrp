@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { TESTCOM130 } from "../../src/real/testcom130.ts";
 import { TESTCOM130_DEP, runTestCom130DepForensics } from "../../src/real/testcom130dep.ts";
-import { UNKNOWN_SLOT_35_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_PLATEX_1204_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -13,7 +13,7 @@ describe("5-C.7 table[130] return-value dependence", () => {
     const r = runTestCom130DepForensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handlerPresent).toBe(true);
-    expect(r.thrown).toBe(UNKNOWN_SLOT_35_THROWN);
+    expect(r.thrown).toBe(UNKNOWN_PLATEX_1204_THROWN);
 
     expect(r.encodings.cmp).toBe(TESTCOM130.enc.cmpR0R5);
     expect(r.encodings.bne).toBe(TESTCOM130.enc.bne);

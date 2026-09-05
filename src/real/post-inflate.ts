@@ -8,7 +8,7 @@ import { gunzipSync } from "node:zlib";
 import { ExtStopKind } from "../abi/fault.ts";
 import { AEX_P_ER_RW_OFF, EXT_TABLE_ADDR, EXT_TABLE_COUNT, tableSlotIndex } from "../abi/layout.ts";
 import { DEFAULT_INSN_BUDGET } from "../abi/runtime.ts";
-import { UnknownAbiError } from "../err/errors.ts";
+import { unknownTableSlot } from "../err/errors.ts";
 import { TAG_FUNCTION } from "../lua/types.ts";
 import { MRPArchive } from "../mrp/archive.ts";
 import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace } from "../mythroad/index.ts";
@@ -57,18 +57,18 @@ export const POST_INFLATE = {
   table30Blx: 0x01eaadaa,
   table30Lr: 0x01eaadad,
   table30Fn: 0x01eaad6c,
-  hitCount: 3572,
-  table0: 43,
+  hitCount: 3617,
+  table0: 45,
   table1: 40,
   table3: 3441,
   table3Inflate: 3432,
   table1Teardown: 37,
   slotRle:
-    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35",
-  liveAllocs: 2,
-  mrAllocs: 44,
-  bump: 0x00215078,
-  blockerCategory: "PLATFORM" as BlockerCategory,
+    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35,61,40,14,45,44,41,14,15,14,6,18,37,0,14x3,5,7x3,5,7,14,5,7x5,14,17,7,14,7x3,42,0,14,5,7x3,14,38",
+  liveAllocs: 4,
+  mrAllocs: 46,
+  bump: 0x00215300,
+  blockerCategory: "FILE" as BlockerCategory,
 } as const;
 
 export type NativeRec = {
@@ -381,8 +381,7 @@ function runOnce(mrp: Uint8Array, raw: Uint8Array, reference: Uint8Array | null,
     rt.start("start.mr");
   } catch (e) {
     thrown = errText(e);
-    if (e instanceof UnknownAbiError && typeof e.code === "number") unknownSlot = e.code;
-    else unknownSlot = rt.unknownRequiredSlot;
+    unknownSlot = unknownTableSlot(e) ?? rt.unknownRequiredSlot;
   }
   const wallMs = performance.now() - t0;
   const e = rt.ext;
@@ -547,7 +546,9 @@ export function runPostInflateStartup(
     luaResume: run.lua.resumed ? ("PASS" as GateStatus) : ("NOT REACHED" as GateStatus),
     stage5cComplete: false,
     recommendStage5d: false,
-    blocker: run.unknownSlot === 35
+    blocker: run.thrown.includes("mr_platEx code 1204")
+      ? "mr_platEx(1204) MR_SWITCHPATH"
+      : run.unknownSlot === 35
       ? "table[35] mr_getUserInfo"
       : run.unknownSlot === 49
         ? "table[49] mr_mkDir"

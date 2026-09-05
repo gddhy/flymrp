@@ -17,14 +17,14 @@ export function loaderReadiness(): ReadinessItem[] {
     { item: "nested MRP", status: "PARTIAL", reason: "openNested exists; no real nested pack" },
     { item: "FileStart / FileEnd", status: "PARTIAL", reason: "header fields parsed; real FileLen=382778" },
     { item: "gzip", status: "PARTIAL", reason: "1F 8B + inflate; real stored entries inflate" },
-    { item: "EXT MRPGCMAP", status: "PARTIAL", reason: "cfunction load + code 6 guest return 0; table[130] case 7 + table[38] 0x4c6 + table[33] getTime + table[17] sprintf_%d + table[40]/[44]/[45]/[41] current-pack RDONLY + table[3] memcpy2 + table[10] strcmp2 + table[1] registry-only mr_free + table[9] memcmp2 + table[30] getCharBitmap + table[37] plat(1206) + table[26] printf; guest inflate completes; production STOP at table[35] mr_getUserInfo; Stage 5-C NOT COMPLETE" },
+    { item: "EXT MRPGCMAP", status: "PARTIAL", reason: "cfunction load + code 6 guest return 0; guest inflate completes; table[35]/[61]/[15]/[6]/[18]/[7] REAL_EXECUTED; production STOP at mr_platEx(1204) MR_SWITCHPATH; Stage 5-C NOT COMPLETE" },
     { item: "stripped ARM ELF-like", status: "PARTIAL", reason: "PT_LOAD relocate path; fixtures only" },
     { item: "P / ER_RW", status: "PARTIAL", reason: "real table[25] sets P/helper; memset zeros ER_RW; R9 set at arm_ext_call" },
-    { item: "150-slot mr_table", status: "PARTIAL", reason: "slots 0/14/25/125/130(case 7)/38(0x4c6)/33/17(%d)/40/44/45/41 current-pack RDONLY + 3 memcpy2 + 10 strcmp2 + 1 mr_free registry-only + 9 memcmp2 + 30 getCharBitmap + 37 plat(1206) + 26 printf wired; gzip/inflate not a host ABI; table[42] mr_info + table[49] mkDir + table[5] strcpy2 wired; table[35] mr_getUserInfo blocked" },
+    { item: "150-slot mr_table", status: "PARTIAL", reason: "slots 0/14/25/125/130(case 7)/38(0x4c6 only)/33/17/40/44/45/41 + 3/10/1/9/30/37/26/42/49/5/35/61/15/6/18/7 wired; mr_platEx(1204) MR_SWITCHPATH blocked" },
     { item: "nested EXT owner", status: "PARTIAL", reason: "ModuleOwners in Stage 4; fixtures only" },
-    { item: "Lua chunk loading", status: "PARTIAL", reason: "first start.mr; 801/1 and 801/6 return to Lua; 801/0 completes guest inflate then STOP at table[35] mr_getUserInfo; Lua not resumed" },
+    { item: "Lua chunk loading", status: "PARTIAL", reason: "first start.mr; 801/1 and 801/6 return to Lua; 801/0 completes guest inflate then STOP at mr_platEx(1204) MR_SWITCHPATH; Lua not resumed" },
     { item: "_runFile / restart", status: "PARTIAL", reason: "state machine exists; synthetic only" },
-    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; deterministic STOP at table[35] mr_getUserInfo; inflate POP return + SHA-256 oracle match; arm_ext_call(0)/Lua not resumed; Stage 5-C NOT COMPLETE" },
+    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; deterministic STOP at mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'; inflate POP return + SHA-256 oracle match; arm_ext_call(0)/Lua not resumed; Stage 5-C NOT COMPLETE" },
     { item: "魔塔II.jar / DRM", status: "BLOCKED", reason: "no jar in workspace; DRM not attempted" },
   ];
 }

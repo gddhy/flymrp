@@ -123,4 +123,16 @@ export const IMPLEMENTED_C = [
   "mr_table/49/mr_mkDir",
   // Guest strcpy including NUL. Returns dest.
   "mr_table/5/strcpy2",
+  // flymrp DeviceProfile fill of mr_userinfo. Not a real IMEI.
+  "mr_table/35/mr_getUserInfo",
+  // rxgj FULL: always MR_NET_ID_MOBILE. Not a real radio.
+  "mr_table/61/mr_getNetworkID",
+  // Guest strlen until NUL.
+  "mr_table/15/strlen2",
+  // Guest strncpy: exactly count bytes, NUL-pad after src ends.
+  "mr_table/6/strncpy2",
+  // rxgj atol2/atoi2. No whitespace / plus.
+  "mr_table/18/atoi2",
+  // Guest strcat including NUL. Returns dest.
+  "mr_table/7/strcat2",
 ] as const;

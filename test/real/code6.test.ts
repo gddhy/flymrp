@@ -20,16 +20,16 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
     expect(st.blxImmTargets.some((t) => t.from === ((EXT_CODE_ADDR + 0x14) >>> 0) && t.to === 0x01ea5e0c)).toBe(true);
   });
 
-  it("memset lets code 6 enter guest; first remaining fault is table[35]", () => {
+  it("memset lets code 6 enter guest; first remaining fault is platEx 1204", () => {
     const r = runCode6Forensics(new Uint8Array(readFileSync(REAL_APP)));
     expect(r.fault.loadBlxTaken).toBe(true);
     expect(r.fault.guestEntered).toBe(true);
     expect(r.fault.classification).toBe("ABI");
-    expect(r.fault.subtype).toBe("UNKNOWN_REQUIRED_SLOT = 35");
+    expect(r.fault.subtype).toBe("unsupported mr_platEx code 1204");
     expect(r.fault.site).toBe("arm_ext_call.table");
-    expect(r.fault.slot).toBe(35);
-    expect(r.fault.kind).toBe("UNKNOWN_REQUIRED_SLOT");
-    expect(r.fault.faultPc).toBe(0x0001008c);
+    expect(r.fault.slot).toBe(38);
+    expect(r.fault.kind).toBe("UNKNOWN_PLATEX");
+    expect(r.fault.faultPc).toBe(0x00010098);
     expect(r.fault.r9).toBe(0x00200294);
     expect(r.fault.p).toBe(0x00200178);
     expect(r.fault.helper).toBe(0x01ea5e9d);

@@ -3,11 +3,46 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHINESE, MR_GET_HANDSET_LG, MR_IS_FILE, MR_IS_INVALID, MR_SUCCESS } from "./constants.ts";
+import { MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS } from "./constants.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
+import { defaultProfile, type DeviceProfile } from "./profile.ts";
 import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
+
+/** `sizeof(mr_userinfo)` in `mrporting.h`. */
+export const MR_USERINFO_SIZE = 64;
+export const MR_USERINFO_IMEI_OFF = 0;
+export const MR_USERINFO_IMSI_OFF = 16;
+export const MR_USERINFO_MANU_OFF = 32;
+export const MR_USERINFO_TYPE_OFF = 40;
+export const MR_USERINFO_VER_OFF = 48;
+export const MR_USERINFO_SPARE_OFF = 52;
+
+/**
+ * rxgj `dsm.c`: `info->ver = 101000000 + plat * 10000 + FAE`.
+ * flymrp default is plat=2 / FAE=180 when `DeviceProfile.hsver` is not already packed.
+ * This is flymrp profile / rxgj FULL compatibility, not a claimed MTK chip or real IMEI.
+ */
+export const MR_USERINFO_VER_BASE = 101000000;
+export const MR_USERINFO_PLAT_DEFAULT = 2;
+export const MR_USERINFO_FAE_DEFAULT = 180;
+
+export function packedUserInfoVer(hsver: number): number {
+  const v = hsver | 0;
+  if (v >= MR_USERINFO_VER_BASE) return v >>> 0;
+  return (MR_USERINFO_VER_BASE + MR_USERINFO_PLAT_DEFAULT * 10000 + MR_USERINFO_FAE_DEFAULT) >>> 0;
+}
+
+/** Write a NUL-terminated field; last byte stays 0. */
+export function writeFixedCString(mem: GuestMemory, addr: number, s: string, fieldLen: number): void {
+  const a = addr >>> 0;
+  const n = fieldLen >>> 0;
+  if (n === 0) return;
+  mem.fill(a, 0, n);
+  const take = Math.min(s.length, n - 1);
+  for (let i = 0; i < take; i++) mem.write8((a + i) >>> 0, s.charCodeAt(i) & 0xff);
+}
 
 /**
  * rxgj FULL `_mr_TestCom` under `#ifdef MR_PLAT_DRAWTEXT`.
@@ -74,6 +109,8 @@ export class MrTableBridge {
       onRead?: (rec: ReadFileRecord) => void;
       getClock?: () => number;
       getPack?: () => PackFileSource | null;
+      getProfile?: () => DeviceProfile;
+      onUnknownAbi?: (info: { family: string; code: number; message: string }) => void;
     } = {},
   ) {
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null);
@@ -84,6 +121,10 @@ export class MrTableBridge {
     this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(5, (_cpu, mem, args) => strcpy2(mem, args[0]!, args[1]!));
+    this.ext.registerHandler(6, (_cpu, mem, args) => strncpy2(mem, args[0]!, args[1]!, args[2]!));
+    this.ext.registerHandler(7, (_cpu, mem, args) => strcat2(mem, args[0]!, args[1]!));
+    this.ext.registerHandler(15, (_cpu, mem, args) => strlen2(mem, args[0]!));
+    this.ext.registerHandler(18, (_cpu, mem, args) => atoi2(mem, args[0]!));
     this.ext.registerHandler(9, (_cpu, mem, args) => memcmp2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
@@ -103,6 +144,8 @@ export class MrTableBridge {
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
+    this.ext.registerHandler(35, (_cpu, mem, args) => this.getUserInfo(mem, args[0]! >>> 0));
+    this.ext.registerHandler(61, (_cpu, _mem, _args) => this.getNetworkID());
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -201,7 +244,9 @@ export class MrTableBridge {
       void cb;
       return MR_SUCCESS;
     }
-    throw new UnknownAbiError(`unsupported mr_platEx code ${code}`, {
+    const message = `unsupported mr_platEx code ${code}`;
+    this.hooks.onUnknownAbi?.({ family: "mr_platEx", code, message });
+    throw new UnknownAbiError(message, {
       family: "mr_platEx",
       code,
       caller: "ext",
@@ -273,6 +318,42 @@ export class MrTableBridge {
   mkDir(name: string): number {
     this.lastMkDir = name;
     return this.appFs.mkdir(name);
+  }
+
+  /**
+   * table[35] = `asm_mr_getUserInfo` = `mr_getUserInfo`.
+   *
+   * C: `int32 mr_getUserInfo(mr_userinfo *info)`.
+   * AAPCS: r0 = guest pointer. NULL → `MR_FAILED`.
+   *
+   * Layout CONFIRMED (`mrporting.h`): IMEI16 + IMSI16 + manu8 + type8 + ver u32 + spare12.
+   * Values come from flymrp `DeviceProfile`. Default IMEI/IMSI stay zeros.
+   * This is flymrp profile / rxgj FULL fill, not a real handset and not universal Mythroad.
+   */
+  lastUserInfo = 0;
+  getUserInfo(mem: GuestMemory, info: number): number {
+    const p = info >>> 0;
+    this.lastUserInfo = p;
+    if (p === 0) return MR_FAILED;
+    const profile = this.hooks.getProfile?.() ?? defaultProfile();
+    mem.fill(p, 0, MR_USERINFO_SIZE);
+    writeFixedCString(mem, p + MR_USERINFO_IMEI_OFF, profile.IMEI, 16);
+    writeFixedCString(mem, p + MR_USERINFO_IMSI_OFF, profile.IMSI, 16);
+    writeFixedCString(mem, p + MR_USERINFO_MANU_OFF, profile.hsman, 8);
+    writeFixedCString(mem, p + MR_USERINFO_TYPE_OFF, profile.hstype, 8);
+    mem.write32((p + MR_USERINFO_VER_OFF) >>> 0, packedUserInfoVer(profile.hsver));
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[61] = `mr_getNetworkID`.
+   *
+   * C: `int32 mr_getNetworkID(void)`.
+   * rxgj `dsm.c` / `aex_t061` return `MR_NET_ID_MOBILE` (0).
+   * This is rxgj FULL compatibility, not a real radio / SIM / GPRS stack.
+   */
+  getNetworkID(): number {
+    return MR_NET_ID_MOBILE;
   }
 
   /**
@@ -472,6 +553,83 @@ export function memcmp2(mem: GuestMemory, cs: number, ct: number, count: number)
  * rxgj `string.c` `strcpy2`. Copy including the terminating NUL.
  * Returns dest. Overlap is guest-visible self-overwrite, not memmove.
  */
+/**
+ * rxgj `string.c` `strlen2`. Count bytes until the first NUL.
+ * Does not special-case a NULL pointer; guest addr 0 faults like other loads.
+ */
+/**
+ * rxgj `other.c` `atol2` / `atoi2`.
+ * Optional leading `-` only. No `+`, no whitespace skip.
+ * Accumulates unsigned decimal digits with 32-bit wrap, then applies sign.
+ */
+export function atoi2(mem: GuestMemory, s: number): number {
+  let p = s >>> 0;
+  let b = mem.read8(p) & 0xff;
+  let neg = 0;
+  if (b === 0x2d) {
+    neg = 1;
+    p = (p + 1) >>> 0;
+    b = mem.read8(p) & 0xff;
+  }
+  let ret = 0;
+  for (;;) {
+    const d = (b - 0x30) >>> 0;
+    if (d > 9) break;
+    ret = (Math.imul(ret, 10) + d) >>> 0;
+    p = (p + 1) >>> 0;
+    b = mem.read8(p) & 0xff;
+  }
+  return neg ? (-ret | 0) : (ret | 0);
+}
+
+export function strlen2(mem: GuestMemory, s: number): number {
+  let p = s >>> 0;
+  let n = 0;
+  while ((mem.read8(p) & 0xff) !== 0) {
+    p = (p + 1) >>> 0;
+    n++;
+  }
+  return n;
+}
+
+/**
+ * rxgj `string.c` `strncpy2`. Copy exactly `count` bytes.
+ * After src hits NUL, remaining dest bytes are written as 0 (src is not advanced).
+ * `count === 0` returns dest without accessing either pointer.
+ */
+/**
+ * rxgj `string.c` `strcat2`. Append src including NUL onto dest.
+ * Returns dest.
+ */
+export function strcat2(mem: GuestMemory, dest: number, src: number): number {
+  const dst = dest >>> 0;
+  let to = dst;
+  while ((mem.read8(to) & 0xff) !== 0) to = (to + 1) >>> 0;
+  let from = src >>> 0;
+  for (;;) {
+    const b = mem.read8(from) & 0xff;
+    mem.write8(to, b);
+    if (b === 0) return dst;
+    from = (from + 1) >>> 0;
+    to = (to + 1) >>> 0;
+  }
+}
+
+export function strncpy2(mem: GuestMemory, dest: number, src: number, count: number): number {
+  const dst = dest >>> 0;
+  let from = src >>> 0;
+  let to = dst;
+  let n = count >>> 0;
+  while (n) {
+    const b = mem.read8(from) & 0xff;
+    mem.write8(to, b);
+    if (b !== 0) from = (from + 1) >>> 0;
+    to = (to + 1) >>> 0;
+    n--;
+  }
+  return dst;
+}
+
 export function strcpy2(mem: GuestMemory, dest: number, src: number): number {
   const dst = dest >>> 0;
   let from = src >>> 0;

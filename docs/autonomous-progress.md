@@ -25,12 +25,17 @@
 | 30 | mr_getCharBitmap | PARTIAL | gb16 metrics CONFIRMED；glyphs generated, not UC2 |
 | 33 | mr_getTime | SUPPORTED | `runtime.clock >>> 0` |
 | 37 | mr_plat | PARTIAL | only code 1206 → `MR_CHINESE` 1000 |
-| 38 | mr_platEx | PARTIAL | only 0x4c6 → `MR_SUCCESS` |
 | 40/44/45/41 | file | PARTIAL | current-pack RDONLY alias |
 | 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
 | 49 | mr_mkDir | PARTIAL | in-memory EFS dir; not IndexedDB |
 | 5 | strcpy2 | SUPPORTED | NUL-terminated copy, returns dest |
-| 35 | mr_getUserInfo | BLOCKED | LIVE info* `0x002046a0` |
+| 6 | strncpy2 | SUPPORTED | exactly count bytes; NUL-pad after src |
+| 7 | strcat2 | SUPPORTED | append including NUL |
+| 15 | strlen2 | SUPPORTED | count until NUL |
+| 18 | atoi2 | SUPPORTED | rxgj `atol2`; no whitespace / plus |
+| 35 | mr_getUserInfo | PARTIAL | flymrp DeviceProfile fill; not a real IMEI |
+| 38 | mr_platEx | PARTIAL | 0x4c6 SUCCESS; 1204 SWITCHPATH blocked |
+| 61 | mr_getNetworkID | PARTIAL | always `MR_NET_ID_MOBILE`; not a real radio |
 | 100 | pack_filename | SUPPORTED | 128-byte data slot |
 | 125 | readFile | SUPPORTED | VFS member |
 | 130 | TestCom | PARTIAL | case 7 only |
@@ -44,6 +49,7 @@
 | graphics / timer / event / input | DEFERRED until Lua resumes |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
+| `mr_platEx(1204)` SWITCHPATH | BLOCKED |
 
 ---
 
@@ -60,6 +66,8 @@
 | plat 1206 only | `MR_CHINESE` | other plat codes | only 1206 observed | later device queries |
 | printf subset | `%d` `%s` width | `%x` flags precision | LIVE SDK formats covered | new specifier stops |
 | generated gb16 glyphs | metrics + packed bits | real `gb16.uc2` / `gb12.uc2` | width/height CONFIRMED; pixels not claimed pixel-perfect | text drawing will not match device |
+| flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
+| getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
 
 ---
 
@@ -137,14 +145,46 @@ hits               3572
 handles            1, 2
 ```
 
-**commit:** Support in-memory mkdir and confirmed strcpy2 ABI
+**commit:** `5d36ce5` Support in-memory mkdir and confirmed strcpy2 ABI
+
+---
+
+### 2026-09-05 — getUserInfo + identity string cluster
+
+**starting blocker:** `table[35] mr_getUserInfo`
+
+**analysis:**
+
+* 35 = 64-byte `mr_userinfo`. LIVE info=`0x002046a0`. Fill from flymrp `DeviceProfile`, not rxgj's real-looking IMEI.
+* 61 = `mr_getNetworkID` → `MR_NET_ID_MOBILE` (rxgj FULL / `aex_t061`).
+* 15/6/18 = `strlen(IMSI)` + `strncpy(3)` + `atoi2` of the IMSI prefix.
+* 7 = `strcat2` path-string build, then `mr_platEx(1204)`.
+
+**implementation:** `getUserInfo` / `getNetworkID` / `strlen2` / `strncpy2` / `atoi2` / `strcat2`.
+
+**real-run:**
+
+```text
+previous blocker   table[35]
+new blocker        mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'
+ARM insn           1,405,946
+Lua insn           71
+hits               3617
+handles            1, 2, 3
+```
+
+**commit:** Implement confirmed getUserInfo and identity string ABI
 
 ## Current blocker
 
 ```text
-table[35]  mr_getUserInfo(info*)
-PC=0x0001008c  LR=0x01ea5dcf  R0=0x002046a0
-category   PLATFORM
+mr_platEx(1204)  MR_SWITCHPATH
+input            'Y' + NUL  (query current DSM work path)
+input*           0x01eb01a0
+input_len        2
+output**         0x01e7feec
+PC=0x00010098  LR=0x01ea617d  R0=0x000004b4
+category         FILE
 ```
 
-`mr_userinfo` 布局 CONFIRMED（IMEI16+IMSI16+manu8+type8+ver u32+spare12）。填表应走 flymrp `DeviceProfile`，标 rxgj FULL / flymrp profile，不要假装真机 IMEI。
+rxgj `dsmSwitchPath('Y')` writes `*output` / `*output_len` for the current work path (default `"c:/mythroad/"`). Need a guest-visible output buffer and an explicit flymrp work-path model. Do not return SUCCESS without writing output.
