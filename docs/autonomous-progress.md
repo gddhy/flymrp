@@ -50,6 +50,7 @@
 | 120 | _DrawBitmap | PARTIAL | C rop `DRAW_BM_*` (COPY=2); guest RGB565 via GuestMemory; not Lua `BM_COPY=0` |
 | 57 | mr_playSound | PARTIAL | AAPCS type/data*/len/loop; SUCCESS + record; no PCM/MIDI device; data stays guest |
 | 58 | mr_stopSound | PARTIAL | AAPCS type; leftover r1–r3 ignored; SUCCESS + record; LIVE type=0 |
+| 145 | mr_platDrawChar | PARTIAL | AAPCS ch/x/y/color; RGB565; last getCharBitmap size; generated gb16; return 0; not UC2 |
 
 ### other
 
@@ -458,11 +459,39 @@ unknown          null
 
 **commit:** Implement confirmed play/stopSound ABI and raise event watchdog
 
+---
+
+### 2026-09-05 — table[145] mr_platDrawChar
+
+**starting blocker:** 标题 FIRE → 开场旁白「按任意键进入」→ 再 FIRE 后 `UNKNOWN_REQUIRED_SLOT = 145`
+
+**analysis:**
+
+* table[145] = `asm_mr_platDrawChar` = `mr_platDrawChar`.
+* C: `void mr_platDrawChar(uint16 ch, int32 x, int32 y, uint32 color)`；`aex_t145` ret=0。
+* `dsm.c` 把 color 当 RGB565；无 fontSize，用上次 `mr_getCharBitmap` 的 size；无 `gb12.uc2` 则全程 gb16。
+* LIVE 切场景后 `ch=34560 x=104 y=152 color=65535`。
+
+**implementation:** handler 145 → generated gb16 blit；color 低 16 位 RGB565；return 0。
+
+**tests:** `test/real/platdrawchar-145-abi.test.ts`
+
+**real-run:** 越过 145 后进入地图 HUD（LV 40 / 飞行 / 菜单栏）。gameplay input 与 `realAppGreen` 仍未闭环。
+
+```text
+previous blocker   table[145]
+new blocker        playable path / gameplay input gate
+unknown            null
+```
+
+**commit:** Implement confirmed platDrawChar ABI
+
 ## Current blocker
 
 ```text
-startup + timer + Canvas + SOFTRIGHT pixel reaction PASS
-Stage 5-D interactive path proven on this fixture
-remaining optional: UC2 font, real audio device, persist EFS, network/SMS
-realAppGreen stays false (gate / not device-LCD green)
+startup + title + intro + platDrawChar PASS
+map/HUD reached on this fixture
+remaining: playable gate (gameplay input + realAppGreen)
+optional: UC2 font, real audio device, persist EFS, network/SMS
+realAppGreen stays false until playable DoD
 ```

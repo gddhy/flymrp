@@ -156,4 +156,6 @@ export const IMPLEMENTED_C = [
   // No PCM/MIDI device. SUCCESS + record. Guest data* is not a host pointer.
   "mr_table/57/mr_playSound",
   "mr_table/58/mr_stopSound",
+  // void platDrawChar; RGB565 color; generated gb16. Not UC2.
+  "mr_table/145/mr_platDrawChar",
 ] as const;

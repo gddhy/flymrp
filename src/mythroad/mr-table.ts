@@ -189,6 +189,7 @@ export class MrTableBridge {
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
     this.ext.registerHandler(57, (_cpu, _mem, args) => this.playSound(args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
     this.ext.registerHandler(58, (_cpu, _mem, args) => this.stopSound(args[0]! | 0));
+    this.ext.registerHandler(145, (_cpu, _mem, args) => this.platDrawChar(args[0]! >>> 0, args[1]! | 0, args[2]! | 0, args[3]! >>> 0));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -543,6 +544,38 @@ export class MrTableBridge {
     return MR_SUCCESS;
   }
 
+  /**
+   * table[145] = `asm_mr_platDrawChar` = `mr_platDrawChar`.
+   * C: `void mr_platDrawChar(uint16 ch, int32 x, int32 y, uint32 color)`.
+   * AAPCS: r0=ch r1=x r2=y r3=color. rxgj `aex_t145` returns 0.
+   * `color` is used as RGB565 (`uint16`), matching `dsm.c` / `xl_font_sky16_drawChar`.
+   * No `fontSize` argument; rxgj uses the last `mr_getCharBitmap` size.
+   * Without `gb12.uc2` that is always gb16. Glyphs are generated, not UC2.
+   */
+  lastPlatDrawChar: { ch: number; x: number; y: number; color: number } | null = null;
+  lastFontSize = 1;
+  platDrawChar(ch: number, x: number, y: number, color: number): number {
+    const id = ch & 0xffff;
+    const native = color & 0xffff;
+    this.lastPlatDrawChar = { ch: id, x: asI16(x), y: asI16(y), color: native };
+    const glyph = gb16Glyph(id);
+    const r5 = (native >>> 11) & 0x1f;
+    const g6 = (native >>> 5) & 0x3f;
+    const b5 = native & 0x1f;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    screen.drawGlyph(
+      asI16(x),
+      asI16(y),
+      glyph.width,
+      glyph.height,
+      glyph.bits,
+      (r5 << 3) | (r5 >>> 2),
+      (g6 << 2) | (g6 >>> 4),
+      (b5 << 3) | (b5 >>> 2),
+    );
+    return 0;
+  }
+
   switchPathQuery(mem: GuestMemory, output: number, outputLen: number): number {
     const path = this.formatSwitchPathY();
     if (!this.switchPathAddr) this.switchPathAddr = this.ext.alloc(DSM_SWITCHPATH_BUF);
@@ -749,7 +782,7 @@ export class MrTableBridge {
   }
 
   getCharBitmap(mem: GuestMemory, ch: number, fontSize: number, widthAddr: number, heightAddr: number): number {
-    void fontSize;
+    this.lastFontSize = fontSize & 0xffff;
     const glyph = gb16Glyph(ch >>> 0);
     if (widthAddr) mem.write32(widthAddr >>> 0, glyph.width);
     if (heightAddr) mem.write32(heightAddr >>> 0, glyph.height);
