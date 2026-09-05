@@ -3,7 +3,7 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS, MR_SWITCHPATH } from "./constants.ts";
+import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
@@ -71,8 +71,9 @@ export const DSM_SWITCHPATH_BUF = 266;
 /** rxgj `dsmSwitchPath('Y')` when `dsmWorkPath == "mythroad/"`. */
 export const DSM_SWITCHPATH_Y_DEFAULT = "c:/mythroad/";
 
-/** Observed LIVE `mr_plat` code. `1206 == MR_GET_HANDSET_LG`. */
+/** Observed LIVE `mr_plat` codes. */
 export const MR_PLAT_GET_HANDSET_LG = MR_GET_HANDSET_LG;
+export const MR_PLAT_CHECK_TOUCH = MR_CHECK_TOUCH;
 
 export type AllocRecord = {
   size: number;
@@ -135,7 +136,7 @@ export class MrTableBridge {
       onDrawRect?: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => void;
       onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
       onFlush?: (x: number, y: number, w: number, h: number) => void;
-      onUnknownAbi?: (info: { family: string; code: number; message: string }) => void;
+      onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
     } = {},
   ) {
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null);
@@ -493,15 +494,14 @@ export class MrTableBridge {
    * table[37] = `asm_mr_plat` = `mr_plat`.
    *
    * C: `int32 mr_plat(int32 code, int32 param)`.
-   * This is rxgj FULL compatibility for the observed
-   * `mr_plat(MR_GET_HANDSET_LG, 0)` call. It returns `MR_CHINESE` (1000).
+   * rxgj FULL: `1206` → `MR_CHINESE`; `1205` → `MR_TOUCH_SCREEN`.
+   * Android rxgj returns `MR_NORMAL_SCREEN` for 1205; this is not that fork.
    * It is not the complete `mr_plat` API.
    */
   plat(code: number, param: number): number {
-    if ((code >>> 0) === MR_GET_HANDSET_LG) {
-      void param;
-      return MR_CHINESE;
-    }
+    void param;
+    if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;
+    if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;
     const message = `unsupported mr_plat code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_plat", code, message });
     throw new UnknownAbiError(message, {
@@ -521,7 +521,18 @@ export class MrTableBridge {
    * (`UnknownAbiError`), not a guest-visible open failure (0).
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
-    return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
+    try {
+      return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
+    } catch (e) {
+      if (e instanceof UnknownAbiError) {
+        this.hooks.onUnknownAbi?.({
+          family: e.family,
+          code: typeof e.code === "number" ? e.code : 40,
+          message: e.message,
+        });
+      }
+      throw e;
+    }
   }
 
   /**

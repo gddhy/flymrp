@@ -113,8 +113,8 @@ export const IMPLEMENTED_C = [
   "mr_table/1/mr_free/registry-only",
   // rxgj FULL gb16 metrics. Generated glyphs, not gb16.uc2.
   "mr_table/30/mr_getCharBitmap",
-  // rxgj FULL: mr_plat(1206) → MR_CHINESE (1000). Not the full plat table.
-  "mr_table/37/mr_plat/1206",
+  // rxgj FULL: mr_plat(1206) → MR_CHINESE; 1205 → MR_TOUCH_SCREEN.
+  "mr_table/37/mr_plat/1206+1205",
   // rxgj FULL mr_printf: literals + %d + %s. Return 0.
   "mr_table/26/mr_printf",
   // Pack name → MR_IS_FILE. App-fs dirs/files. Archive members → MR_IS_INVALID.

@@ -679,6 +679,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
     thrown instanceof UnknownAbiError && thrown.family === "mr_platEx" ? thrown : null;
   const plat =
     thrown instanceof UnknownAbiError && thrown.family === "mr_plat" ? thrown : null;
+  const open =
+    thrown instanceof UnknownAbiError && thrown.family === "mr_open" ? thrown : null;
   const ctx = lastCtx ?? {
     slot: unknownSlot,
     cpu: emptyCpu(),
@@ -736,6 +738,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           subtype: plat.message,
           kind: "UNKNOWN_PLAT",
         })
+    : open
+      ? faultFromCtx({ ...ctx, slot: 40 }, {
+          guestEntered,
+          loadBlxTaken,
+          site: "arm_ext_call.table",
+          classification: "ABI",
+          subtype: open.message,
+          kind: "UNKNOWN_OPEN",
+        })
     : budget
       ? faultFromCtx(faultCtx, {
           guestEntered,
@@ -779,6 +790,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           ? `STOP: ${platEx.message}`
         : plat
           ? `STOP: ${plat.message}`
+        : open
+          ? `STOP: ${open.message}`
         : budget
           ? "STOP: ARM insn watchdog during guest inflate after memcmp2"
           : "",
@@ -794,13 +807,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           ? `strict first fault after memset: ${platEx.message} during arm_ext_call(0)`
         : plat
           ? `strict first fault after memset: ${plat.message} during arm_ext_call(0)`
+        : open
+          ? `strict first fault after memset: ${open.message} during arm_ext_call(0)`
         : `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[9] memcmp2 is implemented; guest gzip/inflate completes; DrawRect/DrawText/drawBitmap/winCreate are REAL_EXECUTED; next is mr_plat(1205) MR_CHECK_TOUCH",
+      'table[9] memcmp2 is implemented; guest gzip/inflate completes; DrawRect/DrawText/drawBitmap/winCreate/plat(1205) are REAL_EXECUTED; next is mr_open("gssjxz\\\\69") EFS',
       "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41] current-pack RDONLY file ABI is implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],

@@ -14,7 +14,8 @@
  * table[6] strncpy2 + table[18] atoi2 + table[7] strcat2 are REAL_EXECUTED.
  * table[38] platEx 1204 `dsmSwitchPath` Y/B/C is REAL_EXECUTED.
  * table[122]/[123]/[29] DrawRect/DrawText/drawBitmap and [78] winCreate are REAL_EXECUTED.
- * First remaining blocker: mr_plat(1205) MR_CHECK_TOUCH.
+ * table[37] mr_plat(1205) returns MR_TOUCH_SCREEN (rxgj FULL).
+ * First remaining blocker: mr_open("gssjxz\\69") EFS path (not current-pack).
  * No cbRet bypass. No gzip/inflate host ABI.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
@@ -89,15 +90,15 @@ export const REAL_MRP_BASELINE = {
   platex1204: 1204,
   slot122: 122,
   stub122: 0x000101e8,
-  stopPc: 0x00010094,
-  stopLr: 0x01ea88e7,
-  stopR0: 1205,
-  stopR1: 0,
+  stopPc: 0x000100a0,
+  stopLr: 0x01ea89e7,
+  stopR0: 0x01e7ff34,
+  stopR1: 1,
   infoName: "dbglog.txt",
   infoName2: "gsidbak",
   mkdirName: "gsidbak",
   inflateInsnCount: 1_404_897,
-  productionInsnCount: 1_412_903,
+  productionInsnCount: 1_413_669,
   gzipOutLen: 30192,
   gzipAlloc: 30196,
   gzipMagic: [0x1f, 0x8b] as const,
@@ -110,7 +111,7 @@ export const REAL_MRP_BASELINE = {
   budgetStopPc: 0x01ea1ee8,
   budgetStopLr: 0x01ea1f83,
   insnBudget: DEFAULT_INSN_BUDGET,
-  totalHitCount: 3739,
+  totalHitCount: 3745,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -148,8 +149,10 @@ export const UNKNOWN_SLOT_35_THROWN = "UNKNOWN_REQUIRED_SLOT = 35";
 export const UNKNOWN_PLATEX_1204_THROWN = "unsupported mr_platEx code 1204";
 /** Historical stop after SWITCHPATH. table[122] DrawRect is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_122_THROWN = "UNKNOWN_REQUIRED_SLOT = 122";
-/** Production stop: mr_plat(1205) MR_CHECK_TOUCH is not implemented. */
+/** Historical stop after DrawRect cluster. mr_plat(1205) is now REAL_EXECUTED. */
 export const UNKNOWN_PLAT_1205_THROWN = "unsupported mr_plat code 1205";
+/** Production stop: EFS mr_open("gssjxz\\69") is not current-pack. */
+export const UNKNOWN_OPEN_GSSJXZ69_THROWN = 'unsupported mr_open filename "gssjxz\\\\69"';
 
 export type CpuSnap = {
   pc: number;
@@ -1372,7 +1375,8 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const hit29 = run.hits.find((h) => h.slot === 29);
   const hit78 = run.hits.find((h) => h.slot === 78);
   const switchPathOk = run.hits.some((h) => h.slot === 38 && h.arguments[0] === 1204 && h.return === 0);
-  const plat1205 = run.thrown.includes("mr_plat code 1205");
+  const plat1205ok = run.hits.some((h) => h.slot === 37 && h.arguments[0] === 1205 && h.return === 1001);
+  const openEfs69 = run.thrown.includes("gssjxz");
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
@@ -1675,8 +1679,13 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     },
     {
       stage: "plat1205",
-      status: plat1205 ? "BLOCKED" : "NOT REACHED",
-      note: plat1205 ? "mr_plat(1205) MR_CHECK_TOUCH not implemented" : "not reached",
+      status: plat1205ok ? "PASS" : run.thrown.includes("mr_plat code 1205") ? "BLOCKED" : "NOT REACHED",
+      note: plat1205ok ? "REAL_EXECUTED mr_plat(1205) → MR_TOUCH_SCREEN (rxgj FULL)" : "not reached",
+    },
+    {
+      stage: "openEfs69",
+      status: openEfs69 ? "BLOCKED" : "NOT REACHED",
+      note: openEfs69 ? 'mr_open("gssjxz\\\\69") EFS not current-pack' : "not reached",
     },
   ];
 }
@@ -1896,7 +1905,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
       table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
       table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7], platEx 1204 SWITCHPATH, DrawRect/DrawText/drawBitmap, and winCreate are REAL_EXECUTED. First remaining blocker is mr_plat(1205) MR_CHECK_TOUCH. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7], platEx 1204 SWITCHPATH, DrawRect/DrawText/drawBitmap, winCreate, and mr_plat(1205) are REAL_EXECUTED. First remaining blocker is mr_open(\"gssjxz\\\\69\") EFS. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1957,7 +1966,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
     "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
     "table[9] memcmp2 is REAL_EXECUTED (unsigned char; exact *su1-*su2; early exit).",
-    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is mr_plat(1205) MR_CHECK_TOUCH.",
+    'gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is mr_open("gssjxz\\\\69") EFS.',
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
     "Stage 5-D: **NOT STARTED**.",
     "",

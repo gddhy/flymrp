@@ -18,6 +18,6 @@ User-supplied unprotected MRP (original at `/Users/zixing/Downloads/app.mrp` was
 
 `mrc_loader.ext` SHA-256 `d36151ee3c119717305afe4b1f0ba47f0f0154f8ba6f2c5081d6402c8eddd938`（与 rxgj 记录的 SkyEngine 232 字节 loader 相同）。
 
-**real-app green: false。** guest inflate 完成；DrawRect/DrawText/drawBitmap/winCreate REAL_EXECUTED；`arm_ext_call(0)` / Lua 未恢复。生产停在 `mr_plat(1205)` `MR_CHECK_TOUCH`。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md`。
+**real-app green: false。** guest inflate 完成；plat(1205) REAL_EXECUTED；`arm_ext_call(0)` / Lua 未恢复。生产停在 `mr_open("gssjxz\\69")` EFS。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md`。
 
 不要把第二份 `start.mr`（含 `sdk_key.dat` / IMEI）当成要跑的入口；`readFile("start.mr")` 只取第一份。不要改原文件。

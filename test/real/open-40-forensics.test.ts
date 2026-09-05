@@ -8,7 +8,7 @@ import {
   OPEN40,
   runOpen40Forensics,
 } from "../../src/real/open40.ts";
-import { UNKNOWN_PLAT_1205_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_OPEN_GSSJXZ69_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -21,8 +21,8 @@ describe("5-C.10H table[40] / mr_open forensics", () => {
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
     expect(r.handler40).toBe(true);
-    expect(r.productionThrown).toBe(UNKNOWN_PLAT_1205_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_PLAT_1205_THROWN);
+    expect(r.productionThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(r.probeThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.decision).toBe("B");
 

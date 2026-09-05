@@ -42,6 +42,9 @@ export const MR_FONT_BIG = 2;
 /** rxgj `mrporting.h`. Language / plat query return base. */
 export const MR_PLAT_VALUE_BASE = 1000;
 export const MR_CHINESE = MR_PLAT_VALUE_BASE;
+/** rxgj `MR_SCREEN_TYPE`. `MR_TOUCH_SCREEN` is the next enumerator. */
+export const MR_NORMAL_SCREEN = MR_PLAT_VALUE_BASE;
+export const MR_TOUCH_SCREEN = MR_PLAT_VALUE_BASE + 1;
 /** `mr_plat` code: get handset language. */
 export const MR_GET_HANDSET_LG = 1206;
 /** `mr_platEx` switch/query DSM work path. */

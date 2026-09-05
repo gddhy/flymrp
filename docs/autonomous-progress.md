@@ -24,8 +24,8 @@
 | 26 | mr_printf | PARTIAL | literals / `%d` / `%s` / width |
 | 30 | mr_getCharBitmap | PARTIAL | gb16 metrics CONFIRMED；glyphs generated, not UC2 |
 | 33 | mr_getTime | SUPPORTED | `runtime.clock >>> 0` |
-| 37 | mr_plat | PARTIAL | 1206 → `MR_CHINESE`; 1205 CHECK_TOUCH **BLOCKED** |
-| 40/44/45/41 | file | PARTIAL | current-pack RDONLY alias |
+| 37 | mr_plat | PARTIAL | 1206 → `MR_CHINESE`; 1205 → `MR_TOUCH_SCREEN` (rxgj FULL) |
+| 40/44/45/41 | file | PARTIAL | current-pack RDONLY; EFS `gssjxz\\69` **BLOCKED** |
 | 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
 | 49 | mr_mkDir | PARTIAL | in-memory EFS dir; not IndexedDB |
 | 5 | strcpy2 | SUPPORTED | NUL-terminated copy, returns dest |
@@ -56,7 +56,8 @@
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
-| `mr_plat(1205)` CHECK_TOUCH | BLOCKED |
+| `mr_plat(1205)` CHECK_TOUCH | PARTIAL | rxgj FULL `MR_TOUCH_SCREEN` |
+| EFS `mr_open("gssjxz\\69")` | BLOCKED | not current-pack; CREATE loop if return 0 |
 
 ---
 
@@ -71,7 +72,7 @@
 | sprintf `%d` only | LIVE `res_lang%d.rc` | `%s` / width | only one production sprintf so far | new format → `UnknownAbiError` |
 | platEx 0x4c6 + SWITCHPATH | 0x4c6 SUCCESS; Y/Z/X/A/B/C work-path | other platEx codes | LIVE Y then B:/mythroad/ then c:/mythroad/ | later 1014 SCRRAM / other codes |
 | DSM work path | in-memory `dsmWorkPath`; Y writes guest `c:/mythroad/` | host FS / IndexedDB mapping | current-pack open still uses pack name | later `B:` prefixed mr_open |
-| plat 1206 only | `MR_CHINESE` | other plat codes including 1205 | 1206 observed before CHECK_TOUCH | 1205 is now the production blocker |
+| plat 1206+1205 | `MR_CHINESE` / `MR_TOUCH_SCREEN` | other plat codes | LIVE 1206 then 1205 | Android rxgj returns NORMAL_SCREEN for 1205 |
 | printf subset | `%d` `%s` width | `%x` flags precision | LIVE SDK formats covered | new specifier stops |
 | generated gb16 glyphs | metrics + packed bits | real `gb16.uc2` / `gb12.uc2` | width/height CONFIRMED; pixels not claimed pixel-perfect | text drawing will not match device |
 | NULL `mr_drawBitmap` | present host RGB565 cache | guest-mapped `mr_screenBuf` | guest draws via DrawRect/DrawText into host cache | later apps that pass a guest bmp pointer |
@@ -244,15 +245,44 @@ graphicsCommands   4  (1 rect + 1 text + 2 flush)
 handles            1, 2, 3, 4
 ```
 
-**commit:** Support DrawRect, DrawText, and bitmap present
+**commit:** `49fb888` Support DrawRect, DrawText, and bitmap present
+
+---
+
+### 2026-09-05 — mr_plat(1205) MR_CHECK_TOUCH
+
+**starting blocker:** `mr_plat(1205, 0)`
+
+**analysis:**
+
+* rxgj FULL `dsm.c`: `return MR_TOUCH_SCREEN` (`1001`). Android jni returns `MR_NORMAL_SCREEN`.
+* LIVE after DrawRect/DrawText/two presents/winCreate.
+
+**implementation:** `mr_plat(1205)` → `1001`. Marked rxgj FULL.
+
+**tests:** `test/real/plat-37-abi.test.ts`; real `app.mrp` rerun.
+
+**real-run:**
+
+```text
+previous blocker   mr_plat(1205)
+new blocker        mr_open("gssjxz\\69") mode=RDONLY
+ARM insn           1,413,669
+Lua insn           71
+hits               3745
+graphicsCommands   4
+```
+
+Probe: returning 0 makes guest retry RDONLY then CREATE (mode 12) in a loop until watchdog. File is required EFS, not pack member `69.bmp`.
+
+**commit:** Implement confirmed plat MR_CHECK_TOUCH
 
 ## Current blocker
 
 ```text
-mr_plat(1205)  MR_CHECK_TOUCH
-LIVE           mr_plat(1205, 0)
-PC=0x00010094  LR=0x01ea88e7  R0=1205  R1=0
-category       PLATFORM
+mr_open("gssjxz\\69")  mode=1 (RDONLY)
+PC=0x000100a0  LR=0x01ea89e7  R0=0x01e7ff34
+category       FILE
 ```
 
-rxgj `dsm.c` `case MR_CHECK_TOUCH: return MR_TOUCH_SCREEN;` (`1001`). Host-policy fork vs `MR_NORMAL_SCREEN` (`1000`). Mark as rxgj FULL, not universal Mythroad.
+Guest strcat `gssjxz` + `\\` + `69`. Archive has `69.bmp` but this is DSM work-path EFS (`mythroad/gssjxz/69`), not current-pack and not a VFS member. Missing RDONLY → 0 then CREATE 12 loop. Next: AppFS create/write, still separate from pack resources.

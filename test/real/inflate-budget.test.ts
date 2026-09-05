@@ -7,7 +7,7 @@ import { DEFAULT_INSN_BUDGET, ExtRuntime, MAX_INSN_BUDGET } from "../../src/abi/
 import {
   ARM_INSN_BUDGET_THROWN,
   REAL_MRP_BASELINE,
-  UNKNOWN_PLAT_1205_THROWN,
+  UNKNOWN_OPEN_GSSJXZ69_THROWN,
 } from "../../src/real/startup.ts";
 import {
   FORENSIC_BUDGET_CEILING,
@@ -70,12 +70,12 @@ describe("5-C.10Q forensic ARM insn watchdog", () => {
     expect(r.progress.prefixEqual).toBe(false);
   });
 
-  it("sufficient budget reaches plat 1205; 2M and 5M are the same guest result", () => {
+  it("sufficient budget reaches EFS open; 2M and 5M are the same guest result", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const a = runInflateBudget(bytes, { budget: 2_000_000 });
     const b = runInflateBudget(bytes, { budget: 5_000_000 });
-    expect(a.thrown).toBe(UNKNOWN_PLAT_1205_THROWN);
-    expect(b.thrown).toBe(UNKNOWN_PLAT_1205_THROWN);
+    expect(a.thrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(b.thrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
     expect(a.unknownSlot).toBeNull();
     expect(b.unknownSlot).toBeNull();
     expect(a.insnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
