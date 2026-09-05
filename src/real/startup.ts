@@ -8,7 +8,7 @@
  * + table[1] mr_free registry-only (no origin_mem reuse).
  * Guest inflate completes inside ARM/Thumb; host gunzip is verification-only.
  * table[30] mr_getCharBitmap + table[37] mr_plat(1206) + table[26] mr_printf are REAL_EXECUTED.
- * Production ARM watchdog is configurable (`armInstructionBudget`, default 2e6, max 20e6).
+ * Production ARM watchdog is configurable (`armInstructionBudget`, default 8e6, max 20e6).
  * table[42] mr_info + table[49] mr_mkDir + table[5] strcpy2 are REAL_EXECUTED.
  * table[35] getUserInfo + table[61] getNetworkID + table[15] strlen2 +
  * table[6] strncpy2 + table[18] atoi2 + table[7] strcat2 are REAL_EXECUTED.

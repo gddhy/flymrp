@@ -81,6 +81,25 @@ describe("5-D real MRP runtime loop", () => {
     expect(rwKey(rt)).toBe(GSSJXZ_FIRE_PRESS_RW);
   });
 
+  it("SOFTRIGHT on 开启声音？ changes framebuffer after next timer", () => {
+    const { rt } = boot();
+    for (let i = 0; i < 24; i++) {
+      rt.advance(80);
+      expect(rt.step()).toBe(true);
+    }
+    const before = checksum(rt.screen.pixels);
+    rt.input.press("SOFTRIGHT");
+    expect(rt.step()).toBe(true);
+    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.mrTable?.lastStopSound).toEqual({ type: 0 });
+    rt.advance(80);
+    expect(rt.step()).toBe(true);
+    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(checksum(rt.screen.pixels)).not.toBe(before);
+    expect(rt.timers.state).toBe(MR_TIMER_STATE_RUNNING);
+    expect(rt.timers.interval).toBe(80);
+  });
+
   it("two clean starts match screen checksum and timer interval", () => {
     const a = boot();
     const b = boot();

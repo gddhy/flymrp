@@ -153,4 +153,7 @@ export const IMPLEMENTED_C = [
   "mr_table/120/DrawBitmap",
   // Guest RGB565 cache → RGBA ImageData. Not device-LCD pixel-perfect.
   "graphics/canvas2d/rgb565-present",
+  // No PCM/MIDI device. SUCCESS + record. Guest data* is not a host pointer.
+  "mr_table/57/mr_playSound",
+  "mr_table/58/mr_stopSound",
 ] as const;

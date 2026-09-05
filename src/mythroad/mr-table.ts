@@ -187,6 +187,8 @@ export class MrTableBridge {
     this.ext.registerHandler(80, (_cpu, mem, args) => this.getScreenInfo(mem, args[0]! >>> 0));
     this.ext.registerHandler(78, (_cpu, _mem, _args) => this.winCreate());
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
+    this.ext.registerHandler(57, (_cpu, _mem, args) => this.playSound(args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
+    this.ext.registerHandler(58, (_cpu, _mem, args) => this.stopSound(args[0]! | 0));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -514,6 +516,31 @@ export class MrTableBridge {
   winRelease(win: number): number {
     void win;
     return MR_IGNORE;
+  }
+
+  /**
+   * table[57] = `asm_mr_playSound` = `mr_playSound`.
+   * C: `int32 mr_playSound(int type, const void *data, uint32 dataLen, int32 loop)`.
+   * AAPCS: r0=type r1=guest data* r2=len r3=loop.
+   * rxgj `aex_t057` forwards to the host player. flymrp has no PCM/MIDI
+   * device; return `MR_SUCCESS` and record the request. `data` stays a
+   * guest address and is not read as a host pointer.
+   */
+  lastPlaySound: { type: number; data: number; len: number; loop: number } | null = null;
+  playSound(type: number, data: number, len: number, loop: number): number {
+    this.lastPlaySound = { type: type | 0, data: data >>> 0, len: len >>> 0, loop: loop | 0 };
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[58] = `asm_mr_stopSound` = `mr_stopSound`.
+   * C: `int32 mr_stopSound(int type)`. AAPCS: r0=type. Leftover r1–r3 ignored.
+   * rxgj `aex_t058` forwards to the host player. No device here; return SUCCESS.
+   */
+  lastStopSound: { type: number } | null = null;
+  stopSound(type: number): number {
+    this.lastStopSound = { type: type | 0 };
+    return MR_SUCCESS;
   }
 
   switchPathQuery(mem: GuestMemory, output: number, outputLen: number): number {

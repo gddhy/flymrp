@@ -48,6 +48,8 @@
 | 32 | mr_timerStop | PARTIAL | zero-arg; leftover R0 ignored |
 | 80 | mr_getScreenInfo | PARTIAL | host 240×320 bit=16 |
 | 120 | _DrawBitmap | PARTIAL | C rop `DRAW_BM_*` (COPY=2); guest RGB565 via GuestMemory; not Lua `BM_COPY=0` |
+| 57 | mr_playSound | PARTIAL | AAPCS type/data*/len/loop; SUCCESS + record; no PCM/MIDI device; data stays guest |
+| 58 | mr_stopSound | PARTIAL | AAPCS type; leftover r1–r3 ignored; SUCCESS + record; LIVE type=0 |
 
 ### other
 
@@ -56,8 +58,8 @@
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
 | Lua resume after `arm_ext_call(0)` | SUPPORTED on this fixture path |
 | graphics | PARTIAL | DrawRect + DrawText + DrawBitmap + Canvas2D RGB565 present; not device-LCD pixel-perfect |
-| timer / event / input | PARTIAL | timer fire + `arm_ext_call(2)` + multi-frame PASS; FIRE → ER_RW+180 remap LIVE; splash 未因按键改像素 |
-| audio / network / SMS / WAP | OPTIONAL / DEFERRED |
+| timer / event / input | PARTIAL | timer + frames PASS; FIRE→RW LIVE; SOFTRIGHT on 开启声音？ changes pixels after next timer |
+| audio / network / SMS / WAP | OPTIONAL / DEFERRED | play/stopSound SUCCESS no device; no SMS/WAP |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
 | `mr_plat(1205)` CHECK_TOUCH | PARTIAL | rxgj FULL `MR_TOUCH_SCREEN` |
@@ -91,6 +93,8 @@
 | this-fixture key remap | PRESS+FIRE → ER_RW+180 `0x0109` | universal Mythroad key map | LIVE gssjxz `mrc_event` write; start.mr packs `iii` 12 bytes | other apps / 20-byte `mr_c_event_st` |
 | flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
 | getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
+| play/stopSound no device | SUCCESS + record | PCM/MIDI output / decode | LIVE `mr_stopSound(0)` after extracting `gssjxz\\71`–`79`/`18`; dialog advances | later apps that poll play position |
+| 8M ARM watchdog | start 1.60M + sound-dialog extract 5.10M | slice / infinite guest | per-`runGuest` finite cap; max 20M | a longer extract than 8M |
 
 ---
 
@@ -420,14 +424,45 @@ category           EVENT
 
 **commit:** Support Canvas2D RGB565 present / Add Stage 5-D runtime loop tests
 
+---
+
+### 2026-09-05 — sound dialog input + table[57]/[58]
+
+**starting blocker:** splash/title 按键写 ER_RW+180 但不改像素
+
+**analysis:**
+
+* 24 帧后画面是 TrumpTek splash 上的 **「开启声音？」**，软键 **是/否**（generated gb16 看起来像 tofu）。
+* FIRE 只写 `0x0109`，不是 是/否。
+* SOFTLEFT/SOFTRIGHT 会从 `gssjxz.mrp` 抽出 `gssjxz\\71`–`79`/`18` 到 AppFS（不是把 archive member 当成 EFS）。
+* 该 `arm_ext_call(1)` 约 **5,096,611** insn，然后 LIVE `table[58] mr_stopSound(0)`。
+* 默认 2M watchdog 会在抽出中途 `abi-fault`。8M 覆盖这条路径。
+* 下一帧 timer checksum `798243022` → `2567031015`。
+
+**implementation:**
+
+* `table[57]`/`[58]`：AAPCS CONFIRMED（`aex_t057`/`aex_t058`）；SUCCESS + record；无 PCM/MIDI 设备。
+* `DEFAULT_INSN_BUDGET` 2e6 → 8e6（上限仍 20e6）。
+* Input alias `SOFTLEFT`/`SOFTRIGHT`。
+
+**tests:** `playsound-57-58-abi`；`stage5d` SOFTRIGHT 像素变化；budget 默认值改为 8e6。
+
+**real-run:**
+
+```text
+arm_ext_call(1)  kind=return  r0=0  insn=5,096,611
+mr_stopSound(0)  SUCCESS
+next timer       checksum 798243022 → 2567031015
+unknown          null
+```
+
+**commit:** Implement confirmed play/stopSound ABI and raise event watchdog
+
 ## Current blocker
 
 ```text
-startup + timer + Canvas present + host FIRE→EXT RW PASS
-no visible pixel reaction to keys on the splash
-Stage 5-D not COMPLETE
-REAL MRP EXECUTION SUCCESS not claimed
-category       EVENT
+startup + timer + Canvas + SOFTRIGHT pixel reaction PASS
+Stage 5-D interactive path proven on this fixture
+remaining optional: UC2 font, real audio device, persist EFS, network/SMS
+realAppGreen stays false (gate / not device-LCD green)
 ```
-
-Do **not** announce REAL MRP EXECUTION SUCCESS yet.

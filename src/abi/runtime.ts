@@ -31,7 +31,13 @@ import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table
  * This is a safety/debug limit, not a browser event-loop execution slice.
  * Forensic runners may overwrite `ExtRuntime.insnBudget`; values are clamped to `MAX_INSN_BUDGET`.
  */
-export const DEFAULT_INSN_BUDGET = 2_000_000;
+/**
+ * Finite ARM watchdog per `runGuest`. Start of this fixture is ~1.60M.
+ * Dismissing the LIVE sound dialog (`否`/`是`) extracts pack members
+ * `71`–`79`/`18` into AppFS and needs ~5.10M. 8M is that path plus margin.
+ * Not a browser event-loop slice. Ceiling is `MAX_INSN_BUDGET`.
+ */
+export const DEFAULT_INSN_BUDGET = 8_000_000;
 export const MAX_INSN_BUDGET = 20_000_000;
 
 export function createExtMemory(): GuestMemory {

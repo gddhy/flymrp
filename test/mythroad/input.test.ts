@@ -9,6 +9,7 @@ import {
   MR_KEY_PRESS,
   MR_KEY_RELEASE,
   MR_KEY_RIGHT,
+  MR_KEY_SOFTLEFT,
   MR_KEY_SOFTRIGHT,
   MR_KEY_UP,
   MythroadRuntime,
@@ -38,6 +39,14 @@ describe("5-B synthetic input", () => {
     rt.input.press("BACK");
     expect(rt.pollEvent()!.p1).toBe(MR_KEY_BACK);
     expect(MR_KEY_BACK).toBe(MR_KEY_SOFTRIGHT);
+  });
+
+  it("SOFTLEFT/SOFTRIGHT aliases", () => {
+    const rt = new MythroadRuntime();
+    rt.input.press("SOFTLEFT");
+    rt.input.press("SOFTRIGHT");
+    expect(rt.pollEvent()!.p1).toBe(MR_KEY_SOFTLEFT);
+    expect(rt.pollEvent()!.p1).toBe(MR_KEY_SOFTRIGHT);
   });
 
   it("release is KEY_RELEASE", () => {

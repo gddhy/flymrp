@@ -6,6 +6,8 @@ import {
   MR_KEY_PRESS,
   MR_KEY_RELEASE,
   MR_KEY_RIGHT,
+  MR_KEY_SOFTLEFT,
+  MR_KEY_SOFTRIGHT,
   MR_KEY_UP,
 } from "./constants.ts";
 import { EventError } from "../err/errors.ts";
@@ -18,6 +20,8 @@ const ALIAS: Record<string, number> = {
   RIGHT: MR_KEY_RIGHT,
   FIRE: MR_KEY_FIRE,
   BACK: MR_KEY_BACK,
+  SOFTLEFT: MR_KEY_SOFTLEFT,
+  SOFTRIGHT: MR_KEY_SOFTRIGHT,
 };
 
 export class InputBackend {
