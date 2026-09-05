@@ -117,6 +117,10 @@ export const IMPLEMENTED_C = [
   "mr_table/37/mr_plat/1206",
   // rxgj FULL mr_printf: literals + %d + %s. Return 0.
   "mr_table/26/mr_printf",
-  // Pack name → MR_IS_FILE. Everything else, including archive members, → MR_IS_INVALID.
+  // Pack name → MR_IS_FILE. App-fs dirs/files. Archive members → MR_IS_INVALID.
   "mr_table/42/mr_info",
+  // In-memory mkdir. Not host FS / IndexedDB.
+  "mr_table/49/mr_mkDir",
+  // Guest strcpy including NUL. Returns dest.
+  "mr_table/5/strcpy2",
 ] as const;

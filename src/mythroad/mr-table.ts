@@ -2,6 +2,7 @@ import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex }
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
+import { AppFileSystem } from "./app-fs.ts";
 import { MR_CHINESE, MR_GET_HANDSET_LG, MR_IS_FILE, MR_IS_INVALID, MR_SUCCESS } from "./constants.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
@@ -53,6 +54,7 @@ export class MrTableBridge {
   readonly allocs: AllocRecord[] = [];
   readonly reads: ReadFileRecord[] = [];
   readonly files: CurrentPackFileBackend;
+  readonly appFs = new AppFileSystem();
   unknownRequiredSlot: number | null = null;
   /** rxgj `char_bitmap_addr`: one 32-byte EXT bump slot, reused. */
   charBitmapAddr = 0;
@@ -81,6 +83,7 @@ export class MrTableBridge {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
     this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
+    this.ext.registerHandler(5, (_cpu, mem, args) => strcpy2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(9, (_cpu, mem, args) => memcmp2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
@@ -99,6 +102,7 @@ export class MrTableBridge {
     this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
+    this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -249,11 +253,26 @@ export class MrTableBridge {
    * return `MR_IS_INVALID`. Not a writable VFS.
    */
   lastInfo = "";
+  lastMkDir = "";
   info(filename: string): number {
     this.lastInfo = filename;
     const pack = this.hooks.getPack?.();
     if (pack && filename && filename === pack.name) return MR_IS_FILE;
+    const local = this.appFs.info(filename);
+    if (local !== null) return local;
     return MR_IS_INVALID;
+  }
+
+  /**
+   * table[49] = `asm_mr_mkDir` = `mr_mkDir`.
+   *
+   * C: `int32 mr_mkDir(const char *name)`.
+   * Creates an in-memory directory in the writable EFS namespace.
+   * Does not touch the current pack or archive members.
+   */
+  mkDir(name: string): number {
+    this.lastMkDir = name;
+    return this.appFs.mkdir(name);
   }
 
   /**
@@ -449,6 +468,23 @@ export function memcmp2(mem: GuestMemory, cs: number, ct: number, count: number)
  * rxgj `string.c` `strcmp2`. Loads into `unsigned char`, returns -1 / 0 / 1.
  * Stops at the first difference or NUL. Does not decode UTF-8 / locale.
  */
+/**
+ * rxgj `string.c` `strcpy2`. Copy including the terminating NUL.
+ * Returns dest. Overlap is guest-visible self-overwrite, not memmove.
+ */
+export function strcpy2(mem: GuestMemory, dest: number, src: number): number {
+  const dst = dest >>> 0;
+  let from = src >>> 0;
+  let to = dst;
+  for (;;) {
+    const b = mem.read8(from) & 0xff;
+    mem.write8(to, b);
+    if (b === 0) return dst;
+    from = (from + 1) >>> 0;
+    to = (to + 1) >>> 0;
+  }
+}
+
 export function strcmp2(mem: GuestMemory, cs: number, ct: number): number {
   let a = cs >>> 0;
   let b = ct >>> 0;

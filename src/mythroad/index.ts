@@ -1,8 +1,9 @@
 export { MythroadRuntime } from "./runtime.ts";
 export { createStrCom } from "./strcom.ts";
-export { MrTableBridge, MR_TESTCOM_CASE7, MR_PLATEX_CODE_4C6, MR_PLAT_GET_HANDSET_LG, memcpy2, memcmp2, strcmp2, readGuestCString } from "./mr-table.ts";
+export { MrTableBridge, MR_TESTCOM_CASE7, MR_PLATEX_CODE_4C6, MR_PLAT_GET_HANDSET_LG, memcpy2, memcmp2, strcmp2, strcpy2, readGuestCString } from "./mr-table.ts";
 export { gb16Glyph, gb16Metrics, gb16BitmapSize, BYTES_PER_CHAR_16 } from "./font.ts";
 export { CurrentPackFileBackend } from "./pack-file.ts";
+export { AppFileSystem } from "./app-fs.ts";
 export type { PackFileSource, PackFileOp, ReadOnlyFileHandle } from "./pack-file.ts";
 export { guestSprintf, guestPrintf, aapcsSprintfVararg, aapcsPrintfVararg, SPRINTF_FORMAT_MAX } from "./sprintf.ts";
 export type { AllocRecord, ReadFileRecord } from "./mr-table.ts";

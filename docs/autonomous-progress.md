@@ -28,7 +28,9 @@
 | 38 | mr_platEx | PARTIAL | only 0x4c6 → `MR_SUCCESS` |
 | 40/44/45/41 | file | PARTIAL | current-pack RDONLY alias |
 | 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
-| 49 | mr_mkDir | BLOCKED | LIVE `gsidbak` |
+| 49 | mr_mkDir | PARTIAL | in-memory EFS dir; not IndexedDB |
+| 5 | strcpy2 | SUPPORTED | NUL-terminated copy, returns dest |
+| 35 | mr_getUserInfo | BLOCKED | LIVE info* `0x002046a0` |
 | 100 | pack_filename | SUPPORTED | 128-byte data slot |
 | 125 | readFile | SUPPORTED | VFS member |
 | 130 | TestCom | PARTIAL | case 7 only |
@@ -50,8 +52,9 @@
 | item | implemented | not implemented | why current app is safe | future risk |
 |---|---|---|---|---|
 | registry-only `mr_free` | retire live bump allocs | origin_mem reuse/coalesce | guest does not depend on reuse yet | later allocator-sensitive code |
-| current-pack RDONLY file | open/read/seek/close pack bytes | other names, write, EFS | `_mr_readFile` uses pack name | `dbglog.txt` / `game.sav` need a separate namespace |
-| mr_info pack-only | pack name IS_FILE; else INVALID | writable EFS / dirs | LIVE `dbglog.txt`/`gsidbak` are not installed files | mkdir/open-create will need an in-memory writable namespace |
+| current-pack RDONLY file | open/read/seek/close pack bytes | other names, write, EFS | `_mr_readFile` uses pack name | `game.sav` / write still need a separate namespace |
+| mr_info pack-or-appfs | pack name IS_FILE; app-fs dir/file; else INVALID | host FS / IndexedDB | LIVE `dbglog.txt` is INVALID; `gsidbak` becomes DIR after mkdir | archive member must stay INVALID |
+| in-memory AppFileSystem | mkdir + info | open/read/write/persist | only mkdir/info observed so far | later `game.sav` needs file create + persist |
 | sprintf `%d` only | LIVE `res_lang%d.rc` | `%s` / width | only one production sprintf so far | new format → `UnknownAbiError` |
 | platEx 0x4c6 only | `MR_SUCCESS` no side effects | other platEx codes | only 0x4c6 observed | later platform probes |
 | plat 1206 only | `MR_CHINESE` | other plat codes | only 1206 observed | later device queries |
@@ -93,7 +96,7 @@ arm_ext_call(0)    not returned
 Lua                not resumed
 ```
 
-**commit:** this change set
+**commit:** Implement confirmed getCharBitmap, plat language, and printf ABI
 
 ---
 
@@ -115,12 +118,33 @@ Lua insn           71
 hits               3557
 ```
 
+**commit:** `a105f4f` Implement confirmed mr_info pack-or-invalid ABI
+
+### 2026-09-05 — mkdir + strcpy2
+
+**starting blocker:** `table[49] mr_mkDir("gsidbak")`
+
+**implementation:** in-memory `AppFileSystem`（与 pack/archive 分离）；`strcpy2` 按 `string.c` 含 NUL。guest 随后再次 RDONLY open pack 读 header 字段。
+
+**real-run:**
+
+```text
+previous blocker   table[49]
+new blocker        table[35] mr_getUserInfo
+ARM insn           1,405,411
+Lua insn           71
+hits               3572
+handles            1, 2
+```
+
+**commit:** Support in-memory mkdir and confirmed strcpy2 ABI
+
 ## Current blocker
 
 ```text
-table[49]  mr_mkDir("gsidbak")
-PC=0x000100c4  LR=0x01ea89b3  R0=0x01eb0234
-category   FILE
+table[35]  mr_getUserInfo(info*)
+PC=0x0001008c  LR=0x01ea5dcf  R0=0x002046a0
+category   PLATFORM
 ```
 
-下一步需要最小正确的 **in-memory writable namespace**（与 current-pack RDONLY / archive resource 分开），不能把 `gsidbak` 伪装成 pack 资源。
+`mr_userinfo` 布局 CONFIRMED（IMEI16+IMSI16+manu8+type8+ver u32+spare12）。填表应走 flymrp `DeviceProfile`，标 rxgj FULL / flymrp profile，不要假装真机 IMEI。

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { TESTCOM130, runTestCom130Forensics } from "../../src/real/testcom130.ts";
-import { UNKNOWN_SLOT_49_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_SLOT_35_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -12,9 +12,9 @@ describe("5-C.6 table[130] / asm_mr_TestCom forensics", () => {
     const r = runTestCom130Forensics(new Uint8Array(readFileSync(REAL_APP)));
 
     expect(r.handlerPresent).toBe(true);
-    expect(r.thrown).toBe(UNKNOWN_SLOT_49_THROWN);
+    expect(r.thrown).toBe(UNKNOWN_SLOT_35_THROWN);
     expect(r.code0Slots.slice(0, 31)).toEqual([130, 14, 38, 33, 17, 40, 14, 44, 0, 45, 44, 0, 3, 3, 10, 3, 3, 10, 3, 3, 10, 3, 3, 1, 1, 0, 45, 44, 41, 9, 9]);
-    expect(r.code0Slots.at(-1)).toBe(49);
+    expect(r.code0Slots.at(-1)).toBe(35);
 
     expect(r.cpu.pc).toBe(TESTCOM130.stubPc);
     expect(r.cpu.lr).toBe(0x01e9cf63);
