@@ -55,7 +55,7 @@ function putName(ext: ExtRuntime, s: string): number {
 }
 
 describe("5-C.10K current-pack read-only file backend", () => {
-  it("open packName+RDONLY returns handle 1 then 2; POSIX 0 / other names throw", () => {
+  it("open packName+RDONLY returns handle 1 then 2; other names are EFS misses", () => {
     const { ext, bridge } = wirePack();
     const name = putName(ext, PACK);
     const other = putName(ext, "app.mrp");
@@ -72,13 +72,8 @@ describe("5-C.10K current-pack read-only file backend", () => {
 
     expect(() => callSlot(ext, 40, name, 0)).toThrow(UnknownAbiError);
     expect(() => callSlot(ext, 40, name, MR_FILE_WRONLY)).toThrow(UnknownAbiError);
-    expect(() => callSlot(ext, 40, other, MR_FILE_RDONLY)).toThrow(UnknownAbiError);
-    expect(() => callSlot(ext, 40, empty, MR_FILE_RDONLY)).toThrow(UnknownAbiError);
-    try {
-      callSlot(ext, 40, other, MR_FILE_RDONLY);
-    } catch (e) {
-      expect(e).toMatchObject({ family: "mr_open", caller: "ext" });
-    }
+    expect(callSlot(ext, 40, other, MR_FILE_RDONLY).r0).toBe(0);
+    expect(callSlot(ext, 40, empty, MR_FILE_RDONLY).r0).toBe(0);
     expect(MR_FILE_RDONLY).toBe(1);
     expect(MR_FILE_RDONLY).not.toBe(0);
   });
@@ -178,7 +173,7 @@ describe("5-C.10K current-pack read-only file backend", () => {
     const bName = putName(ext, "b.mrp");
     expect(callSlot(ext, 40, bName, MR_FILE_RDONLY).r0).toBe(1);
     expect(rt.mrTable!.files.peek(1)!.bytes).toBe(bBytes);
-    expect(() => callSlot(ext, 40, aName, MR_FILE_RDONLY)).toThrow(UnknownAbiError);
+    expect(callSlot(ext, 40, aName, MR_FILE_RDONLY).r0).toBe(0);
 
     const rt2 = new MythroadRuntime();
     rt2.loadMrp(aBytes);

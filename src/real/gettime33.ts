@@ -286,7 +286,7 @@ export function runGetTime33Forensics(mrp: Uint8Array): GetTime33Report {
     const origD = e.table.dispatch.bind(e.table);
     e.table.dispatch = (c, mem, pc) => {
       const n = tableSlotIndex(pc);
-      if (n === GETTIME33.slot) {
+      if (n === GETTIME33.slot && !cpu) {
         cpu = snapCpu(e);
         p = e.owners.wrapper.p >>> 0;
         helper = e.owners.wrapper.helper >>> 0;

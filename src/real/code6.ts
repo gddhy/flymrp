@@ -815,8 +815,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      'table[9] memcmp2 is implemented; guest gzip/inflate completes; DrawRect/DrawText/drawBitmap/winCreate/plat(1205) are REAL_EXECUTED; next is mr_open("gssjxz\\\\69") EFS',
-      "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41] current-pack RDONLY file ABI is implemented",
+      "table[9] memcmp2 is implemented; guest gzip/inflate completes; AppFS EFS create/write is REAL_EXECUTED; next is table[32] mr_timerStop",
+      "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41]/[43] current-pack RDONLY plus AppFS EFS are implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],
   };

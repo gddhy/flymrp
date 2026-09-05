@@ -97,10 +97,11 @@ export const IMPLEMENTED_C = [
   "mr_table/100/pack_filename",
   // Deterministic read-only virtual file alias for the currently loaded
   // MRP container. Other filenames and write modes remain unsupported.
-  "mr_table/40/current-pack/RDONLY",
+  "mr_table/40/current-pack/RDONLY+appfs",
   "mr_table/44/read",
   "mr_table/45/seek",
   "mr_table/41/close",
+  "mr_table/43/mr_write/appfs",
   // Forward byte-copy. Not memmove. count==0 does not touch pointers.
   "mr_table/3/memcpy2",
   // Guest byte-string compare. unsigned char. Returns -1/0/1.

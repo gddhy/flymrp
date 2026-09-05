@@ -17,7 +17,11 @@ export class AppFileSystem {
   readonly nodes = new Map<string, AppFsNode>();
 
   normalize(name: string): string {
-    return name.replace(/\/+$/g, "");
+    return name.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "");
+  }
+
+  clear(): void {
+    this.nodes.clear();
   }
 
   info(name: string): number | null {
@@ -38,5 +42,41 @@ export class AppFileSystem {
     if (this.nodes.has(key)) return MR_SUCCESS;
     this.nodes.set(key, { kind: "dir" });
     return MR_SUCCESS;
+  }
+
+  file(name: string): Uint8Array | null {
+    const node = this.nodes.get(this.normalize(name));
+    return node?.kind === "file" ? node.bytes : null;
+  }
+
+  /**
+   * CREATE/RECREATE: parent dirs are created in-memory.
+   * Existing dir at `name` cannot become a file.
+   */
+  createFile(name: string, recreate: boolean): Uint8Array | null {
+    const key = this.normalize(name);
+    if (!key) return null;
+    const existing = this.nodes.get(key);
+    if (existing?.kind === "dir") return null;
+    if (existing?.kind === "file" && !recreate) return existing.bytes;
+    this.ensureParents(key);
+    const bytes = new Uint8Array(0);
+    this.nodes.set(key, { kind: "file", bytes });
+    return bytes;
+  }
+
+  replace(name: string, bytes: Uint8Array): void {
+    const key = this.normalize(name);
+    if (!key) return;
+    this.nodes.set(key, { kind: "file", bytes });
+  }
+
+  private ensureParents(key: string): void {
+    const parts = key.split("/");
+    let acc = "";
+    for (let i = 0; i < parts.length - 1; i++) {
+      acc = acc ? `${acc}/${parts[i]}` : parts[i]!;
+      if (!this.nodes.has(acc)) this.nodes.set(acc, { kind: "dir" });
+    }
   }
 }

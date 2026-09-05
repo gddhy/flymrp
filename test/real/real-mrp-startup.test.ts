@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AEX_P_ER_RW_OFF, tableSlotIndex } from "../../src/abi/layout.ts";
 import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
 import { MythroadRuntime, NullGraphicsBackend } from "../../src/mythroad/index.ts";
-import { REAL_MRP_BASELINE, UNKNOWN_OPEN_GSSJXZ69_THROWN, runRealMrpStartup } from "../../src/real/startup.ts";
+import { REAL_MRP_BASELINE, UNKNOWN_SLOT_32_THROWN, runRealMrpStartup } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const REAL_SHA = "77487205cd4db95fcf104392d9cc692ab122b06f7a04e14f49899277d9ac4263";
@@ -14,7 +14,7 @@ const HITS_TO_FIRST_TABLE9 = [
 ] as const;
 
 describe("5-C.10Q real MRP startup after guest inflate", () => {
-  it("REAL_EXECUTED table9 memcmp2; guest inflate completes; stops at EFS mr_open gssjxz\\69", () => {
+  it("REAL_EXECUTED table9 memcmp2; guest inflate completes; stops at table[32]", () => {
     expect(existsSync(REAL_APP)).toBe(true);
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runRealMrpStartup(bytes, { path: REAL_APP, consistencyRuns: 5 });
@@ -23,7 +23,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.mrp.package).toBe("gssjxz.mrp");
     expect(r.lua.realStartMrLoaded).toBe(true);
     expect(r.lua.exception?.isLuaVmError).toBe(false);
-    expect(r.lua.exception?.message).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(r.lua.exception?.message).toBe(UNKNOWN_SLOT_32_THROWN);
     expect(r.lua.strCom.map((s) => [s.code, s.extra, s.ok])).toEqual([
       [601, 0, true],
       [800, 0, true],
@@ -58,7 +58,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.mrTable.hits.map((h) => h.slot).slice(0, HITS_TO_FIRST_TABLE9.length)).toEqual([...HITS_TO_FIRST_TABLE9]);
     expect(r.mrTable.hits).toHaveLength(REAL_MRP_BASELINE.totalHitCount);
     expect(r.mrTable.hits[HITS_TO_FIRST_TABLE9.length]!.slot).toBe(9);
-    expect(r.mrTable.hits.at(-1)!.slot).toBe(40);
+    expect(r.mrTable.hits.at(-1)!.slot).toBe(32);
 
     const h17 = r.mrTable.hits.find((h) => h.slot === 17);
     expect(h17?.status).toBe("REAL_EXECUTED");
@@ -203,8 +203,8 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.execution.cpu?.lr).toBe(REAL_MRP_BASELINE.stopLr);
     expect(r.execution.cpu?.insnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
 
-    expect(r.stop.reason).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
-    expect(r.stop.slot).toBeNull();
+    expect(r.stop.reason).toBe(UNKNOWN_SLOT_32_THROWN);
+    expect(r.stop.slot).toBe(32);
     expect(r.stop.pc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(r.stop.owner).toBe("gssjxz.mrp");
 
@@ -248,12 +248,13 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       ["table29", "PASS"],
       ["table78", "PASS"],
       ["plat1205", "PASS"],
-      ["openEfs69", "BLOCKED"],
+      ["openEfs69", "PASS"],
+      ["table32", "BLOCKED"],
     ]);
 
     expect(r.baseline.deterministic).toBe(true);
-    expect(r.baseline.firstProductionBlocker).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
-    expect(r.baseline.firstPost130Blocker).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(r.baseline.firstProductionBlocker).toBe("table[32]");
+    expect(r.baseline.firstPost130Blocker).toBe("table[32]");
     expect(r.forensicPrior.table130).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table38).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table33).toBe("REAL_EXECUTED");
@@ -263,7 +264,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.consistency.runs).toBe(5);
     expect(r.consistency.mismatches).toEqual([]);
     const fp = r.consistency.fingerprints[0]!;
-    expect(fp.firstUnknownSlot).toBeNull();
+    expect(fp.firstUnknownSlot).toBe(32);
     expect(fp.stopPc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(fp.armInsnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
     expect(fp.luaInsnCount).toBe(71);
@@ -281,9 +282,11 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(fp.helper).toBe(REAL_MRP_BASELINE.helper);
     expect(fp.erRw).toBe(REAL_MRP_BASELINE.erRw);
     expect(fp.rwLen).toBe(REAL_MRP_BASELINE.rwLen);
-    expect(fp.handleIds).toEqual([1, 2, 3, 4]);
-    expect(fp.readPositions).toEqual([16, 5736, 24239, 27, 52, 72, 196, 200, 220, 220]);
-    expect(fp.seekPositions).toEqual([240, 7065, 16, 28, 68, 192, 196, 200, 200]);
+    expect(fp.handleIds).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(fp.readPositions).toEqual([
+      16, 5736, 24239, 27, 52, 72, 196, 200, 220, 220, 16, 5736, 95038, 2, 4, 8, 1808, 16, 5736, 115269, 2, 4, 8, 404,
+    ]);
+    expect(fp.seekPositions).toEqual([240, 7065, 16, 28, 68, 192, 196, 200, 200, 240, 94922, 0, 0, 240, 115162, 0, 0]);
     expect(fp.headerMatch).toBe(true);
     expect(fp.indexMatch).toBe(true);
     expect(fp.firstSeekNewPos).toBe(240);
@@ -320,13 +323,13 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(idx!.guestBytes).toEqual([...bytes.subarray(240, 256)]);
 
     const reads = r.mrTable.hits.filter((h) => h.slot === 44);
-    expect(reads).toHaveLength(10);
+    expect(reads.length).toBeGreaterThanOrEqual(10);
     expect(reads[0]!.return).toBe(16);
     expect(reads[1]!.return).toBe(5496);
     expect(reads[2]!.return).toBe(17174);
     expect(reads[2]!.arguments[1]).toBe(0x00206e6c);
-    expect(reads.slice(3).map((h) => h.return)).toEqual([11, 24, 4, 4, 4, 20, 20]);
-    expect(r.mrTable.hits.filter((h) => h.slot === 45).map((h) => h.return)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(reads.slice(3, 10).map((h) => h.return)).toEqual([11, 24, 4, 4, 4, 20, 20]);
+    expect(r.mrTable.hits.filter((h) => h.slot === 45).slice(0, 9).map((h) => h.return)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(r.mrTable.hits.find((h) => h.slot === 41)?.return).toBe(0);
     expect(r.execution.file.reached41).toBe(true);
     expect(r.mrp.size).toBe(REAL_MRP_BASELINE.archiveBytes);
@@ -351,14 +354,13 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(String.fromCharCode(...name3!.dstBytes.slice(0, 8))).toBe("start.mr");
     expect(name3!.dstBytes[8]).toBe(0);
 
-    expect(r.execution.strcmp10).toEqual([
+    expect(r.execution.strcmp10.slice(0, 3)).toEqual([
       { filename: "res_lang0.rc", tempName: "start.mr", ret: -1 },
       { filename: "res_lang0.rc", tempName: "mrc_loader.ext", ret: 1 },
       { filename: "res_lang0.rc", tempName: "res_lang0.rc", ret: 0 },
     ]);
+    expect(r.execution.strcmp10.some((c) => c.filename === "69.bmp" && c.tempName === "69.bmp" && c.ret === 0)).toBe(true);
     expect(r.execution.directory).toMatchObject({
-      names: ["start.mr", "mrc_loader.ext", "res_lang0.rc"],
-      visited: 3,
       matchedName: "res_lang0.rc",
       filePos: 7065,
       fileLen: 17174,
@@ -366,6 +368,8 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       archiveLength: 17174,
       posLenMatch: true,
     });
+    expect(r.execution.directory.names.slice(0, 3)).toEqual(["start.mr", "mrc_loader.ext", "res_lang0.rc"]);
+    expect(r.execution.directory.visited).toBeGreaterThanOrEqual(3);
     expect(r.execution.table1).toMatchObject({
       r0: 0x00206de0,
       r1: 132,
@@ -415,8 +419,8 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.lua.chunkReturned).toBe(false);
     const before9 = r.mrTable.hits.slice(0, HITS_TO_FIRST_TABLE9.length);
     expect(before9.filter((h) => h.slot === 3)).toHaveLength(8);
-    expect(r.mrTable.hits.filter((h) => h.slot === 10)).toHaveLength(3);
-    expect(r.mrTable.hits.filter((h) => h.slot === 9)).toHaveLength(2);
+    expect(r.mrTable.hits.filter((h) => h.slot === 10).length).toBeGreaterThanOrEqual(3);
+    expect(r.mrTable.hits.filter((h) => h.slot === 9).length).toBeGreaterThanOrEqual(2);
     expect(r.execution.table9).toMatchObject({
       r0: REAL_MRP_BASELINE.memcmp9R0,
       r1: REAL_MRP_BASELINE.memcmp9R1,
@@ -426,7 +430,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       ret: 0,
       equalPath: true,
     });
-    expect(r.execution.table9Calls).toHaveLength(2);
+    expect(r.execution.table9Calls.length).toBeGreaterThanOrEqual(2);
     expect(r.execution.table9Calls[1]).toMatchObject({
       r1: REAL_MRP_BASELINE.memcmp9R1,
       r2: 2,
@@ -449,9 +453,9 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       rt.start("start.mr");
       throw new Error("should stop");
     } catch (e) {
-      expect(e).toMatchObject({ message: UNKNOWN_OPEN_GSSJXZ69_THROWN });
+      expect(e).toMatchObject({ message: UNKNOWN_SLOT_32_THROWN });
     }
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(32);
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(1234);
@@ -466,8 +470,10 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       const e = rt.ext;
       if (!e) return;
       const origD = e.table.dispatch.bind(e.table);
+      let poisoned = false;
       e.table.dispatch = (c, mem, pc) => {
-        if (tableSlotIndex(pc) === 33) {
+        if (tableSlotIndex(pc) === 33 && !poisoned) {
+          poisoned = true;
           const p = e.owners.wrapper.p >>> 0;
           const erRw = e.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
           e.mem.write32(erRw + REAL_MRP_BASELINE.getTimeErOff, 0xdeadbeef);
@@ -479,11 +485,11 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       rt.loadMrp(bytes);
       rt.start("start.mr");
     } catch {
-      /* mr_open gssjxz\69 */
+      /* table[32] mr_timerStop */
     }
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(0);
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(32);
   });
 });

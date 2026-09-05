@@ -13,7 +13,7 @@ import {
   specReadCount,
   specSeek,
 } from "../../src/real/filechain.ts";
-import { UNKNOWN_OPEN_GSSJXZ69_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_SLOT_32_THROWN } from "../../src/real/startup.ts";
 import { FILE_ABI_SLOTS, OPEN40 } from "../../src/real/open40.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
@@ -23,8 +23,8 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runFileChainForensics(bytes);
 
-    expect(r.productionThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(r.productionThrown).toBe(UNKNOWN_SLOT_32_THROWN);
+    expect(r.probeThrown).toBe(UNKNOWN_SLOT_32_THROWN);
     expect(r.packName).toBe("gssjxz.mrp");
     expect(r.packFilenameAt40).toBe("gssjxz.mrp");
     expect(r.resourceNameAt40).toBe(OPEN40.sprintfText);
@@ -35,6 +35,7 @@ describe("5-C.10J current-pack file ABI forensics", () => {
 
     expect(r.handlers[40]).toBe(true);
     expect(r.handlers[41]).toBe(true);
+    expect(r.handlers[43]).toBe(true);
     expect(r.handlers[44]).toBe(true);
     expect(r.handlers[45]).toBe(true);
     for (const s of NOT_REQUIRED_STARTUP_FILE_SLOTS) expect(r.handlers[s]).toBe(false);
@@ -81,7 +82,7 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     expect(FILE_SLOT_INVENTORY.find((s) => s.slot === 42)?.symbol).toContain("mr_info");
     expect(FILE_SLOT_INVENTORY.find((s) => s.slot === 44)?.symbol).toContain("mr_read");
     expect(FILE_ABI_SLOTS.find((s) => s.slot === 42)?.ident).toContain("mr_info");
-    expect(MINIMAL_STARTUP_FILE_SLOTS).toEqual([40, 44, 45, 41]);
+    expect(MINIMAL_STARTUP_FILE_SLOTS).toEqual([40, 44, 45, 41, 43]);
   });
 
   it("does not register file slots 40-53 on a production runtime", () => {

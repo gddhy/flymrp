@@ -25,7 +25,7 @@
 | 30 | mr_getCharBitmap | PARTIAL | gb16 metrics CONFIRMED；glyphs generated, not UC2 |
 | 33 | mr_getTime | SUPPORTED | `runtime.clock >>> 0` |
 | 37 | mr_plat | PARTIAL | 1206 → `MR_CHINESE`; 1205 → `MR_TOUCH_SCREEN` (rxgj FULL) |
-| 40/44/45/41 | file | PARTIAL | current-pack RDONLY; EFS `gssjxz\\69` **BLOCKED** |
+| 40/44/45/41/43 | file | PARTIAL | current-pack RDONLY + AppFS EFS create/write |
 | 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
 | 49 | mr_mkDir | PARTIAL | in-memory EFS dir; not IndexedDB |
 | 5 | strcpy2 | SUPPORTED | NUL-terminated copy, returns dest |
@@ -52,12 +52,13 @@
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
 | Lua resume after `arm_ext_call(0)` | BLOCKED |
 | graphics | PARTIAL | 1 rect + 1 text + 2 presents; no Canvas backend yet |
-| timer / event / input | DEFERRED until Lua resumes |
+| timer / event / input | BLOCKED | table[32] `mr_timerStop` not implemented |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
 | `mr_plat(1205)` CHECK_TOUCH | PARTIAL | rxgj FULL `MR_TOUCH_SCREEN` |
-| EFS `mr_open("gssjxz\\69")` | BLOCKED | not current-pack; CREATE loop if return 0 |
+| EFS `mr_open("gssjxz\\69")` | PARTIAL | AppFS create/write; not pack member `69.bmp` |
+| table[32] `mr_timerStop` | BLOCKED | EXT timer ABI not wired |
 
 ---
 
@@ -66,9 +67,9 @@
 | item | implemented | not implemented | why current app is safe | future risk |
 |---|---|---|---|---|
 | registry-only `mr_free` | retire live bump allocs | origin_mem reuse/coalesce | guest does not depend on reuse yet | later allocator-sensitive code |
-| current-pack RDONLY file | open/read/seek/close pack bytes | other names, write, EFS | `_mr_readFile` uses pack name | `game.sav` / write still need a separate namespace |
+| current-pack RDONLY file | open/read/seek/close pack bytes | pack write modes | `_mr_readFile` uses pack name | must not alias archive members as EFS |
+| AppFS in-memory EFS | mkdir/info/create/read/write; CREATE auto-parents | persist / IndexedDB / host FS | LIVE `gssjxz\\69` is DSM work-path, not `69.bmp` | `game.sav` still needs a persistent namespace |
 | mr_info pack-or-appfs | pack name IS_FILE; app-fs dir/file; else INVALID | host FS / IndexedDB | LIVE `dbglog.txt` is INVALID; `gsidbak` becomes DIR after mkdir | archive member must stay INVALID |
-| in-memory AppFileSystem | mkdir + info | open/read/write/persist | only mkdir/info observed so far | later `game.sav` needs file create + persist |
 | sprintf `%d` only | LIVE `res_lang%d.rc` | `%s` / width | only one production sprintf so far | new format → `UnknownAbiError` |
 | platEx 0x4c6 + SWITCHPATH | 0x4c6 SUCCESS; Y/Z/X/A/B/C work-path | other platEx codes | LIVE Y then B:/mythroad/ then c:/mythroad/ | later 1014 SCRRAM / other codes |
 | DSM work path | in-memory `dsmWorkPath`; Y writes guest `c:/mythroad/` | host FS / IndexedDB mapping | current-pack open still uses pack name | later `B:` prefixed mr_open |
@@ -286,3 +287,46 @@ category       FILE
 ```
 
 Guest strcat `gssjxz` + `\\` + `69`. Archive has `69.bmp` but this is DSM work-path EFS (`mythroad/gssjxz/69`), not current-pack and not a VFS member. Missing RDONLY → 0 then CREATE 12 loop. Next: AppFS create/write, still separate from pack resources.
+
+---
+
+### 2026-09-05 — AppFS EFS create/write
+
+**starting blocker:** `mr_open("gssjxz\\69")` mode=RDONLY
+
+**analysis:**
+
+* Guest strcat `"gssjxz"` + `"\\"` + `"69"` → `"gssjxz\\69"`.
+* Archive member `69.bmp` is **not** this file. DSM work-path EFS, not current-pack.
+* Probe: RDONLY miss → 0 then CREATE mode 12 (`MR_FILE_RDWR|MR_FILE_CREATE`) until watchdog. File is required.
+* CREATE auto-creates parent dirs in memory (flymrp AppFS simplification).
+
+**implementation:** AppFS create/write + table[43] `mr_write`. Pack name + RDONLY stays current-pack alias. Other names miss without CREATE return 0.
+
+**tests:** `test/real/appfs-file-abi.test.ts`; `test/mythroad/pack-file.test.ts`; real `app.mrp` rerun.
+
+**real-run:**
+
+```text
+previous blocker   mr_open("gssjxz\\69")
+new blocker        table[32] mr_timerStop
+ARM insn           1,596,421
+Lua insn           71
+hits               4861
+graphicsCommands   6
+handles            1..10
+writes             table[43] x8
+category           TIMER
+```
+
+**commit:** Support in-memory EFS create and write
+
+## Current blocker
+
+```text
+table[32]  asm_mr_timerStop
+PC=0x00010080  LR=0x01eab05d  R0=0x00010080  R1=0
+category       TIMER
+```
+
+`arm_ext_call(0)` / Lua still not resumed. Next: implement confirmed `mr_timerStop` (likely followed by `mr_timerStart`).

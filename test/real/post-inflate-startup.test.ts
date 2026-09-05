@@ -5,7 +5,7 @@ import { DEFAULT_INSN_BUDGET } from "../../src/abi/runtime.ts";
 import {
   ARM_INSN_BUDGET_THROWN,
   REAL_MRP_BASELINE,
-  UNKNOWN_OPEN_GSSJXZ69_THROWN,
+  UNKNOWN_SLOT_32_THROWN,
 } from "../../src/real/startup.ts";
 import {
   POST_INFLATE,
@@ -20,7 +20,7 @@ describe("5-C.10R post-inflate startup gate", () => {
   it("slot RLE round-trips the production sequence", () => {
     const slots = decodeSlotRle(POST_INFLATE.slotRle);
     expect(slots).toHaveLength(POST_INFLATE.hitCount);
-    expect(slots.at(-1)).toBe(40);
+    expect(slots.at(-1)).toBe(32);
     expect(encodeSlotRle(slots)).toBe(POST_INFLATE.slotRle);
     expect(slots.filter((s) => s === 3)).toHaveLength(POST_INFLATE.table3);
     expect(slots.filter((s) => s === 1)).toHaveLength(POST_INFLATE.table1);
@@ -44,7 +44,7 @@ describe("5-C.10R post-inflate startup gate", () => {
     expect(r.gate.recommendStage5d).toBe(false);
   });
 
-  it("production watchdog completes guest inflate and stops at EFS mr_open gssjxz\\69", () => {
+  it("production watchdog completes guest inflate and stops at table[32]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runPostInflateStartup(bytes, { consistencyRuns: 5 });
 
@@ -52,8 +52,8 @@ describe("5-C.10R post-inflate startup gate", () => {
     expect(r.insnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
     expect(r.insnCount).toBeGreaterThan(1_000_000);
     expect(r.tableStubCount).toBe(POST_INFLATE.hitCount);
-    expect(r.thrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
-    expect(r.unknownSlot).toBeNull();
+    expect(r.thrown).toBe(UNKNOWN_SLOT_32_THROWN);
+    expect(r.unknownSlot).toBe(32);
 
     expect(r.inflate.completed).toBe(true);
     expect(r.inflate.lastInsidePc).toBe(POST_INFLATE.lastInsidePc);
@@ -76,7 +76,7 @@ describe("5-C.10R post-inflate startup gate", () => {
     expect(r.output.referenceSha256).toBe(POST_INFLATE.outputSha256);
     expect(r.output.equal).toBe(true);
 
-    expect(r.hits.table9).toBe(2);
+    expect(r.hits.table9).toBe(6);
     expect(r.hits.table3).toBe(POST_INFLATE.table3);
     expect(r.hits.table1).toBe(POST_INFLATE.table1);
     expect(r.slotRle).toBe(POST_INFLATE.slotRle);
@@ -101,7 +101,7 @@ describe("5-C.10R post-inflate startup gate", () => {
       [801, 6, true],
       [801, 0, false],
     ]);
-    expect(r.graphicsCommands).toBe(4);
+    expect(r.graphicsCommands).toBe(6);
 
     expect(r.table30?.r0).toBe(POST_INFLATE.table30R0);
     expect(r.table30?.r1).toBe(POST_INFLATE.table30R1);
@@ -122,13 +122,13 @@ describe("5-C.10R post-inflate startup gate", () => {
       luaResume: "NOT REACHED",
       stage5cComplete: false,
       recommendStage5d: false,
-      category: "FILE",
+      category: "TIMER",
     });
 
     expect(r.consistency.runs).toBe(5);
     expect(r.consistency.deterministic).toBe(true);
     expect(r.consistency.mismatches).toEqual([]);
     expect(new Set(r.consistency.fingerprints.map((f) => f.outputSha256))).toEqual(new Set([POST_INFLATE.outputSha256]));
-    expect(new Set(r.consistency.fingerprints.map((f) => f.thrown))).toEqual(new Set([UNKNOWN_OPEN_GSSJXZ69_THROWN]));
+    expect(new Set(r.consistency.fingerprints.map((f) => f.thrown))).toEqual(new Set([UNKNOWN_SLOT_32_THROWN]));
   });
 });

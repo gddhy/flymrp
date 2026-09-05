@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { PLATEX38, runPlatex38Forensics } from "../../src/real/platex38.ts";
-import { UNKNOWN_OPEN_GSSJXZ69_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_SLOT_32_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -14,8 +14,8 @@ describe("5-C.9 table[38] / asm_mr_platEx forensics", () => {
     expect(r.handler130).toBe(true);
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
-    expect(r.productionThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_OPEN_GSSJXZ69_THROWN);
+    expect(r.productionThrown).toBe(UNKNOWN_SLOT_32_THROWN);
+    expect(r.probeThrown).toBe(UNKNOWN_SLOT_32_THROWN);
     expect(r.skipped130With).toBe(0);
     expect(r.init2Reached).toBe(false);
 

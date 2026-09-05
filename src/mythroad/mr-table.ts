@@ -139,7 +139,7 @@ export class MrTableBridge {
       onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
     } = {},
   ) {
-    this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null);
+    this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null, this.appFs);
   }
 
   install(): void {
@@ -161,6 +161,7 @@ export class MrTableBridge {
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
+    this.ext.registerHandler(43, (_cpu, mem, args) => this.files.write(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(44, (_cpu, mem, args) => this.files.read(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
     this.ext.registerHandler(30, (_cpu, mem, args) =>
@@ -516,9 +517,8 @@ export class MrTableBridge {
    *
    * `int32 mr_open(const char *filename, uint32 mode)`.
    *
-   * Only `filename === current packName` and `mode === MR_FILE_RDONLY` (1)
-   * are implemented. Other names/modes are unsupported flymrp ABI
-   * (`UnknownAbiError`), not a guest-visible open failure (0).
+   * Pack name + RDONLY is the current-pack alias. Other names go to AppFS.
+   * Missing EFS without CREATE returns 0. Pack write modes stay UnknownAbiError.
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
     try {

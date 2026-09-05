@@ -1,20 +1,34 @@
 /**
- * Stage 5-C.10K — current-pack read-only file backend.
+ * Current-pack RDONLY alias + in-memory AppFS files.
  *
- * Only a deterministic virtual file alias for the currently loaded MRP
- * container (`packName` + `MR_FILE_RDONLY`). Other filenames and write
- * modes remain unsupported (UnknownAbiError, not a guest open-failure 0).
+ * Pack container (`packName` + `MR_FILE_RDONLY`) stays a virtual alias of
+ * `archive.data`. Other names use writable AppFS. Archive members are never
+ * opened here.
  *
- * Does not implement a host filesystem, VFS member lookup, or
- * archive.getResource. Guest reads `archive.data` as a byte stream.
+ * Missing EFS RDONLY / no-CREATE returns 0 (guest-visible miss).
+ * Unknown pack write modes stay UnknownAbiError.
  */
 import { UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
-import { MR_FAILED, MR_FILE_RDONLY, MR_SEEK_CUR, MR_SEEK_END, MR_SEEK_SET, MR_SUCCESS } from "./constants.ts";
+import type { AppFileSystem } from "./app-fs.ts";
+import {
+  MR_FAILED,
+  MR_FILE_CREATE,
+  MR_FILE_RDONLY,
+  MR_FILE_RDWR,
+  MR_FILE_RECREATE,
+  MR_FILE_WRONLY,
+  MR_SEEK_CUR,
+  MR_SEEK_END,
+  MR_SEEK_SET,
+  MR_SUCCESS,
+} from "./constants.ts";
 
 export type ReadOnlyFileHandle = {
   bytes: Uint8Array;
   pos: number;
+  writable: boolean;
+  efsKey: string | null;
 };
 
 export type PackFileSource = {
@@ -23,7 +37,7 @@ export type PackFileSource = {
 };
 
 export type PackFileOp = {
-  op: "open" | "read" | "seek" | "close";
+  op: "open" | "read" | "write" | "seek" | "close";
   handle: number;
   ret: number;
   pos: number;
@@ -32,17 +46,24 @@ export type PackFileOp = {
   offset?: number;
 };
 
+const ACCESS = MR_FILE_RDONLY | MR_FILE_WRONLY | MR_FILE_RDWR;
+const FLAGS = MR_FILE_CREATE | MR_FILE_RECREATE;
+
 export class CurrentPackFileBackend {
   private readonly handles = new Map<number, ReadOnlyFileHandle>();
   private nextHandle = 1;
   readonly ops: PackFileOp[] = [];
 
-  constructor(private readonly getPack: () => PackFileSource | null) {}
+  constructor(
+    private readonly getPack: () => PackFileSource | null,
+    private readonly appFs: AppFileSystem | null = null,
+  ) {}
 
   reset(): void {
     this.handles.clear();
     this.nextHandle = 1;
     this.ops.length = 0;
+    this.appFs?.clear();
   }
 
   peek(f: number): ReadOnlyFileHandle | null {
@@ -51,34 +72,51 @@ export class CurrentPackFileBackend {
 
   /**
    * `int32 mr_open(const char *filename, uint32 mode)`.
-   * Success = positive handle. Failure for this backend is not used:
-   * unsupported name/mode throw UnknownAbiError.
+   * Success = positive handle. Pack alias is RDONLY only.
+   * Missing EFS without CREATE = 0.
    */
   open(filename: string, mode: number): number {
     const pack = this.getPack();
-    if (!pack) {
-      throw new UnknownAbiError("unsupported mr_open: no current pack", {
-        family: "mr_open",
-        code: "no-pack",
-        caller: "ext",
-      });
+    const m = mode >>> 0;
+    if (pack && filename === pack.name) {
+      if (m !== MR_FILE_RDONLY) {
+        throw new UnknownAbiError(`unsupported mr_open mode ${m}`, {
+          family: "mr_open",
+          code: m,
+          caller: "ext",
+        });
+      }
+      return this.addHandle(pack.bytes, false, null);
     }
-    if ((mode >>> 0) !== MR_FILE_RDONLY) {
-      throw new UnknownAbiError(`unsupported mr_open mode ${mode >>> 0}`, {
-        family: "mr_open",
-        code: mode >>> 0,
-        caller: "ext",
-      });
-    }
-    if (filename !== pack.name) {
+    if (!this.appFs) {
       throw new UnknownAbiError(`unsupported mr_open filename ${JSON.stringify(filename)}`, {
         family: "mr_open",
         code: filename || "(empty)",
         caller: "ext",
       });
     }
+    return this.openEfs(filename, m);
+  }
+
+  private openEfs(filename: string, mode: number): number {
+    const access = mode & ACCESS;
+    const flags = mode & FLAGS;
+    if (!filename || access === 0 || (mode & ~(ACCESS | FLAGS)) !== 0) return 0;
+    const recreate = (flags & MR_FILE_RECREATE) !== 0;
+    const create = recreate || (flags & MR_FILE_CREATE) !== 0;
+    const writable = access !== MR_FILE_RDONLY || recreate;
+    const fs = this.appFs!;
+    const existing = fs.file(filename);
+    if (existing && !recreate) return this.addHandle(existing, writable, fs.normalize(filename));
+    if (!create) return 0;
+    const created = fs.createFile(filename, recreate);
+    if (!created) return 0;
+    return this.addHandle(created, true, fs.normalize(filename));
+  }
+
+  private addHandle(bytes: Uint8Array, writable: boolean, efsKey: string | null): number {
     const id = this.nextHandle++;
-    this.handles.set(id, { bytes: pack.bytes, pos: 0 });
+    this.handles.set(id, { bytes, pos: 0, writable, efsKey });
     this.ops.push({ op: "open", handle: id, ret: id, pos: 0 });
     return id;
   }
@@ -106,6 +144,35 @@ export class CurrentPackFileBackend {
       h.pos += n;
     }
     this.ops.push({ op: "read", handle: f | 0, ret: n, pos: h.pos, requested });
+    return n;
+  }
+
+  /**
+   * `int32 mr_write(int32 f, void *p, uint32 l)`.
+   * Pack handles and RDONLY EFS return MR_FAILED.
+   * Extends the file with zeros if the cursor is past EOF.
+   */
+  write(mem: GuestMemory, f: number, src: number, len: number): number {
+    const h = this.handles.get(f | 0);
+    if (!h || !h.writable || !h.efsKey || !this.appFs) {
+      this.ops.push({ op: "write", handle: f | 0, ret: MR_FAILED, pos: h?.pos ?? -1, requested: len >>> 0 });
+      return MR_FAILED;
+    }
+    const n = len >>> 0;
+    if (n === 0) {
+      this.ops.push({ op: "write", handle: f | 0, ret: 0, pos: h.pos, requested: 0 });
+      return 0;
+    }
+    const end = (h.pos + n) >>> 0;
+    if (end > h.bytes.length || h.pos > h.bytes.length) {
+      const grown = new Uint8Array(end);
+      grown.set(h.bytes.subarray(0, Math.min(h.bytes.length, h.pos)));
+      h.bytes = grown;
+    }
+    for (let i = 0; i < n; i++) h.bytes[h.pos + i] = mem.read8((src + i) >>> 0);
+    h.pos = end;
+    this.appFs.replace(h.efsKey, h.bytes);
+    this.ops.push({ op: "write", handle: f | 0, ret: n, pos: h.pos, requested: n });
     return n;
   }
 
