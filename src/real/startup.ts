@@ -12,7 +12,8 @@
  * table[42] mr_info + table[49] mr_mkDir + table[5] strcpy2 are REAL_EXECUTED.
  * table[35] getUserInfo + table[61] getNetworkID + table[15] strlen2 +
  * table[6] strncpy2 + table[18] atoi2 + table[7] strcat2 are REAL_EXECUTED.
- * First remaining blocker: mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'.
+ * table[38] platEx 1204 `dsmSwitchPath` Y/B/C is REAL_EXECUTED.
+ * First remaining blocker: table[122] DrawRect.
  * No cbRet bypass. No gzip/inflate host ABI.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
@@ -85,15 +86,17 @@ export const REAL_MRP_BASELINE = {
   slot7: 7,
   stub7: 0x0001001c,
   platex1204: 1204,
-  stopPc: 0x00010098,
-  stopLr: 0x01ea617d,
-  stopR0: 0x000004b4,
-  stopR1: 0x01eb01a0,
+  slot122: 122,
+  stub122: 0x000101e8,
+  stopPc: 0x000101e8,
+  stopLr: 0x01ea6e11,
+  stopR0: 0,
+  stopR1: 0,
   infoName: "dbglog.txt",
   infoName2: "gsidbak",
   mkdirName: "gsidbak",
   inflateInsnCount: 1_404_897,
-  productionInsnCount: 1_405_946,
+  productionInsnCount: 1_412_613,
   gzipOutLen: 30192,
   gzipAlloc: 30196,
   gzipMagic: [0x1f, 0x8b] as const,
@@ -106,7 +109,7 @@ export const REAL_MRP_BASELINE = {
   budgetStopPc: 0x01ea1ee8,
   budgetStopLr: 0x01ea1f83,
   insnBudget: DEFAULT_INSN_BUDGET,
-  totalHitCount: 3617,
+  totalHitCount: 3731,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -140,8 +143,10 @@ export const UNKNOWN_SLOT_42_THROWN = "UNKNOWN_REQUIRED_SLOT = 42";
 export const UNKNOWN_SLOT_49_THROWN = "UNKNOWN_REQUIRED_SLOT = 49";
 /** Historical stop after mkdir/strcpy. table[35] is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_35_THROWN = "UNKNOWN_REQUIRED_SLOT = 35";
-/** Production stop: implemented platEx rejects MR_SWITCHPATH 1204. */
+/** Historical stop after identity cluster. platEx 1204 SWITCHPATH is now REAL_EXECUTED. */
 export const UNKNOWN_PLATEX_1204_THROWN = "unsupported mr_platEx code 1204";
+/** Production stop: table[122] asm_DrawRect is not implemented. */
+export const UNKNOWN_SLOT_122_THROWN = "UNKNOWN_REQUIRED_SLOT = 122";
 
 export type CpuSnap = {
   pc: number;
@@ -985,7 +990,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
           ? n === 130
             ? "REAL_EXECUTED case 7 (rxgj FULL)"
             : n === 38
-              ? "REAL_EXECUTED mr_platEx 0x4c6 (rxgj FULL); no side effects"
+              ? "REAL_EXECUTED mr_platEx (0x4c6 / SWITCHPATH)"
               : n === 33
                 ? "REAL_EXECUTED mr_getTime (runtime.clock >>> 0); no Date.now"
                 : n === 17
@@ -1359,7 +1364,8 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const hit6 = run.hits.find((h) => h.slot === 6);
   const hit18 = run.hits.find((h) => h.slot === 18);
   const hit7 = run.hits.find((h) => h.slot === 7);
-  const platex1204 = run.thrown.includes("mr_platEx code 1204");
+  const hit122 = run.hits.find((h) => h.slot === 122);
+  const switchPathOk = run.hits.some((h) => h.slot === 38 && h.arguments[0] === 1204 && h.return === 0);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
@@ -1631,10 +1637,19 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     },
     {
       stage: "platEx1204",
-      status: platex1204 ? "BLOCKED" : "NOT REACHED",
-      note: platex1204
-        ? "mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'; work-path query not implemented"
+      status: switchPathOk ? "PASS" : run.thrown.includes("SWITCHPATH") || run.thrown.includes("mr_platEx code 1204") ? "BLOCKED" : "NOT REACHED",
+      note: switchPathOk
+        ? "REAL_EXECUTED dsmSwitchPath Y query + B:/mythroad/ + c:/mythroad/"
         : "not reached",
+    },
+    {
+      stage: "table122",
+      status: hit122?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 122 ? "BLOCKED" : "NOT REACHED",
+      note: hit122?.status === "REAL_EXECUTED"
+        ? "REAL_EXECUTED DrawRect"
+        : run.unknownSlot === 122
+          ? "UNKNOWN_REQUIRED_SLOT; asm_DrawRect NOT_EXECUTED by host"
+          : "not reached",
     },
   ];
 }
@@ -1854,7 +1869,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
       table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
       table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] are REAL_EXECUTED. First remaining blocker is mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41] are REAL_EXECUTED current-pack read-only file ABI (archive.data). table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] and platEx 1204 SWITCHPATH are REAL_EXECUTED. First remaining blocker is table[122] DrawRect. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
@@ -1915,7 +1930,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
     "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
     "table[9] memcmp2 is REAL_EXECUTED (unsigned char; exact *su1-*su2; early exit).",
-    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is mr_platEx(1204) MR_SWITCHPATH.",
+    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is table[122] DrawRect.",
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
     "Stage 5-D: **NOT STARTED**.",
     "",
@@ -2123,7 +2138,7 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "## Slot status (this run)",
     "",
     `- 130 = ${r.forensicPrior.table130} (case 7 only; not the full TestCom switch)`,
-    `- 38 = ${r.forensicPrior.table38} (code 0x4c6 only; not the complete mr_platEx API)`,
+    `- 38 = ${r.forensicPrior.table38} (0x4c6 + SWITCHPATH Y/B/C; not the complete mr_platEx API)`,
     `- 33 = ${r.forensicPrior.table33} (mr_getTime via runtime.clock >>> 0)`,
     `- 17 = ${r.forensicPrior.table17} (sprintf_ literal+%d only; not %s / full mpaland)`,
     `- 3 = ${r.forensicPrior.table3} (memcpy2 forward byte-copy; not memmove)`,

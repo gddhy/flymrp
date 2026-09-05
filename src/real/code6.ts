@@ -785,7 +785,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[9] memcmp2 is implemented; guest gzip/inflate completes; table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] are REAL_EXECUTED; next is mr_platEx(1204) MR_SWITCHPATH LIVE 'Y'",
+      "table[9] memcmp2 is implemented; guest gzip/inflate completes; table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] and platEx 1204 SWITCHPATH are REAL_EXECUTED; next is table[122] DrawRect",
       "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41] current-pack RDONLY file ABI is implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],

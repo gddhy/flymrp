@@ -57,18 +57,18 @@ export const POST_INFLATE = {
   table30Blx: 0x01eaadaa,
   table30Lr: 0x01eaadad,
   table30Fn: 0x01eaad6c,
-  hitCount: 3617,
-  table0: 45,
-  table1: 40,
-  table3: 3441,
+  hitCount: 3731,
+  table0: 54,
+  table1: 42,
+  table3: 3454,
   table3Inflate: 3432,
   table1Teardown: 37,
   slotRle:
-    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35,61,40,14,45,44,41,14,15,14,6,18,37,0,14x3,5,7x3,5,7,14,5,7x5,14,17,7,14,7x3,42,0,14,5,7x3,14,38",
-  liveAllocs: 4,
-  mrAllocs: 46,
-  bump: 0x00215300,
-  blockerCategory: "FILE" as BlockerCategory,
+    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35,61,40,14,45,44,41,14,15,14,6,18,37,0,14x3,5,7x3,5,7,14,5,7x5,14,17,7,14,7x3,42,0,14,5,7x3,14,38,3,15,38,42,15,38,1,42,0x2,14x2,42,0x3,14,0,14,42,1,14,42,14x2,42,14,42,14,0x3,14,18,14x3,18,14x2,18,14x2,18,14x2,18,3x2,14x2,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14x2,18,14x2,18,14x2,18,26x5,40,14,45,44,41,14,26,122",
+  liveAllocs: 11,
+  mrAllocs: 55,
+  bump: 0x00215f18,
+  blockerCategory: "GRAPHICS" as BlockerCategory,
 } as const;
 
 export type NativeRec = {
@@ -546,7 +546,9 @@ export function runPostInflateStartup(
     luaResume: run.lua.resumed ? ("PASS" as GateStatus) : ("NOT REACHED" as GateStatus),
     stage5cComplete: false,
     recommendStage5d: false,
-    blocker: run.thrown.includes("mr_platEx code 1204")
+    blocker: run.unknownSlot === 122
+      ? "table[122] DrawRect"
+      : run.thrown.includes("mr_platEx code 1204") || run.thrown.includes("SWITCHPATH")
       ? "mr_platEx(1204) MR_SWITCHPATH"
       : run.unknownSlot === 35
       ? "table[35] mr_getUserInfo"

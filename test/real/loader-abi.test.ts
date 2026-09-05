@@ -6,14 +6,14 @@ import { MythroadRuntime, NullGraphicsBackend, RuntimeTrace } from "../../src/my
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
 describe("5-C.5 real loader chain", () => {
-  it("cfunction load + code 6 return, then stops at platEx 1204", () => {
+  it("cfunction load + code 6 return, then stops at table[122] DrawRect", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const tr = new RuntimeTrace();
     const rt = new MythroadRuntime({ graphics: new NullGraphicsBackend(), trace: tr, abiMode: "strict" });
     rt.loadMrp(bytes);
-    expect(() => rt.start("start.mr")).toThrow(/unsupported mr_platEx code 1204/);
-    expect(rt.unknownRequiredSlot).toBeNull();
-    expect(rt.unknownEvents.some((e) => e.family === "mr_platEx" && e.code === 1204)).toBe(true);
+    expect(() => rt.start("start.mr")).toThrow(/UNKNOWN_REQUIRED_SLOT = 122/);
+    expect(rt.unknownRequiredSlot).toBe(122);
+    expect(rt.unknownEvents.some((e) => e.family === "mr_table" && e.code === 122)).toBe(true);
     expect(rt.unknownEvents.some((e) => e.family === "mr_table" && e.code === 9)).toBe(false);
 
     const cf = rt.mrReads.find((r) => r.name === "cfunction.ext" && r.lookfor === 0);

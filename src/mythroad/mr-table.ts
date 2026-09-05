@@ -3,7 +3,7 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS } from "./constants.ts";
+import { MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS, MR_SWITCHPATH } from "./constants.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
 import { defaultProfile, type DeviceProfile } from "./profile.ts";
@@ -56,6 +56,20 @@ export const MR_TESTCOM_CASE7 = 7;
  */
 export const MR_PLATEX_CODE_4C6 = 0x4c6;
 
+/**
+ * rxgj `dsm.c` work-path roots. Guest-visible DSM strings, not host paths.
+ * This is rxgj FULL compatibility, not a claimed device drive letter.
+ */
+export const MYTHROAD_WORK_PATH = "mythroad/";
+export const DSM_HIDE_DRIVE = "mythroad/disk/";
+export const DSM_DRIVE_A = "mythroad/disk/a/";
+export const DSM_DRIVE_B = "mythroad/disk/b/";
+export const DSM_DRIVE_X = "mythroad/disk/x/";
+export const DSM_SWITCHPATH_BUF = 266;
+
+/** rxgj `dsmSwitchPath('Y')` when `dsmWorkPath == "mythroad/"`. */
+export const DSM_SWITCHPATH_Y_DEFAULT = "c:/mythroad/";
+
 /** Observed LIVE `mr_plat` code. `1206 == MR_GET_HANDSET_LG`. */
 export const MR_PLAT_GET_HANDSET_LG = MR_GET_HANDSET_LG;
 
@@ -93,6 +107,10 @@ export class MrTableBridge {
   unknownRequiredSlot: number | null = null;
   /** rxgj `char_bitmap_addr`: one 32-byte EXT bump slot, reused. */
   charBitmapAddr = 0;
+  /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
+  switchPathAddr = 0;
+  /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
+  workPath = MYTHROAD_WORK_PATH;
   /**
    * Isolated-test clock when `hooks.getClock` is absent.
    * Production always reads `MythroadRuntime.clock` via `getClock`.
@@ -130,7 +148,7 @@ export class MrTableBridge {
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
-    this.ext.registerHandler(38, (_cpu, _mem, args) => this.platEx(args));
+    this.ext.registerHandler(38, (_cpu, mem, args) => this.platEx(mem, args));
     this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
@@ -227,9 +245,10 @@ export class MrTableBridge {
    * DOM / device side effects.
    *
    * AAPCS: r0=code r1=input r2=input_len r3=output [sp]=output_len [sp+4]=cb.
-   * Only `code == 0x4c6` is implemented: return `MR_SUCCESS` (0).
+   * Implemented: `0x4c6` → `MR_SUCCESS`; `1204` `dsmSwitchPath` (Y/Z/X/A/B/C).
+   * Other platEx codes remain UnknownAbiError.
    */
-  platEx(args: Uint32Array): number {
+  platEx(mem: GuestMemory, args: Uint32Array): number {
     const code = args[0]! >>> 0;
     const input = args[1]! >>> 0;
     const inputLen = args[2]! >>> 0;
@@ -244,6 +263,7 @@ export class MrTableBridge {
       void cb;
       return MR_SUCCESS;
     }
+    if (code === MR_SWITCHPATH) return this.switchPath(mem, input, inputLen, output, outputLen);
     const message = `unsupported mr_platEx code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_platEx", code, message });
     throw new UnknownAbiError(message, {
@@ -251,6 +271,91 @@ export class MrTableBridge {
       code,
       caller: "ext",
     });
+  }
+
+  /**
+   * rxgj `dsmSwitchPath`. LIVE: `'Y'` query then `'B:/mythroad/'` switch.
+   * `'Y'` writes a guest buffer and `*output` / `*output_len`.
+   * `'B'`/`'A'`/`'C'`/`'X'`/`'Z'` only update `dsmWorkPath` (no output).
+   * Unknown letters return `MR_IGNORE` (source default). Not a host filesystem.
+   */
+  switchPath(mem: GuestMemory, input: number, inputLen: number, output: number, outputLen: number): number {
+    if (!input) {
+      const message = "unsupported mr_platEx SWITCHPATH input";
+      this.hooks.onUnknownAbi?.({ family: "mr_platEx", code: MR_SWITCHPATH, message });
+      throw new UnknownAbiError(message, { family: "mr_platEx", code: MR_SWITCHPATH, caller: "ext" });
+    }
+    const cmd = mem.read8(input >>> 0) & 0xff;
+    const suffix = (inputLen | 0) > 3 ? readGuestCString(mem, (input + 3) >>> 0) : "";
+    switch (cmd) {
+      case 0x59:
+      case 0x79:
+        return this.switchPathQuery(mem, output, outputLen);
+      case 0x5a:
+      case 0x7a:
+        this.setWorkPath(MYTHROAD_WORK_PATH);
+        return MR_SUCCESS;
+      case 0x58:
+      case 0x78:
+        this.setWorkPath(DSM_DRIVE_X);
+        return MR_SUCCESS;
+      case 0x41:
+      case 0x61:
+        this.setWorkPath((inputLen | 0) > 3 ? DSM_DRIVE_A + suffix : DSM_DRIVE_A);
+        return MR_SUCCESS;
+      case 0x42:
+      case 0x62:
+        this.setWorkPath((inputLen | 0) > 3 ? DSM_DRIVE_B + suffix : DSM_DRIVE_B);
+        return MR_SUCCESS;
+      case 0x43:
+      case 0x63:
+        this.setWorkPath((inputLen | 0) > 3 ? suffix : "./");
+        return MR_SUCCESS;
+      default:
+        return MR_IGNORE;
+    }
+  }
+
+  /** rxgj `SetDsmWorkPath`: unify separators and force a trailing `/`. */
+  setWorkPath(path: string): void {
+    let out = "";
+    let slash = false;
+    for (let i = 0; i < path.length; i++) {
+      const ch = path.charCodeAt(i);
+      if (ch === 0x2f || ch === 0x5c) {
+        if (!slash) {
+          out += "/";
+          slash = true;
+        }
+      } else {
+        out += path[i]!;
+        slash = false;
+      }
+    }
+    if (out && !out.endsWith("/")) out += "/";
+    this.workPath = out;
+  }
+
+  /** rxgj `dsmSwitchPath('Y')` hide-drive vs default `c:/%s` formatting. */
+  formatSwitchPathY(): string {
+    const hide = this.workPath.indexOf(DSM_HIDE_DRIVE);
+    if (hide >= 0) {
+      const rest = this.workPath.slice(hide + DSM_HIDE_DRIVE.length);
+      const drive = rest.charAt(0);
+      const tail = rest.slice(2);
+      return tail ? `${drive}:/${tail}` : `${drive}:/`;
+    }
+    return `c:/${this.workPath}`;
+  }
+
+  switchPathQuery(mem: GuestMemory, output: number, outputLen: number): number {
+    const path = this.formatSwitchPathY();
+    if (!this.switchPathAddr) this.switchPathAddr = this.ext.alloc(DSM_SWITCHPATH_BUF);
+    if (!this.switchPathAddr) return MR_FAILED;
+    writeFixedCString(mem, this.switchPathAddr, path, DSM_SWITCHPATH_BUF);
+    if (output) mem.write32(output >>> 0, this.switchPathAddr);
+    if (outputLen) mem.write32(outputLen >>> 0, path.length);
+    return MR_SUCCESS;
   }
 
   /**

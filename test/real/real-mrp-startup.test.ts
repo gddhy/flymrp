@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AEX_P_ER_RW_OFF, tableSlotIndex } from "../../src/abi/layout.ts";
 import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
 import { MythroadRuntime, NullGraphicsBackend } from "../../src/mythroad/index.ts";
-import { REAL_MRP_BASELINE, UNKNOWN_PLATEX_1204_THROWN, runRealMrpStartup } from "../../src/real/startup.ts";
+import { REAL_MRP_BASELINE, UNKNOWN_SLOT_122_THROWN, runRealMrpStartup } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const REAL_SHA = "77487205cd4db95fcf104392d9cc692ab122b06f7a04e14f49899277d9ac4263";
@@ -14,7 +14,7 @@ const HITS_TO_FIRST_TABLE9 = [
 ] as const;
 
 describe("5-C.10Q real MRP startup after guest inflate", () => {
-  it("REAL_EXECUTED table9 memcmp2; guest inflate completes; stops at platEx 1204", () => {
+  it("REAL_EXECUTED table9 memcmp2; guest inflate completes; stops at table[122] DrawRect", () => {
     expect(existsSync(REAL_APP)).toBe(true);
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runRealMrpStartup(bytes, { path: REAL_APP, consistencyRuns: 5 });
@@ -23,7 +23,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.mrp.package).toBe("gssjxz.mrp");
     expect(r.lua.realStartMrLoaded).toBe(true);
     expect(r.lua.exception?.isLuaVmError).toBe(false);
-    expect(r.lua.exception?.message).toBe(UNKNOWN_PLATEX_1204_THROWN);
+    expect(r.lua.exception?.message).toBe(UNKNOWN_SLOT_122_THROWN);
     expect(r.lua.strCom.map((s) => [s.code, s.extra, s.ok])).toEqual([
       [601, 0, true],
       [800, 0, true],
@@ -58,7 +58,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.mrTable.hits.map((h) => h.slot).slice(0, HITS_TO_FIRST_TABLE9.length)).toEqual([...HITS_TO_FIRST_TABLE9]);
     expect(r.mrTable.hits).toHaveLength(REAL_MRP_BASELINE.totalHitCount);
     expect(r.mrTable.hits[HITS_TO_FIRST_TABLE9.length]!.slot).toBe(9);
-    expect(r.mrTable.hits.at(-1)!.slot).toBe(38);
+    expect(r.mrTable.hits.at(-1)!.slot).toBe(122);
 
     const h17 = r.mrTable.hits.find((h) => h.slot === 17);
     expect(h17?.status).toBe("REAL_EXECUTED");
@@ -203,8 +203,8 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.execution.cpu?.lr).toBe(REAL_MRP_BASELINE.stopLr);
     expect(r.execution.cpu?.insnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
 
-    expect(r.stop.reason).toBe(UNKNOWN_PLATEX_1204_THROWN);
-    expect(r.stop.slot).toBeNull();
+    expect(r.stop.reason).toBe(UNKNOWN_SLOT_122_THROWN);
+    expect(r.stop.slot).toBe(122);
     expect(r.stop.pc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(r.stop.owner).toBe("gssjxz.mrp");
 
@@ -242,12 +242,13 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       ["table6", "PASS"],
       ["table18", "PASS"],
       ["table7", "PASS"],
-      ["platEx1204", "BLOCKED"],
+      ["platEx1204", "PASS"],
+      ["table122", "BLOCKED"],
     ]);
 
     expect(r.baseline.deterministic).toBe(true);
-    expect(r.baseline.firstProductionBlocker).toBe(UNKNOWN_PLATEX_1204_THROWN);
-    expect(r.baseline.firstPost130Blocker).toBe(UNKNOWN_PLATEX_1204_THROWN);
+    expect(r.baseline.firstProductionBlocker).toBe("table[122]");
+    expect(r.baseline.firstPost130Blocker).toBe("table[122]");
     expect(r.forensicPrior.table130).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table38).toBe("REAL_EXECUTED");
     expect(r.forensicPrior.table33).toBe("REAL_EXECUTED");
@@ -257,7 +258,7 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(r.consistency.runs).toBe(5);
     expect(r.consistency.mismatches).toEqual([]);
     const fp = r.consistency.fingerprints[0]!;
-    expect(fp.firstUnknownSlot).toBeNull();
+    expect(fp.firstUnknownSlot).toBe(122);
     expect(fp.stopPc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(fp.armInsnCount).toBe(REAL_MRP_BASELINE.productionInsnCount);
     expect(fp.luaInsnCount).toBe(71);
@@ -275,9 +276,9 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(fp.helper).toBe(REAL_MRP_BASELINE.helper);
     expect(fp.erRw).toBe(REAL_MRP_BASELINE.erRw);
     expect(fp.rwLen).toBe(REAL_MRP_BASELINE.rwLen);
-    expect(fp.handleIds).toEqual([1, 2, 3]);
-    expect(fp.readPositions).toEqual([16, 5736, 24239, 27, 52, 72, 196, 200, 220]);
-    expect(fp.seekPositions).toEqual([240, 7065, 16, 28, 68, 192, 196, 200]);
+    expect(fp.handleIds).toEqual([1, 2, 3, 4]);
+    expect(fp.readPositions).toEqual([16, 5736, 24239, 27, 52, 72, 196, 200, 220, 220]);
+    expect(fp.seekPositions).toEqual([240, 7065, 16, 28, 68, 192, 196, 200, 200]);
     expect(fp.headerMatch).toBe(true);
     expect(fp.indexMatch).toBe(true);
     expect(fp.firstSeekNewPos).toBe(240);
@@ -314,13 +315,13 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
     expect(idx!.guestBytes).toEqual([...bytes.subarray(240, 256)]);
 
     const reads = r.mrTable.hits.filter((h) => h.slot === 44);
-    expect(reads).toHaveLength(9);
+    expect(reads).toHaveLength(10);
     expect(reads[0]!.return).toBe(16);
     expect(reads[1]!.return).toBe(5496);
     expect(reads[2]!.return).toBe(17174);
     expect(reads[2]!.arguments[1]).toBe(0x00206e6c);
-    expect(reads.slice(3).map((h) => h.return)).toEqual([11, 24, 4, 4, 4, 20]);
-    expect(r.mrTable.hits.filter((h) => h.slot === 45).map((h) => h.return)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(reads.slice(3).map((h) => h.return)).toEqual([11, 24, 4, 4, 4, 20, 20]);
+    expect(r.mrTable.hits.filter((h) => h.slot === 45).map((h) => h.return)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(r.mrTable.hits.find((h) => h.slot === 41)?.return).toBe(0);
     expect(r.execution.file.reached41).toBe(true);
     expect(r.mrp.size).toBe(REAL_MRP_BASELINE.archiveBytes);
@@ -443,9 +444,9 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       rt.start("start.mr");
       throw new Error("should stop");
     } catch (e) {
-      expect(e).toMatchObject({ message: UNKNOWN_PLATEX_1204_THROWN });
+      expect(e).toMatchObject({ message: UNKNOWN_SLOT_122_THROWN });
     }
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(122);
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(1234);
@@ -473,11 +474,11 @@ describe("5-C.10Q real MRP startup after guest inflate", () => {
       rt.loadMrp(bytes);
       rt.start("start.mr");
     } catch {
-      /* platEx 1204 */
+      /* table[122] DrawRect */
     }
     const p = rt.ext!.owners.wrapper.p >>> 0;
     const erRw = rt.ext!.mem.read32(p + AEX_P_ER_RW_OFF) >>> 0;
     expect(rt.ext!.mem.read32(erRw + REAL_MRP_BASELINE.getTimeErOff) >>> 0).toBe(0);
-    expect(rt.unknownRequiredSlot).toBeNull();
+    expect(rt.unknownRequiredSlot).toBe(122);
   });
 });
