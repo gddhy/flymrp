@@ -107,3 +107,12 @@ export {
   type InflateBudgetReport,
   type InflateBudgetSweep,
 } from "./inflate-budget.ts";
+export {
+  POST_INFLATE,
+  decodeSlotRle,
+  encodeSlotRle,
+  renderPostInflateMarkdown,
+  runPostInflateStartup,
+  type BlockerCategory,
+  type PostInflateReport,
+} from "./post-inflate.ts";

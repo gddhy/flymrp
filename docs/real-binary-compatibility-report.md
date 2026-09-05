@@ -31,11 +31,11 @@ fixtureKind: real
 
 ## Startup
 
-fail（`UNKNOWN_REQUIRED_SLOT = 30`）。5-C.10Q：guest inflate 完成，输出与 reference gunzip 一致。生产停在 table[30] `mr_getCharBitmap`。见 `docs/stage5c10q-progress.md`。
+fail（`UNKNOWN_REQUIRED_SLOT = 30`）。5-C.10R：guest inflate POP 返回，输出 SHA-256 与 reference gunzip 一致。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/stage5c10r-progress.md`。
 
 ## Lua execution
 
-fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 越过 memcmp2 gzip 检测后停在 ARM insn budget（guest inflate）
+fail — `_strCom(801,"",0)` / `arm_ext_call(0)` 完成 guest inflate 后停在 table[30] `mr_getCharBitmap`
 
 ## Native ABI
 

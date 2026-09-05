@@ -106,6 +106,19 @@ code writes 落在 cfunction 映像（含 RW data），不是 self-modifying inn
 
 ## Unicorn window（1M 停点）
 
+最终有效 differential（C.10R 归档，不重跑）：
+
+```text
+valid setup:
+  R9 restored = 0x00200294
+  table stub execution counted
+
+alignment:
+  uniCount = guestInsns + tableStubs
+```
+
+早期失败 run **superseded / invalid**，不进入 CPU 正确性结论：interrupted 1M/raw-gzip oracle；wrong-R9 Unicorn；对齐前 “PC off by 1”。
+
 对齐：unicorn 每进一次 table stub 会执行 `BX LR`（计 1 条），flymrp intercept 不计。`uniCount = guestInsns + tableStubs`。
 
 ```text

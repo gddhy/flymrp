@@ -28,6 +28,8 @@ They use **synthetic** MRP/Lua only. They are **not** real-app tests.
 
 `inflate-budget.test.ts` is Stage 5-C.10Q：1M forensic watchdog landmark + 2M/5M same next state。
 
+`post-inflate-startup.test.ts` is Stage 5-C.10R：生产 watchdog 下 inflate 完成证据 + SHA-256 oracle + Stage 5-C completion gate。
+
 `open-40-forensics.test.ts` is Stage 5-C.10H：table[40] / `mr_open` filename provenance。Handler 现已注册（5-C.10K）。LIVE R0 为 pack filename。
 
 `file-chain-forensics.test.ts` is Stage 5-C.10J：`_mr_readFile` pack-file ABI 静态链与只读 handle 设计。5-C.10K 已实现 40/44/45/41。当前生产停在 table[30]。

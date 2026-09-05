@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `table[30]` `mr_getCharBitmap`。5-C.10Q：guest inflate 完成（1,404,897 insn），输出与 reference gunzip 一致。5-C.10P：table[9] `memcmp2` **REAL_EXECUTED**。见 5-C.10Q |
+| 停点 | `table[30]` `mr_getCharBitmap`（EXT_ABI）。5-C.10R：inflate POP `0x01ea1e96` 返回；输出 SHA-256 与 reference gunzip 一致；Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 5-C.10R |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 

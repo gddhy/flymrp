@@ -2,7 +2,8 @@
 
 Browser-native Mythroad MRP runtime.
 
-Stage 5-C.10Q（当前）：guest inflate 在 ARM/Thumb 内完成（1,404,897 insn），输出与 reference gunzip 一致。可配置 ARM watchdog 默认 2e6 / 上限 20e6。生产停在 `table[30]` `mr_getCharBitmap`。见 `docs/stage5c10q-progress.md`。  
+Stage 5-C.10R（当前）：生产 watchdog 下 guest inflate 完整完成；输出 SHA-256 与 reference gunzip 一致。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**（blocker=`table[30]` EXT_ABI）。见 `docs/stage5c10r-progress.md`。  
+Stage 5-C.10Q：guest inflate 在 ARM/Thumb 内完成（1,404,897 insn）。可配置 ARM watchdog 默认 2e6 / 上限 20e6。当时生产停在 `table[30]`。见 `docs/stage5c10q-progress.md`。  
 Stage 5-C.10P：实现 `table[9]` `memcmp2`（unsigned char，精确 `*su1-*su2`，early exit）。当时 LIVE gzip magic `1F 8B` equal，生产停在 ARM insn budget。见 `docs/stage5c10p-progress.md`。  
 Stage 5-C.10N：`table[1]` / `mr_free` ownership + allocation header **只读取证**。当时**未实现** table[1]。当时生产停在 `table[1]`。见 `docs/stage5c10n-progress.md`。  
 Stage 5-C.10M：实现 `table[3]` memcpy2（前向逐 byte，非 memmove）+ `table[10]` strcmp2（-1/0/1）。当时**未实现** `table[1]`。当时生产停在 `table[1]`。见 `docs/stage5c10m-progress.md`。  
