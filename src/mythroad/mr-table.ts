@@ -2,9 +2,10 @@ import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex }
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
-import { MR_SUCCESS } from "./constants.ts";
+import { MR_CHINESE, MR_GET_HANDSET_LG, MR_SUCCESS } from "./constants.ts";
+import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
-import { aapcsSprintfVararg, guestSprintf } from "./sprintf.ts";
+import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
 
 /**
@@ -18,6 +19,9 @@ export const MR_TESTCOM_CASE7 = 7;
  * This stage only returns `MR_SUCCESS`; it is not a backlight implementation.
  */
 export const MR_PLATEX_CODE_4C6 = 0x4c6;
+
+/** Observed LIVE `mr_plat` code. `1206 == MR_GET_HANDSET_LG`. */
+export const MR_PLAT_GET_HANDSET_LG = MR_GET_HANDSET_LG;
 
 export type AllocRecord = {
   size: number;
@@ -40,7 +44,8 @@ export type ReadFileRecord = {
  * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
  * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias /
  * `[3]` `memcpy2` / `[10]` `strcmp2` / `[9]` `memcmp2` /
- * `[1]` `mr_free` (registry-only; no origin_mem reuse).
+ * `[1]` `mr_free` (registry-only; no origin_mem reuse) /
+ * `[30]` `mr_getCharBitmap` (rxgj FULL gb16 metrics; generated glyphs).
  * table[100] is a 128-byte `pack_filename` data slot, not a function ABI.
  * Uses the existing EXT bump heap.
  */
@@ -49,6 +54,8 @@ export class MrTableBridge {
   readonly reads: ReadFileRecord[] = [];
   readonly files: CurrentPackFileBackend;
   unknownRequiredSlot: number | null = null;
+  /** rxgj `char_bitmap_addr`: one 32-byte EXT bump slot, reused. */
+  charBitmapAddr = 0;
   /**
    * Isolated-test clock when `hooks.getClock` is absent.
    * Production always reads `MythroadRuntime.clock` via `getClock`.
@@ -86,6 +93,11 @@ export class MrTableBridge {
     this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
     this.ext.registerHandler(44, (_cpu, mem, args) => this.files.read(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
+    this.ext.registerHandler(30, (_cpu, mem, args) =>
+      this.getCharBitmap(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! >>> 0),
+    );
+    this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
+    this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -192,6 +204,26 @@ export class MrTableBridge {
   }
 
   /**
+   * table[37] = `asm_mr_plat` = `mr_plat`.
+   *
+   * C: `int32 mr_plat(int32 code, int32 param)`.
+   * This is rxgj FULL compatibility for the observed
+   * `mr_plat(MR_GET_HANDSET_LG, 0)` call. It returns `MR_CHINESE` (1000).
+   * It is not the complete `mr_plat` API.
+   */
+  plat(code: number, param: number): number {
+    if ((code >>> 0) === MR_GET_HANDSET_LG) {
+      void param;
+      return MR_CHINESE;
+    }
+    throw new UnknownAbiError(`unsupported mr_plat code ${code}`, {
+      family: "mr_plat",
+      code,
+      caller: "ext",
+    });
+  }
+
+  /**
    * table[40] = `asm_mr_open` = `mr_open`.
    *
    * `int32 mr_open(const char *filename, uint32 mode)`.
@@ -202,6 +234,44 @@ export class MrTableBridge {
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
     return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
+  }
+
+  /**
+   * table[30] = `asm_mr_getCharBitmap` = `mr_getCharBitmap`.
+   *
+   * C: `const char *mr_getCharBitmap(uint16 ch, uint16 fontSize, int *width, int *height)`.
+   * AAPCS: r0=ch r1=fontSize r2=width* r3=height*. Return is a guest bitmap pointer.
+   *
+   * This is rxgj FULL compatibility (`aex_t030` + `dsm.c` sky16).
+   * Without `gb12.uc2`, every fontSize uses gb16 metrics (ASCII 8×16, else 16×16).
+   * Glyph pixels are generated; they are not `gb16.uc2`. Width/height are CONFIRMED.
+   *
+   * Bitmap is copied into one reused 32-byte `arm_alloc` slot. Copy length is
+   * `((w*h)+7)>>3`, matching rxgj (ASCII copies 16 of 32 bytes).
+   */
+  /**
+   * table[26] = `asm_mr_printf` = `mr_printf`.
+   *
+   * rxgj `aex_t026`: `format_arm(..., first_arg=1)` then `mr_printf("%s", buf)`.
+   * Return is 0. Observed LIVE formats: `SDK%s%dv%d%s)` and `SDKv%d.%d.%d.%2d(%dv%d%s)`.
+   * Only literals / `%d` / `%s` / optional width digits are implemented.
+   */
+  lastPrintf = "";
+  printf(mem: GuestMemory, args: Uint32Array): number {
+    this.lastPrintf = guestPrintf(mem, args[0]! >>> 0, (i) => aapcsPrintfVararg(args, i));
+    return 0;
+  }
+
+  getCharBitmap(mem: GuestMemory, ch: number, fontSize: number, widthAddr: number, heightAddr: number): number {
+    void fontSize;
+    const glyph = gb16Glyph(ch >>> 0);
+    if (widthAddr) mem.write32(widthAddr >>> 0, glyph.width);
+    if (heightAddr) mem.write32(heightAddr >>> 0, glyph.height);
+    if (!this.charBitmapAddr) this.charBitmapAddr = this.ext.alloc(BYTES_PER_CHAR_16) >>> 0;
+    if (!this.charBitmapAddr) return 0;
+    const n = Math.min(gb16BitmapSize(glyph.width, glyph.height), BYTES_PER_CHAR_16);
+    if (n) mem.load(this.charBitmapAddr, glyph.bits.subarray(0, n));
+    return this.charBitmapAddr;
   }
 
   /**

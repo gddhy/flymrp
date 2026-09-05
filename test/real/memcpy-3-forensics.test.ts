@@ -10,7 +10,7 @@ import {
 } from "../../src/real/memcpy3.ts";
 import { FILECHAIN } from "../../src/real/filechain.ts";
 import { runProductionCode0Fault } from "../../src/real/code0chain.ts";
-import { UNKNOWN_SLOT_30_THROWN } from "../../src/real/startup.ts";
+import { UNKNOWN_SLOT_42_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -19,8 +19,8 @@ describe("5-C.10L table[3] memcpy2 ABI forensics", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const r = runMemcpy3Forensics(bytes);
 
-    expect(r.productionThrown).toBe(UNKNOWN_SLOT_30_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_SLOT_30_THROWN);
+    expect(r.productionThrown).toBe(UNKNOWN_SLOT_42_THROWN);
+    expect(r.probeThrown).toBe(UNKNOWN_SLOT_42_THROWN);
     expect(r.owner).toBe("gssjxz.mrp");
     expect(r.handler40).toBe(true);
     expect(r.handler44).toBe(true);
@@ -94,7 +94,7 @@ describe("5-C.10L table[3] memcpy2 ABI forensics", () => {
   it("5 production runs stay deterministic at table[1]", () => {
     const bytes = new Uint8Array(readFileSync(REAL_APP));
     const runs = Array.from({ length: 5 }, () => runProductionCode0Fault(bytes));
-    expect(new Set(runs)).toEqual(new Set([UNKNOWN_SLOT_30_THROWN]));
+    expect(new Set(runs)).toEqual(new Set([UNKNOWN_SLOT_42_THROWN]));
     const snaps = Array.from({ length: 5 }, () => runMemcpy3Forensics(bytes));
     const key = (r: (typeof snaps)[0]) =>
       [r.cpu.pc, r.cpu.lr, r.cpu.sp, r.cpu.r[0], r.cpu.r[1], r.cpu.r[2], r.cpu.insnCount, r.p, r.erRw].join(",");

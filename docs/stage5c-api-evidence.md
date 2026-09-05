@@ -250,7 +250,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp 工作区 | `test/fixtures/real/app.mrp`（用户提供，未改原文件） |
 | 身份 | SHA-256 `77487205…4263`，MRPG，`gssjxz.mrp`，蜀山剑侠传 |
 | 启动 | 第一份 `start.mr`：`_mr_c_load==0`；cfunction load + `801` code 6 guest 返回 0 |
-| 停点 | `table[30]` `mr_getCharBitmap`（EXT_ABI）。5-C.10R：inflate POP `0x01ea1e96` 返回；输出 SHA-256 与 reference gunzip 一致；Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 5-C.10R |
+| 停点 | `table[42]` `mr_info`（FILE）。LIVE name `dbglog.txt`。table[30]/[37]/[26] 已 REAL_EXECUTED。inflate POP + SHA-256 对照仍成立；Lua 未恢复。Stage 5-C **NOT COMPLETE**。见 `docs/autonomous-progress.md` |
 | `魔塔II.jar` | **工作区不存在**。未做 DRM。 |
 | 结论 | **INSPECTED，不是 real-app green。** |
 
@@ -284,7 +284,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | 实现 | **仅 code 0x4c6**：rxgj FULL `return MR_SUCCESS`（0），无副作用。其它 code → `UnknownAbiError`。`table[38] registered` ≠ 完整 platEx。不是背光系统 |
 | 真实调用 | `0x01ea666a` BLX r4；`r0=0x4c6` `r1=0` `r2=0` `r3=0` `[sp]=0` `[sp+4]=0` **REAL_EXECUTED** |
 | 返回 | LIVE `r0=0`；guest 无 cmp/test；下一 BL `0x01ea7ce8` 覆盖 r0。table[33] 入口 `r0=0x00010084` |
-| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **PASS** → **STOP table[30]** |
+| 后继 | table[33] `mr_getTime` **REAL_EXECUTED** → table[17] `sprintf_` **REAL_EXECUTED** → table[40]/[44]/[45] **REAL_EXECUTED** → table[3]/[10] **REAL_EXECUTED** → table[1] **REAL_EXECUTED** → table[41] **REAL_EXECUTED** → table[9] **REAL_EXECUTED** → guest inflate **PASS** → table[30]/[37]/[26] **REAL_EXECUTED** → **STOP table[42]** |
 | confidence | 本次 0x4c6 CONFIRMED（rxgj FULL）。整表 platEx **未**实现 |
 
 ### table[33] asm_mr_getTime（5-C.10E 已实现）
@@ -327,7 +327,7 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | source | `mythroad.c` `_mr_c_function_table`；guest PIC wrapper `0x01ea8c30` / `0x01ea9304` / `0x01ea6e18` |
 | C | `mr_read(f,p,l)` 返回字节数；`mr_seek(f,pos,method)` 成功 0；`mr_close(f)` 成功 0 |
 | LIVE | read 16 header **match** `archive.data[0:16]`；seek CUR 224：16→240；read 5496 index **match** `archive.data[240:5736]`。table[41] 未到达 |
-| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate complete → **STOP table[30]** |
+| 当前路径 | `_mr_readFile` EFS：open pack → read 16 → seek CUR → read index → memcpy/strcmp 目录扫描 → free TempName/index → seek/read payload → close → memcmp2 gzip magic → guest inflate complete → table[30]/[37]/[26] → **STOP table[42] `mr_info("dbglog.txt")`** |
 | 设计 | current `packName` + `MR_FILE_RDONLY` → `MRPArchive.data` 字节流。禁止包内成员 VFS |
 | confidence | wrapper/slot/C + LIVE header/index **CONFIRMED** |
 
@@ -382,6 +382,44 @@ GETGLOBAL miss → `mr_V_index`（globals 的 `__index`）。SETGLOBAL → `mr_V
 | flymrp | 按 `string.c`，不套 libc `memcmp`。`aex_t009` 用宿主 memcmp，可能夹成 `-1/0/1`；本实现不复刻该夹取 |
 | LIVE | `#1/#2` `1F 8B` vs `1F 8B` n=2 **ret=0**。`CMP r0,#0` / `BEQ` 进入 gzip path。随后 guest inflate 停在 ARM insn budget |
 | confidence | identity/返回规则/LIVE **CONFIRMED**。见 `docs/stage5c10p-progress.md` |
+
+### table[30] mr_getCharBitmap（已实现）
+
+| 字段 | 值 |
+|---|---|
+| source | `mythroad.c` `_mr_c_function_table[30] = asm_mr_getCharBitmap`；`aex_t030`；`dsm.c` sky16 |
+| C | `const char *mr_getCharBitmap(uint16 ch, uint16 fontSize, int *width, int *height)` |
+| flymrp | 无 `gb12.uc2` → 全部 fontSize 用 gb16 度量（ASCII 8×16，其它 16×16）。字形生成，不是 UC2。32 字节 `arm_alloc` 槽复用 |
+| LIVE | R0=`0x662f` R1=0 R2/R3 width*/height* LR=`0x01eaadad` **REAL_EXECUTED** |
+| confidence | 度量 CONFIRMED。像素是 documented stand-in |
+
+### table[37] mr_plat（仅 code 1206）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[37] = asm_mr_plat`；`1206 == MR_GET_HANDSET_LG`；rxgj `dsm.c` 返回 `MR_CHINESE==1000` |
+| flymrp | 仅 1206 → 1000。其它 code → `UnknownAbiError`。rxgj FULL，不是完整 plat |
+| LIVE | R0=1206 R1=0 LR=`0x01e8edf3` **REAL_EXECUTED** |
+| confidence | 本次 1206 CONFIRMED |
+
+### table[26] mr_printf（subset）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[26] = asm_mr_printf`；`aex_t026` `format_arm(..., first_arg=1)`，返回 0 |
+| flymrp | literals / `%d` / `%s` / optional width。不调用 host printf |
+| LIVE | `SDK%s%dv%d%s)` 与 `SDKv%d.%d.%d.%2d(%dv%d%s)` **REAL_EXECUTED** |
+| confidence | LIVE subset CONFIRMED。不是完整 libc printf |
+
+### table[42] mr_info（BLOCKED）
+
+| 字段 | 值 |
+|---|---|
+| source | `_mr_c_function_table[42] = asm_mr_info`；`int32 mr_info(const char *filename)` |
+| 返回 | `MR_IS_FILE=1` / `MR_IS_DIR=2` / `MR_IS_INVALID=8` |
+| LIVE | R0=`0x01eb0884` name=`dbglog.txt` stub=`0x000100a8` LR=`0x01ea7aaf` |
+| 注意 | rxgj：当前 MRP 内条目不是已安装 EFS，不能报 `MR_IS_FILE` 以免跳过解包 |
+| confidence | 身份 CONFIRMED。实现未落地 |
 
 ---
 

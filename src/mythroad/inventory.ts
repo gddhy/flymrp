@@ -111,4 +111,10 @@ export const IMPLEMENTED_C = [
   // Valid flymrp bump allocations are retired from the live registry.
   // Address reuse / origin_mem free-list coalescing is not implemented.
   "mr_table/1/mr_free/registry-only",
+  // rxgj FULL gb16 metrics. Generated glyphs, not gb16.uc2.
+  "mr_table/30/mr_getCharBitmap",
+  // rxgj FULL: mr_plat(1206) → MR_CHINESE (1000). Not the full plat table.
+  "mr_table/37/mr_plat/1206",
+  // rxgj FULL mr_printf: literals + %d + %s. Return 0.
+  "mr_table/26/mr_printf",
 ] as const;

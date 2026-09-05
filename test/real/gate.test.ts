@@ -53,8 +53,8 @@ describe("5-C.1 compatibility gate", () => {
     expect(r.inspect?.format).toBe("MRPG");
     expect(r.inspect?.entry).toBe("start.mr");
     expect(r.startup).toBe("fail");
-    expect(r.failure?.message).toMatch(/UNKNOWN_REQUIRED_SLOT = 30/);
-    expect(r.nativeAbi.unknown.some((e) => e.family === "mr_table" && e.code === 30)).toBe(true);
+    expect(r.failure?.message).toMatch(/UNKNOWN_REQUIRED_SLOT = 42/);
+    expect(r.nativeAbi.unknown.some((e) => e.family === "mr_table" && e.code === 42)).toBe(true);
   });
 
   it("unknown bytes do not become a fake app pass", () => {

@@ -37,6 +37,12 @@ export const MR_FONT_SMALL = 0;
 export const MR_FONT_MEDIUM = 1;
 export const MR_FONT_BIG = 2;
 
+/** rxgj `mrporting.h`. Language / plat query return base. */
+export const MR_PLAT_VALUE_BASE = 1000;
+export const MR_CHINESE = MR_PLAT_VALUE_BASE;
+/** `mr_plat` code: get handset language. */
+export const MR_GET_HANDSET_LG = 1206;
+
 export const MR_FLAGS_BI = 1;
 export const MR_FLAGS_AI = 2;
 export const MR_FLAGS_RI = 4;

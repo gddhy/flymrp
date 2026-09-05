@@ -57,18 +57,18 @@ export const POST_INFLATE = {
   table30Blx: 0x01eaadaa,
   table30Lr: 0x01eaadad,
   table30Fn: 0x01eaad6c,
-  hitCount: 3549,
+  hitCount: 3554,
   table0: 43,
   table1: 40,
   table3: 3440,
   table3Inflate: 3432,
   table1Teardown: 37,
   slotRle:
-    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30",
+    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42",
   liveAllocs: 2,
   mrAllocs: 44,
-  bump: 0x00215058,
-  blockerCategory: "EXT_ABI" as BlockerCategory,
+  bump: 0x00215078,
+  blockerCategory: "FILE" as BlockerCategory,
 } as const;
 
 export type NativeRec = {
@@ -532,7 +532,6 @@ export function runPostInflateStartup(
     run.lastInside !== null &&
     run.lastInside.pc >= POST_INFLATE.inflatePop - 4 &&
     run.lastInside.pc <= POST_INFLATE.inflatePop + 2 &&
-    run.unknownSlot === 30 &&
     run.table30 !== null &&
     !inInflateFn(run.table30.lr);
 
@@ -548,7 +547,11 @@ export function runPostInflateStartup(
     luaResume: run.lua.resumed ? ("PASS" as GateStatus) : ("NOT REACHED" as GateStatus),
     stage5cComplete: false,
     recommendStage5d: false,
-    blocker: run.unknownSlot === 30 ? "table[30] mr_getCharBitmap" : run.thrown || "(none)",
+    blocker: run.unknownSlot === 42
+      ? "table[42] mr_info"
+      : run.unknownSlot === 30
+        ? "table[30] mr_getCharBitmap"
+        : run.thrown || "(none)",
     category: POST_INFLATE.blockerCategory,
   };
   if (

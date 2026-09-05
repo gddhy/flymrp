@@ -80,6 +80,78 @@ export function guestSprintf(
   });
 }
 
+/**
+ * Guest-aware `mr_printf` subset: literals, `%d`, `%s`.
+ * `%s` reads a guest C string. Does not call host printf/sprintf.
+ * Returns the formatted bytes (excluding NUL), matching mpaland length.
+ */
+export function guestPrintf(
+  mem: GuestMemory,
+  format: number,
+  nextVararg: SprintfVararg,
+  maxOut = 1024,
+): string {
+  const fmt = format >>> 0;
+  let out = "";
+  let vi = 0;
+  for (let i = 0; i < SPRINTF_FORMAT_MAX; i++) {
+    const ch = mem.read8((fmt + i) >>> 0) & 0xff;
+    if (ch === 0) return out;
+    if (ch !== 0x25) {
+      out += String.fromCharCode(ch);
+      if (out.length >= maxOut) return out.slice(0, maxOut);
+      continue;
+    }
+    i++;
+    if (i >= SPRINTF_FORMAT_MAX) unsupported("%");
+    let width = 0;
+    let spec = mem.read8((fmt + i) >>> 0) & 0xff;
+    while (spec >= 0x30 && spec <= 0x39) {
+      width = width * 10 + (spec - 0x30);
+      i++;
+      if (i >= SPRINTF_FORMAT_MAX) unsupported("%");
+      spec = mem.read8((fmt + i) >>> 0) & 0xff;
+    }
+    if (spec === 0) unsupported("%");
+    let piece = "";
+    if (spec === 0x64) {
+      piece = int32Decimal(nextVararg(vi++));
+    } else if (spec === 0x73) {
+      const p = nextVararg(vi++) >>> 0;
+      if (p) {
+        for (let k = 0; k < 256; k++) {
+          const b = mem.read8((p + k) >>> 0) & 0xff;
+          if (b === 0) break;
+          piece += String.fromCharCode(b);
+        }
+      }
+    } else {
+      unsupported(`%${spec >= 0x20 && spec < 0x7f ? String.fromCharCode(spec) : spec.toString(16)}`);
+    }
+    if (width > piece.length) piece = piece.padStart(width, " ");
+    out += piece;
+    if (out.length >= maxOut) return out.slice(0, maxOut);
+  }
+  throw new UnknownAbiError("unterminated sprintf format", {
+    family: "mr_printf",
+    code: "format",
+    caller: "ext",
+  });
+}
+
+/** AAPCS vararg #n for `mr_printf`: 0→R1, 1→R2, 2→R3, 3+→stack. */
+export function aapcsPrintfVararg(args: Uint32Array, index: number): number {
+  const slot = index + 1;
+  if (slot < 0 || slot >= args.length) {
+    throw new UnknownAbiError(`printf vararg ${index} out of AAPCS window`, {
+      family: "mr_printf",
+      code: index,
+      caller: "ext",
+    });
+  }
+  return args[slot]! >>> 0;
+}
+
 /** AAPCS vararg #n: 0→R2, 1→R3, 2+→[SP+(n-2)*4] via `readAapcs` slots 2..7. */
 export function aapcsSprintfVararg(args: Uint32Array, index: number): number {
   const slot = index + 2;
