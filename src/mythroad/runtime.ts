@@ -17,7 +17,7 @@ import {
   type RuntimeAction,
 } from "./constants.ts";
 import { EV_CUSTOM, EV_KEY, EV_SYSTEM, EV_TIMER, EventQueue, type RuntimeEvent } from "./events.ts";
-import { NullGraphicsBackend, type BitmapSlot, type GraphicsBackend, type SpriteSlot, type TileSlot } from "./graphics.ts";
+import { NullGraphicsBackend, ScreenBuffer, type BitmapSlot, type GraphicsBackend, type SpriteSlot, type TileSlot } from "./graphics.ts";
 import { InputBackend } from "./input.ts";
 import { installNatives } from "./native.ts";
 import {
@@ -87,6 +87,7 @@ export class MythroadRuntime {
   bi = 0;
   screenW: number;
   screenH: number;
+  screen: ScreenBuffer;
   randSeed: number;
   gcCalls = 0;
   gcThreshold = 0;
@@ -128,6 +129,7 @@ export class MythroadRuntime {
     this.input = new InputBackend(this.events);
     this.screenW = this.profile.width;
     this.screenH = this.profile.height;
+    this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
     this.entry = opts.entry ?? "_dsm";
     this.param = opts.param ?? "";
@@ -306,6 +308,10 @@ export class MythroadRuntime {
       getClock: () => this.clock,
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
       getProfile: () => this.profile,
+      getScreen: () => this.screen,
+      onDrawRect: (x, y, w, h, r, g, b) => this.gfx.drawRect(x, y, w, h, r, g, b),
+      onDrawText: (text, x, y, r, g, b, unicode, font) => this.gfx.drawText(text, x, y, r, g, b, unicode, font),
+      onFlush: (x, y, w, h) => this.gfx.flush(x, y, w, h, 0),
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
       onUnknownAbi: (info) => {

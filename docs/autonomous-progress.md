@@ -24,7 +24,7 @@
 | 26 | mr_printf | PARTIAL | literals / `%d` / `%s` / width |
 | 30 | mr_getCharBitmap | PARTIAL | gb16 metrics CONFIRMED；glyphs generated, not UC2 |
 | 33 | mr_getTime | SUPPORTED | `runtime.clock >>> 0` |
-| 37 | mr_plat | PARTIAL | only code 1206 → `MR_CHINESE` 1000 |
+| 37 | mr_plat | PARTIAL | 1206 → `MR_CHINESE`; 1205 CHECK_TOUCH **BLOCKED** |
 | 40/44/45/41 | file | PARTIAL | current-pack RDONLY alias |
 | 42 | mr_info | PARTIAL | pack name → IS_FILE；其它含 archive member → IS_INVALID |
 | 49 | mr_mkDir | PARTIAL | in-memory EFS dir; not IndexedDB |
@@ -35,10 +35,14 @@
 | 18 | atoi2 | SUPPORTED | rxgj `atol2`; no whitespace / plus |
 | 35 | mr_getUserInfo | PARTIAL | flymrp DeviceProfile fill; not a real IMEI |
 | 38 | mr_platEx | PARTIAL | 0x4c6 SUCCESS; 1204 Y/Z/X/A/B/C work-path; not full platEx |
-| 122 | DrawRect | BLOCKED | LIVE `DrawRect(0,0,0,0,0,0,0)`; 7-arg AAPCS |
+| 122 | DrawRect | PARTIAL | RGB565 clip-fill; LIVE zero-size black rect |
 | 61 | mr_getNetworkID | PARTIAL | always `MR_NET_ID_MOBILE`; not a real radio |
 | 100 | pack_filename | SUPPORTED | 128-byte data slot |
 | 125 | readFile | SUPPORTED | VFS member |
+| 123 | DrawText | PARTIAL | generated gb16; LIVE unicode=1 white text at (88,160) |
+| 29 | mr_drawBitmap | PARTIAL | NULL = present host ScreenBuffer; LIVE twice |
+| 78 | mr_winCreate | PARTIAL | rxgj FULL `MR_IGNORE`; no window object |
+| 79 | mr_winRelease | PARTIAL | rxgj FULL `MR_IGNORE`; not LIVE yet |
 | 130 | TestCom | PARTIAL | case 7 only |
 
 ### other
@@ -47,12 +51,12 @@
 |---|---|
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
 | Lua resume after `arm_ext_call(0)` | BLOCKED |
-| graphics | BLOCKED | table[122] DrawRect reached in startup |
+| graphics | PARTIAL | 1 rect + 1 text + 2 presents; no Canvas backend yet |
 | timer / event / input | DEFERRED until Lua resumes |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
-| `table[122]` DrawRect | BLOCKED |
+| `mr_plat(1205)` CHECK_TOUCH | BLOCKED |
 
 ---
 
@@ -67,9 +71,11 @@
 | sprintf `%d` only | LIVE `res_lang%d.rc` | `%s` / width | only one production sprintf so far | new format → `UnknownAbiError` |
 | platEx 0x4c6 + SWITCHPATH | 0x4c6 SUCCESS; Y/Z/X/A/B/C work-path | other platEx codes | LIVE Y then B:/mythroad/ then c:/mythroad/ | later 1014 SCRRAM / other codes |
 | DSM work path | in-memory `dsmWorkPath`; Y writes guest `c:/mythroad/` | host FS / IndexedDB mapping | current-pack open still uses pack name | later `B:` prefixed mr_open |
-| plat 1206 only | `MR_CHINESE` | other plat codes | only 1206 observed | later device queries |
+| plat 1206 only | `MR_CHINESE` | other plat codes including 1205 | 1206 observed before CHECK_TOUCH | 1205 is now the production blocker |
 | printf subset | `%d` `%s` width | `%x` flags precision | LIVE SDK formats covered | new specifier stops |
 | generated gb16 glyphs | metrics + packed bits | real `gb16.uc2` / `gb12.uc2` | width/height CONFIRMED; pixels not claimed pixel-perfect | text drawing will not match device |
+| NULL `mr_drawBitmap` | present host RGB565 cache | guest-mapped `mr_screenBuf` | guest draws via DrawRect/DrawText into host cache | later apps that pass a guest bmp pointer |
+| winCreate/Release IGNORE | return `MR_IGNORE` | window objects / focus | rxgj FULL `dsm.c` same | GUI-heavy apps |
 | flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
 | getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
 
@@ -207,16 +213,46 @@ hits               3731
 handles            1, 2, 3, 4
 ```
 
-**commit:** Implement confirmed platEx MR_SWITCHPATH query
+**commit:** `7a79f0f` Implement confirmed platEx MR_SWITCHPATH query
+
+---
+
+### 2026-09-05 — DrawRect / DrawText / drawBitmap / winCreate
+
+**starting blocker:** `table[122]` `DrawRect(0,0,0,0,0,0,0)`
+
+**analysis:**
+
+* rxgj `DrawRect` clips and fills RGB565 `MR_SCREEN_CACHE`. 7-arg AAPCS. LIVE is a zero-size black rect.
+* `DrawText` LIVE: unicode=1 font=0 white at `(88,160)`, BE UTF-16 + U+2026. Glyphs are generated gb16, not `gb16.uc2`.
+* `mr_drawBitmap` LIVE twice: `bmp=NULL, (0,0,240,h)`. Guest has no mapped `mr_screenBuf`; NULL presents the host cache.
+* `mr_winCreate` LIVE; rxgj `dsm.c` / `aex_t078` → `MR_IGNORE`. Same for `winRelease`.
+
+**implementation:** host RGB565 `ScreenBuffer`; DrawRect/DrawText/drawBitmap/winCreate/winRelease. Lua `_drawRect`/`_clearScr`/`_drawText` share the same buffer.
+
+**tests:** `test/real/drawrect-122-abi.test.ts`, `drawtext-123-abi.test.ts`, `drawbitmap-29-abi.test.ts`, `wincreate-78-abi.test.ts`; real `app.mrp` rerun.
+
+**real-run:**
+
+```text
+previous blocker   table[122] DrawRect
+new blocker        mr_plat(1205) MR_CHECK_TOUCH
+ARM insn           1,412,903
+Lua insn           71
+hits               3739
+graphicsCommands   4  (1 rect + 1 text + 2 flush)
+handles            1, 2, 3, 4
+```
+
+**commit:** Support DrawRect, DrawText, and bitmap present
 
 ## Current blocker
 
 ```text
-table[122]  asm_DrawRect
-LIVE        DrawRect(0, 0, 0, 0, 0, 0, 0)
-            r0-r3 = 0; [sp]/[sp+4]/[sp+8] = 0
-PC=0x000101e8  LR=0x01ea6e11
-category    GRAPHICS
+mr_plat(1205)  MR_CHECK_TOUCH
+LIVE           mr_plat(1205, 0)
+PC=0x00010094  LR=0x01ea88e7  R0=1205  R1=0
+category       PLATFORM
 ```
 
-rxgj `DrawRect(int16 x,y,w,h, uint8 r,g,b)` clips and fills `MR_SCREEN_CACHE` RGB565. Zero-size is a no-op in source but the ABI must exist. 7-arg AAPCS. Do not skip guest framebuffer semantics.
+rxgj `dsm.c` `case MR_CHECK_TOUCH: return MR_TOUCH_SCREEN;` (`1001`). Host-policy fork vs `MR_NORMAL_SCREEN` (`1000`). Mark as rxgj FULL, not universal Mythroad.

@@ -1,3 +1,74 @@
+/** rxgj `MAKERGB` / `MAKERGB565`: R5 G6 B5. */
+export function makeRgb565(r: number, g: number, b: number): number {
+  return ((((r >>> 3) & 0x1f) << 11) | (((g >>> 2) & 0x3f) << 5) | ((b >>> 3) & 0x1f)) & 0xffff;
+}
+
+export function asI16(v: number): number {
+  return (v << 16) >> 16;
+}
+
+/**
+ * Mythroad `mr_screenBuf` RGB565 cache.
+ * Host-owned screen memory, not a guest heap pointer.
+ */
+export class ScreenBuffer {
+  pixels: Uint16Array;
+
+  constructor(
+    readonly width: number,
+    readonly height: number,
+  ) {
+    this.pixels = new Uint16Array(width * height);
+  }
+
+  /**
+   * rxgj `DrawRect`: clip to screen, fill RGB565.
+   * Zero-size or fully off-screen is a no-op (`MR_SUCCESS`).
+   */
+  drawRect(x: number, y: number, w: number, h: number, r: number, g: number, b: number): void {
+    const x0 = asI16(x);
+    const y0 = asI16(y);
+    const w0 = asI16(w);
+    const h0 = asI16(h);
+    const minX = Math.max(0, x0);
+    const minY = Math.max(0, y0);
+    const maxX = Math.min(this.width, x0 + w0);
+    const maxY = Math.min(this.height, y0 + h0);
+    if (maxY <= minY || maxX <= minX) return;
+    const color = makeRgb565(r & 0xff, g & 0xff, b & 0xff);
+    for (let yy = minY; yy < maxY; yy++) {
+      const row = yy * this.width;
+      for (let xx = minX; xx < maxX; xx++) this.pixels[row + xx] = color;
+    }
+  }
+
+  /**
+   * Blit a sky16-style glyph: 16 rows × 2 bytes, MSB-first.
+   * Not pixel-identical to device `gb16.uc2`.
+   */
+  drawGlyph(x: number, y: number, width: number, height: number, bits: Uint8Array, r: number, g: number, b: number): void {
+    const color = makeRgb565(r & 0xff, g & 0xff, b & 0xff);
+    const x0 = asI16(x);
+    const y0 = asI16(y);
+    const w = width | 0;
+    const h = height | 0;
+    for (let gy = 0; gy < h; gy++) {
+      const py = y0 + gy;
+      if (py < 0 || py >= this.height) continue;
+      const hi = bits[gy * 2] ?? 0;
+      const lo = bits[gy * 2 + 1] ?? 0;
+      const row = ((hi << 8) | lo) & 0xffff;
+      const dest = py * this.width;
+      for (let gx = 0; gx < w; gx++) {
+        if ((row & (0x8000 >> gx)) === 0) continue;
+        const px = x0 + gx;
+        if (px < 0 || px >= this.width) continue;
+        this.pixels[dest + px] = color;
+      }
+    }
+  }
+}
+
 export type DrawCommand =
   | { op: "clear"; r: number; g: number; b: number }
   | { op: "rect"; x: number; y: number; w: number; h: number; r: number; g: number; b: number }

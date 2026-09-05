@@ -135,4 +135,12 @@ export const IMPLEMENTED_C = [
   "mr_table/18/atoi2",
   // Guest strcat including NUL. Returns dest.
   "mr_table/7/strcat2",
+  // RGB565 clip-fill. Void ABI returns MR_SUCCESS.
+  "mr_table/122/DrawRect",
+  // Generated gb16 glyphs. Not device UC2. Return 0.
+  "mr_table/123/DrawText/generated-gb16",
+  // NULL bmp presents host RGB565 cache.
+  "mr_table/29/mr_drawBitmap/host-present",
+  // rxgj FULL: mr_winCreate / mr_winRelease → MR_IGNORE.
+  "mr_table/78/mr_winCreate/MR_IGNORE",
 ] as const;

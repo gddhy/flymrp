@@ -2,7 +2,7 @@
 
 Browser-native Mythroad MRP runtime.
 
-当前：guest inflate 完成；platEx 1204 SWITCHPATH **REAL_EXECUTED**。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**（blocker=`table[122]` `DrawRect`）。见 `docs/autonomous-progress.md`。  
+当前：guest inflate 完成；DrawRect/DrawText/drawBitmap/winCreate **REAL_EXECUTED**。`arm_ext_call(0)` / Lua 未恢复。Stage 5-C **NOT COMPLETE**（blocker=`mr_plat(1205)` `MR_CHECK_TOUCH`）。见 `docs/autonomous-progress.md`。  
 Stage 5-C.10R：生产 watchdog 下 guest inflate 完整完成；输出 SHA-256 与 reference gunzip 一致。当时停在 `table[30]`。见 `docs/stage5c10r-progress.md`。  
 Stage 5-C.10Q：guest inflate 在 ARM/Thumb 内完成（1,404,897 insn）。可配置 ARM watchdog 默认 2e6 / 上限 20e6。当时生产停在 `table[30]`。见 `docs/stage5c10q-progress.md`。  
 Stage 5-C.10P：实现 `table[9]` `memcmp2`（unsigned char，精确 `*su1-*su2`，early exit）。当时 LIVE gzip magic `1F 8B` equal，生产停在 ARM insn budget。见 `docs/stage5c10p-progress.md`。  

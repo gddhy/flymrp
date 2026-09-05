@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import { EXT_STOP_ADDR, stackTop, tableSlotAddr } from "../../src/abi/layout.ts";
+import { ExtRuntime } from "../../src/abi/runtime.ts";
+import { ExtStopKind } from "../../src/abi/fault.ts";
+import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
+import { makeRgb565, MrTableBridge } from "../../src/mythroad/index.ts";
+import { MythroadVfs } from "../../src/mythroad/vfs.ts";
+
+function wire() {
+  const ext = new ExtRuntime();
+  const flushed: number[][] = [];
+  const bridge = new MrTableBridge(ext, new MythroadVfs(), "test", {
+    onFlush: (x, y, w, h) => flushed.push([x, y, w, h]),
+  });
+  bridge.install();
+  return { ext, bridge, flushed };
+}
+
+function call29(ext: ExtRuntime, bmp: number, x: number, y: number, w: number, h: number) {
+  const sp = (stackTop() - 16) >>> 0;
+  ext.mem.write32(sp, h >>> 0);
+  return ext.runGuest(tableSlotAddr(29), {
+    r0: bmp,
+    r1: x,
+    r2: y,
+    r3: w,
+    sp,
+    lr: EXT_STOP_ADDR,
+  });
+}
+
+describe("table[29] mr_drawBitmap ABI", () => {
+  it("NULL bmp presents the host screen cache", () => {
+    const { ext, flushed } = wire();
+    const out = call29(ext, 0, 0, 0, 240, 320);
+    expect(out.kind).toBe(ExtStopKind.Return);
+    expect(out.r0).toBe(MR_SUCCESS);
+    expect(flushed).toEqual([[0, 0, 240, 320]]);
+  });
+
+  it("non-NULL guest RGB565 is copied then presented", () => {
+    const { ext, bridge, flushed } = wire();
+    const bmp = ext.alloc(4);
+    const red = makeRgb565(255, 0, 0);
+    ext.mem.write16(bmp, red);
+    ext.mem.write16((bmp + 2) >>> 0, red);
+    const out = call29(ext, bmp, 1, 2, 2, 1);
+    expect(out.kind).toBe(ExtStopKind.Return);
+    expect(bridge.screen.pixels[2 * 240 + 1]).toBe(red);
+    expect(bridge.screen.pixels[2 * 240 + 2]).toBe(red);
+    expect(flushed).toEqual([[1, 2, 2, 1]]);
+  });
+});

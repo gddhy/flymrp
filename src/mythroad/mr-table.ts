@@ -4,6 +4,7 @@ import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { AppFileSystem } from "./app-fs.ts";
 import { MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS, MR_SWITCHPATH } from "./constants.ts";
+import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
 import { defaultProfile, type DeviceProfile } from "./profile.ts";
@@ -111,6 +112,8 @@ export class MrTableBridge {
   switchPathAddr = 0;
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
   workPath = MYTHROAD_WORK_PATH;
+  /** Isolated-test screen when `hooks.getScreen` is absent. */
+  screen = new ScreenBuffer(240, 320);
   /**
    * Isolated-test clock when `hooks.getClock` is absent.
    * Production always reads `MythroadRuntime.clock` via `getClock`.
@@ -128,6 +131,10 @@ export class MrTableBridge {
       getClock?: () => number;
       getPack?: () => PackFileSource | null;
       getProfile?: () => DeviceProfile;
+      getScreen?: () => ScreenBuffer;
+      onDrawRect?: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => void;
+      onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
+      onFlush?: (x: number, y: number, w: number, h: number) => void;
       onUnknownAbi?: (info: { family: string; code: number; message: string }) => void;
     } = {},
   ) {
@@ -164,6 +171,11 @@ export class MrTableBridge {
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(35, (_cpu, mem, args) => this.getUserInfo(mem, args[0]! >>> 0));
     this.ext.registerHandler(61, (_cpu, _mem, _args) => this.getNetworkID());
+    this.ext.registerHandler(122, (_cpu, _mem, args) => this.drawRect(args));
+    this.ext.registerHandler(123, (_cpu, mem, args) => this.drawText(mem, args));
+    this.ext.registerHandler(29, (_cpu, mem, args) => this.drawBitmap(mem, args));
+    this.ext.registerHandler(78, (_cpu, _mem, _args) => this.winCreate());
+    this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -348,6 +360,125 @@ export class MrTableBridge {
     return `c:/${this.workPath}`;
   }
 
+  /**
+   * table[122] = `asm_DrawRect` = `DrawRect`.
+   * C: `void DrawRect(int16 x, int16 y, int16 w, int16 h, uint8 r, uint8 g, uint8 b)`.
+   * AAPCS: r0-r3 = x,y,w,h; [sp]/[sp+4]/[sp+8] = r,g,b.
+   * Fills the RGB565 screen cache. Return is `MR_SUCCESS` (void ABI, r0 unused).
+   */
+  drawRect(args: Uint32Array): number {
+    const x = args[0]! | 0;
+    const y = args[1]! | 0;
+    const w = args[2]! | 0;
+    const h = args[3]! | 0;
+    const r = args[4]! & 0xff;
+    const g = args[5]! & 0xff;
+    const b = args[6]! & 0xff;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    screen.drawRect(x, y, w, h, r, g, b);
+    this.hooks.onDrawRect?.(x, y, w, h, r, g, b);
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[123] = `asm_DrawText` = `_DrawText`.
+   * C: `int32 _DrawText(char *text, int16 x, int16 y, uint8 r,g,b, int is_unicode, uint16 font)`.
+   * LIVE: unicode=1, font=0, white text at (88,160).
+   * Glyphs are generated gb16, not device UC2. Return is 0.
+   */
+  drawText(mem: GuestMemory, args: Uint32Array): number {
+    const text = args[0]! >>> 0;
+    if (!text) return 0;
+    const x = args[1]! | 0;
+    const y = args[2]! | 0;
+    const r = args[3]! & 0xff;
+    const g = args[4]! & 0xff;
+    const b = args[5]! & 0xff;
+    const unicode = args[6]! | 0;
+    const font = args[7]! & 0xffff;
+    void font;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    let preview = "";
+    let chx = asI16(x);
+    const chy = asI16(y);
+    if (unicode) {
+      for (let off = 0; off < 512; off += 2) {
+        const ch = ((mem.read8((text + off) >>> 0) << 8) | mem.read8((text + off + 1) >>> 0)) & 0xffff;
+        if (!ch) break;
+        preview += String.fromCharCode(ch);
+        const glyph = gb16Glyph(ch);
+        screen.drawGlyph(chx, chy, glyph.width, glyph.height, glyph.bits, r, g, b);
+        chx += glyph.width;
+      }
+    } else {
+      preview = readGuestCString(mem, text);
+      let i = 0;
+      while (i < preview.length) {
+        const b0 = preview.charCodeAt(i) & 0xff;
+        let ch = b0;
+        if (b0 >= 128 && i + 1 < preview.length) {
+          ch = ((b0 << 8) | (preview.charCodeAt(i + 1) & 0xff)) & 0xffff;
+          i += 2;
+        } else {
+          i += 1;
+        }
+        if (!ch) break;
+        const glyph = gb16Glyph(ch);
+        screen.drawGlyph(chx, chy, glyph.width, glyph.height, glyph.bits, r, g, b);
+        chx += glyph.width;
+      }
+    }
+    this.hooks.onDrawText?.(preview, asI16(x), chy, r, g, b, unicode ? 1 : 0, font);
+    return 0;
+  }
+
+  /**
+   * table[29] = `asm_mr_drawBitmap` = `mr_drawBitmap`.
+   * C: `void mr_drawBitmap(uint16 *bmp, int16 x, int16 y, uint16 w, uint16 h)`.
+   * LIVE: bmp=NULL, (0,0,240,h) — guest `mr_screenBuf` is the host RGB565 cache,
+   * so NULL presents that cache (not a silent success with no frame).
+   * Non-NULL copies guest RGB565 then presents.
+   */
+  drawBitmap(mem: GuestMemory, args: Uint32Array): number {
+    const bmp = args[0]! >>> 0;
+    const x = asI16(args[1]!);
+    const y = asI16(args[2]!);
+    const w = args[3]! & 0xffff;
+    const h = args[4]! & 0xffff;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    if (bmp) {
+      const maxW = Math.min(w, Math.max(0, screen.width - Math.max(x, 0)));
+      const maxH = Math.min(h, Math.max(0, screen.height - Math.max(y, 0)));
+      for (let row = 0; row < maxH; row++) {
+        const dy = y + row;
+        if (dy < 0 || dy >= screen.height) continue;
+        for (let col = 0; col < maxW; col++) {
+          const dx = x + col;
+          if (dx < 0 || dx >= screen.width) continue;
+          screen.pixels[dy * screen.width + dx] = mem.read16((bmp + (row * w + col) * 2) >>> 0);
+        }
+      }
+    }
+    this.hooks.onFlush?.(x, y, w, h);
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[78] = `mr_winCreate`. rxgj `dsm.c` / `aex_t078` return `MR_IGNORE`.
+   * No host window. Not a GUI implementation.
+   */
+  winCreate(): number {
+    return MR_IGNORE;
+  }
+
+  /**
+   * table[79] = `mr_winRelease`. rxgj `dsm.c` / `aex_t079` return `MR_IGNORE`.
+   */
+  winRelease(win: number): number {
+    void win;
+    return MR_IGNORE;
+  }
+
   switchPathQuery(mem: GuestMemory, output: number, outputLen: number): number {
     const path = this.formatSwitchPathY();
     if (!this.switchPathAddr) this.switchPathAddr = this.ext.alloc(DSM_SWITCHPATH_BUF);
@@ -371,7 +502,9 @@ export class MrTableBridge {
       void param;
       return MR_CHINESE;
     }
-    throw new UnknownAbiError(`unsupported mr_plat code ${code}`, {
+    const message = `unsupported mr_plat code ${code}`;
+    this.hooks.onUnknownAbi?.({ family: "mr_plat", code, message });
+    throw new UnknownAbiError(message, {
       family: "mr_plat",
       code,
       caller: "ext",

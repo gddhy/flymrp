@@ -677,6 +677,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
   const unknownSlot = thrown instanceof UnknownAbiError && thrown.family === "mr_table" ? Number(thrown.code) : null;
   const platEx =
     thrown instanceof UnknownAbiError && thrown.family === "mr_platEx" ? thrown : null;
+  const plat =
+    thrown instanceof UnknownAbiError && thrown.family === "mr_plat" ? thrown : null;
   const ctx = lastCtx ?? {
     slot: unknownSlot,
     cpu: emptyCpu(),
@@ -725,6 +727,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           subtype: platEx.message,
           kind: "UNKNOWN_PLATEX",
         })
+    : plat
+      ? faultFromCtx({ ...ctx, slot: 37 }, {
+          guestEntered,
+          loadBlxTaken,
+          site: "arm_ext_call.table",
+          classification: "ABI",
+          subtype: plat.message,
+          kind: "UNKNOWN_PLAT",
+        })
     : budget
       ? faultFromCtx(faultCtx, {
           guestEntered,
@@ -766,6 +777,8 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
         ? `STOP: table[${unknownSlot}] — not implemented this stage`
         : platEx
           ? `STOP: ${platEx.message}`
+        : plat
+          ? `STOP: ${plat.message}`
         : budget
           ? "STOP: ARM insn watchdog during guest inflate after memcmp2"
           : "",
@@ -779,13 +792,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
         ? "strict first fault after memset: ARM_INSN_BUDGET during arm_ext_call(0) guest inflate"
         : platEx
           ? `strict first fault after memset: ${platEx.message} during arm_ext_call(0)`
+        : plat
+          ? `strict first fault after memset: ${plat.message} during arm_ext_call(0)`
         : `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[9] memcmp2 is implemented; guest gzip/inflate completes; table[30]/[37]/[26]/[42]/[49]/[5]/[35]/[61]/[15]/[6]/[18]/[7] and platEx 1204 SWITCHPATH are REAL_EXECUTED; next is table[122] DrawRect",
+      "table[9] memcmp2 is implemented; guest gzip/inflate completes; DrawRect/DrawText/drawBitmap/winCreate are REAL_EXECUTED; next is mr_plat(1205) MR_CHECK_TOUCH",
       "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41] current-pack RDONLY file ABI is implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],

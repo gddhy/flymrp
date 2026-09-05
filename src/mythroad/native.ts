@@ -22,6 +22,7 @@ import {
   TILEMAX,
 } from "./constants.ts";
 import { persistRoot, unpersistRoot } from "./persist.ts";
+import { gb16Glyph } from "./font.ts";
 import { lcgNext } from "./profile.ts";
 import type { MythroadRuntime } from "./runtime.ts";
 
@@ -226,6 +227,12 @@ function makeDrawText(rt: MythroadRuntime): NativeFunction {
     const b = L.optNumber(6, 0) | 0;
     const uni = L.optNumber(7, 0) ? 1 : 0;
     const font = L.optNumber(8, MR_FONT_MEDIUM) | 0;
+    let chx = x;
+    for (let i = 0; i < text.length; i++) {
+      const glyph = gb16Glyph(text.charCodeAt(i));
+      rt.screen.drawGlyph(chx, y, glyph.width, glyph.height, glyph.bits, r, g, b);
+      chx += glyph.width;
+    }
     rt.gfx.drawText(text, x, y, r, g, b, uni, font);
     return 0;
   };
@@ -233,22 +240,26 @@ function makeDrawText(rt: MythroadRuntime): NativeFunction {
 
 function makeDrawRect(rt: MythroadRuntime): NativeFunction {
   return (L) => {
-    rt.gfx.drawRect(
-      L.optNumber(1, 0) | 0,
-      L.optNumber(2, 0) | 0,
-      L.optNumber(3, 0) | 0,
-      L.optNumber(4, 0) | 0,
-      L.optNumber(5, 0) | 0,
-      L.optNumber(6, 0) | 0,
-      L.optNumber(7, 0) | 0,
-    );
+    const x = L.optNumber(1, 0) | 0;
+    const y = L.optNumber(2, 0) | 0;
+    const w = L.optNumber(3, 0) | 0;
+    const h = L.optNumber(4, 0) | 0;
+    const r = L.optNumber(5, 0) | 0;
+    const g = L.optNumber(6, 0) | 0;
+    const b = L.optNumber(7, 0) | 0;
+    rt.screen.drawRect(x, y, w, h, r, g, b);
+    rt.gfx.drawRect(x, y, w, h, r, g, b);
     return 0;
   };
 }
 
 function makeClear(rt: MythroadRuntime): NativeFunction {
   return (L) => {
-    rt.gfx.clear(L.optNumber(1, 0) | 0, L.optNumber(2, 0) | 0, L.optNumber(3, 0) | 0);
+    const r = L.optNumber(1, 0) | 0;
+    const g = L.optNumber(2, 0) | 0;
+    const b = L.optNumber(3, 0) | 0;
+    rt.screen.drawRect(0, 0, rt.screenW, rt.screenH, r, g, b);
+    rt.gfx.clear(r, g, b);
     return 0;
   };
 }

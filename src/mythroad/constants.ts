@@ -44,8 +44,10 @@ export const MR_PLAT_VALUE_BASE = 1000;
 export const MR_CHINESE = MR_PLAT_VALUE_BASE;
 /** `mr_plat` code: get handset language. */
 export const MR_GET_HANDSET_LG = 1206;
-/** `mr_platEx` switch/query DSM work path. Not implemented yet. */
+/** `mr_platEx` switch/query DSM work path. */
 export const MR_SWITCHPATH = 1204;
+/** `mr_plat` code: query touch screen. */
+export const MR_CHECK_TOUCH = 1205;
 
 /** rxgj `mrporting.h` network ID. First enumerator is 0. */
 export const MR_NET_ID_MOBILE = 0;
