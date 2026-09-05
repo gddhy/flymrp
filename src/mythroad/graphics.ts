@@ -340,3 +340,73 @@ export class NullGraphicsBackend implements GraphicsBackend {
     }
   }
 }
+
+/** 5-bit / 6-bit channel → 8-bit. Not claimed pixel-identical to a device LCD. */
+export function rgb565ToRgba(src: Uint16Array, dst: Uint8ClampedArray): void {
+  if (dst.length < src.length * 4) throw new RangeError("rgba buffer too small");
+  for (let i = 0; i < src.length; i++) {
+    const p = src[i]! & 0xffff;
+    const r5 = (p >>> 11) & 0x1f;
+    const g6 = (p >>> 5) & 0x3f;
+    const b5 = p & 0x1f;
+    const o = i << 2;
+    dst[o] = (r5 << 3) | (r5 >>> 2);
+    dst[o + 1] = (g6 << 2) | (g6 >>> 4);
+    dst[o + 2] = (b5 << 3) | (b5 >>> 2);
+    dst[o + 3] = 255;
+  }
+}
+
+export type CanvasImageDataLike = {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+};
+
+/** Minimal Canvas2D surface. No DOM types. */
+export type Canvas2DContextLike = {
+  createImageData(width: number, height: number): CanvasImageDataLike;
+  putImageData(image: CanvasImageDataLike, dx: number, dy: number): void;
+};
+
+/**
+ * Guest RGB565 ScreenBuffer → host RGBA ImageData → putImageData.
+ * Drawing stays on the guest-visible cache; this only presents.
+ */
+export class Canvas2DBackend implements GraphicsBackend {
+  frames = 0;
+  lastImage: CanvasImageDataLike | null = null;
+
+  constructor(
+    private readonly ctx: Canvas2DContextLike,
+    private readonly getScreen: () => ScreenBuffer,
+  ) {}
+
+  clear(_r: number, _g: number, _b: number): void {}
+  drawRect(_x: number, _y: number, _w: number, _h: number, _r: number, _g: number, _b: number): void {}
+  drawLine(_x1: number, _y1: number, _x2: number, _y2: number, _r: number, _g: number, _b: number): void {}
+  drawPoint(_x: number, _y: number, _r: number, _g: number, _b: number): void {}
+  drawText(
+    _text: string,
+    _x: number,
+    _y: number,
+    _r: number,
+    _g: number,
+    _b: number,
+    _unicode: number,
+    _font: number,
+  ): void {}
+  effSetCon(_x: number, _y: number, _w: number, _h: number, _perr: number, _perg: number, _perb: number): void {}
+  image(_cmd: Extract<DrawCommand, { op: "image" }>): void {}
+  sprite(_cmd: Extract<DrawCommand, { op: "sprite" }>): void {}
+  tile(_cmd: Extract<DrawCommand, { op: "tile" }>): void {}
+
+  flush(_x: number, _y: number, _w: number, _h: number, _index: number): void {
+    const screen = this.getScreen();
+    const img = this.ctx.createImageData(screen.width, screen.height);
+    rgb565ToRgba(screen.pixels, img.data);
+    this.ctx.putImageData(img, 0, 0);
+    this.lastImage = img;
+    this.frames++;
+  }
+}

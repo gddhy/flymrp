@@ -151,4 +151,6 @@ export const IMPLEMENTED_C = [
   "mr_table/80/mr_getScreenInfo",
   // C _DrawBitmap. Guest RGB565 source. ROP from mr_helper.h enum (COPY=2).
   "mr_table/120/DrawBitmap",
+  // Guest RGB565 cache → RGBA ImageData. Not device-LCD pixel-perfect.
+  "graphics/canvas2d/rgb565-present",
 ] as const;

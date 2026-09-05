@@ -35,8 +35,10 @@ export { MythroadTimer } from "./timer.ts";
 export { EventQueue, EV_TIMER, EV_SYSTEM, EV_CUSTOM, EV_KEY } from "./events.ts";
 export {
   NullGraphicsBackend,
+  Canvas2DBackend,
   ScreenBuffer,
   makeRgb565,
+  rgb565ToRgba,
   asI16,
   DRAW_BM_COPY,
   DRAW_BM_TRANSPARENT,
@@ -44,7 +46,7 @@ export {
   DRAW_BM_XOR,
   MR_SPRITE_TRANSPARENT,
 } from "./graphics.ts";
-export type { DrawCommand, GraphicsBackend } from "./graphics.ts";
+export type { DrawCommand, GraphicsBackend, Canvas2DContextLike, CanvasImageDataLike } from "./graphics.ts";
 export { InputBackend, resolveKey } from "./input.ts";
 export { defaultProfile } from "./profile.ts";
 export type { DeviceProfile } from "./profile.ts";
