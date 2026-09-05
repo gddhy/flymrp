@@ -55,8 +55,8 @@
 |---|---|
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
 | Lua resume after `arm_ext_call(0)` | SUPPORTED on this fixture path |
-| graphics | PARTIAL | DrawRect + DrawText + DrawBitmap + present; no Canvas backend yet |
-| timer / event / input | PARTIAL | timer fire + `arm_ext_call(2)` LIVE; input reaches Lua `dealevent`, EXT reaction 未证 |
+| graphics | PARTIAL | DrawRect + DrawText + DrawBitmap + Canvas2D RGB565 present; not device-LCD pixel-perfect |
+| timer / event / input | PARTIAL | timer fire + `arm_ext_call(2)` + multi-frame PASS; FIRE → ER_RW+180 remap LIVE; splash 未因按键改像素 |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
@@ -87,6 +87,8 @@
 | timer owner not LR-range | owner = current \|\| active \|\| wrapper | full LR-range module resolve | LIVE start after AppFS uses current/wrapper | nested EXT timer callbacks |
 | generated gb16 (timer path) | metrics + packed bits | real `gb16.uc2` | startup text already used generated glyphs | later fonts |
 | C `_DrawBitmap` rop `DRAW_BM_*` | COPY/TRANSPARENT/GRAY/OR/XOR/NOT + sprite rotate | pixel-perfect device blit / `DrawBitmapEx` | LIVE blit uses guest RGB565; Lua `BM_COPY=0` is a different alias | mixing the two enums |
+| Canvas2D RGB565 present | guest cache → RGBA ImageData | dirty-rect / DOM-only backend | present is host conversion; guest pixels unchanged | assuming 5/6-bit expand matches a phone LCD |
+| this-fixture key remap | PRESS+FIRE → ER_RW+180 `0x0109` | universal Mythroad key map | LIVE gssjxz `mrc_event` write; start.mr packs `iii` 12 bytes | other apps / 20-byte `mr_c_event_st` |
 | flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
 | getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
 
@@ -386,12 +388,45 @@ Stage 5-D          STARTED
 
 **commit:** Implement confirmed DrawBitmap blit ABI
 
+---
+
+### 2026-09-05 — Canvas2D + Stage 5-D loop / input
+
+**starting blocker:** first `advance(80)+step` needed table[120]; input looked like a no-op
+
+**analysis:**
+
+* table[120] closed above. Timer `arm_ext_call(2)` draws every 80ms; 20 frames have 2 unique checksums (splash animates).
+* `start.mr` `dealevent` packs `string.pack("iii", type, p1, p2)` then `_strCom(801, d_s, 1)`.
+* `arm_ext_call(1)` 172 insns, no new table slots. Guest writes remapped key at ER_RW+180:
+  FIRE PRESS=`0x0109`, UP=`0x0103`, DOWN=`0x0102`, SOFTLEFT=`0x010A`, RELEASE=`0x00FF`.
+* Next timer frame does not change pixels. Splash stores the key; visible menu reaction 未证.
+* `primary` still 0; helper is wrapper `0x01ea5e9d`.
+
+**implementation:** `rgb565ToRgba` + `Canvas2DBackend` (guest cache → ImageData). No DOM types.
+
+**tests:** `test/mythroad/canvas2d.test.ts`; `test/real/stage5d-runtime.test.ts`
+
+**real-run:**
+
+```text
+previous blocker   table[120] / input unknown
+new blocker        splash ignores keys for pixels; Stage 5-D not COMPLETE
+arm_ext_call(2)    RETURN every 80ms
+arm_ext_call(1)    RETURN insn=172  FIRE→ER_RW+180=0x0109
+Canvas             presents 240×320 RGBA
+category           EVENT
+```
+
+**commit:** Support Canvas2D RGB565 present / Add Stage 5-D runtime loop tests
+
 ## Current blocker
 
 ```text
-start() + timer loop PASS
-input: Lua dealevent exists and calls _strCom(801,...,1)
-EXT application reaction / Canvas / frozen multi-frame tests 未完成
+startup + timer + Canvas present + host FIRE→EXT RW PASS
+no visible pixel reaction to keys on the splash
+Stage 5-D not COMPLETE
+REAL MRP EXECUTION SUCCESS not claimed
 category       EVENT
 ```
 

@@ -24,7 +24,7 @@ export function loaderReadiness(): ReadinessItem[] {
     { item: "nested EXT owner", status: "PARTIAL", reason: "ModuleOwners in Stage 4; fixtures only" },
     { item: "Lua chunk loading", status: "PARTIAL", reason: "first start.mr; 801/1, 801/6, and 801/0 return to Lua; arm_ext_call(0) NORMAL RETURN; Lua resumed" },
     { item: "_runFile / restart", status: "PARTIAL", reason: "state machine exists; synthetic only" },
-    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; inflate POP + SHA-256 match; arm_ext_call(0) returns; Lua resumes; Stage 5-C COMPLETE; not yet visible interactive runtime" },
+    { item: "real start.mr / .mrp", status: "PARTIAL", reason: "app.mrp present; inflate POP + SHA-256 match; arm_ext_call(0) returns; Lua resumes; Stage 5-C COMPLETE; Stage 5-D timer/Canvas/input-RW PASS; splash key pixels not proven; not REAL SUCCESS" },
     { item: "魔塔II.jar / DRM", status: "BLOCKED", reason: "no jar in workspace; DRM not attempted" },
   ];
 }
