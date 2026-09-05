@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>flymrp</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #12141a;
+        --panel: #1c2028;
+        --line: #2c3340;
+        --text: #e8edf5;
+        --muted: #8b95a7;
+        --accent: #6cb6ff;
+        --pad: #2a3140;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; }
+      body { display: flex; flex-direction: column; align-items: center; padding: 20px 16px 32px; }
+      h1 { margin: 0 0 6px; font-size: 20px; font-weight: 650; }
+      .sub { color: var(--muted); margin: 0 0 16px; max-width: 36rem; }
+      .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-bottom: 14px; }
+      .bar input[type="file"] { color: var(--muted); }
+      button, .key {
+        appearance: none; border: 1px solid var(--line); background: var(--pad); color: var(--text);
+        border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit;
+      }
+      button:hover, .key:hover { border-color: var(--accent); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      .phone {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+        padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+      }
+      canvas {
+        width: 480px; height: 640px; max-width: calc(100vw - 48px); max-height: 70vh;
+        image-rendering: pixelated; background: #000; border-radius: 4px;
+      }
+      .status { color: var(--muted); min-height: 1.4em; text-align: center; max-width: 28rem; word-break: break-word; }
+      .status.err { color: #ff8b8b; }
+      .pads { display: grid; grid-template-columns: repeat(3, 64px); gap: 6px; justify-content: center; }
+      .soft { display: flex; gap: 8px; width: min(480px, calc(100vw - 48px)); }
+      .soft button { flex: 1; }
+      .help { color: var(--muted); font-size: 12px; max-width: 28rem; text-align: center; }
+      kbd { background: var(--pad); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>flymrp</h1>
+    <p class="sub">在浏览器里加载你自己的 <code>.mrp</code>。这是一条已验证的 Mythroad 运行路径，不是整个平台 100% compatible。</p>
+    <div class="bar">
+      <input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" />
+      <button id="stop" type="button" disabled>停止</button>
+    </div>
+    <div class="phone">
+      <canvas id="screen" width="240" height="320" tabindex="0"></canvas>
+      <div id="status" class="status">选择一个 .mrp 开始</div>
+      <div class="soft">
+        <button type="button" data-key="SOFTLEFT">左软键 / 是</button>
+        <button type="button" data-key="FIRE">确认 / FIRE</button>
+        <button type="button" data-key="SOFTRIGHT">右软键 / 否</button>
+      </div>
+      <div class="pads">
+        <span></span>
+        <button type="button" data-key="UP">上</button>
+        <span></span>
+        <button type="button" data-key="LEFT">左</button>
+        <button type="button" data-key="DOWN">下</button>
+        <button type="button" data-key="RIGHT">右</button>
+      </div>
+    </div>
+    <p class="help">
+      键盘：<kbd>↑↓←→</kbd> / <kbd>WASD</kbd> 方向，<kbd>Enter</kbd> / <kbd>空格</kbd> 确认，
+      <kbd>Q</kbd> 左软键，<kbd>Esc</kbd> 右软键。中文走平台 <code>gb16.uc2</code> 点阵。声音无设备输出。
+    </p>
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>

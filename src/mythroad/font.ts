@@ -1,20 +1,20 @@
 /**
- * rxgj FULL `mr_getCharBitmap` / sky16 metrics.
+ * rxgj FULL `mr_getCharBitmap` / sky16.
  *
- * Without `gb12.uc2`, `xl_font_should_use_12` is false for every fontSize,
- * so SMALL/MEDIUM/BIG all use gb16 metrics:
+ * Real `gb16.uc2`: UCS-2 codepoint index, 32 bytes/glyph, 16 rows × 2 bytes
+ * MSB-first. Same layout as `xl_font_sky16_getChar`.
+ *
+ * Without a loaded UC2 file, glyphs are generated stand-ins (not readable CJK).
+ * Without `gb12.uc2`, SMALL/MEDIUM/BIG all use gb16 metrics:
  *   ASCII (ch < 128): 8×16
  *   other:            16×16
- *
- * Glyph bits are generated. They are not pixel-identical to `gb16.uc2`.
- * Metrics are CONFIRMED from `dsm.c`. Bitmap pixels are a documented
- * compatibility stand-in until a real UC2 bundle is loaded.
  */
 
 export const CHAR_H_16 = 16;
 export const EN_CHAR_W_16 = 8;
 export const CN_CHAR_W_16 = 16;
 export const BYTES_PER_CHAR_16 = 32;
+export const GB16_UC2_SIZE = 65536 * BYTES_PER_CHAR_16;
 
 export type Glyph16 = {
   width: number;
@@ -22,6 +22,23 @@ export type Glyph16 = {
   /** 16 rows × 2 bytes, MSB-first. Same layout as sky16 `font_sky16_bitbuf`. */
   bits: Uint8Array;
 };
+
+let uc2: Uint8Array | null = null;
+
+export function loadGb16Uc2(bytes: Uint8Array): void {
+  if (bytes.length < BYTES_PER_CHAR_16) {
+    throw new RangeError(`gb16.uc2 too small: ${bytes.length}`);
+  }
+  uc2 = bytes;
+}
+
+export function unloadGb16Uc2(): void {
+  uc2 = null;
+}
+
+export function gb16Uc2Loaded(): boolean {
+  return uc2 !== null && uc2.length >= BYTES_PER_CHAR_16 * 128;
+}
 
 export function gb16Metrics(ch: number): { width: number; height: number } {
   const id = ch & 0xffff;
@@ -36,10 +53,38 @@ export function gb16BitmapSize(width: number, height: number): number {
 export function gb16Glyph(ch: number): Glyph16 {
   const id = ch & 0xffff;
   const { width, height } = gb16Metrics(id);
+  const fromUc2 = uc2GlyphBits(id);
+  if (fromUc2) return { width, height, bits: fromUc2 };
   const bits = new Uint8Array(BYTES_PER_CHAR_16);
   if (id < 128) writeAscii16(bits, id);
   else writeCjk16(bits, id);
   return { width, height, bits };
+}
+
+/**
+ * Guest `is_unicode=0` text is GBK/GB2312. Official `_DrawText` runs `c2u`
+ * then indexes `gb16.uc2` by UCS-2. Do not treat GBK pairs as codepoints.
+ */
+export function gbkBytesToUcs2(bytes: Uint8Array): number[] {
+  const s = new TextDecoder("gbk").decode(bytes);
+  const out: number[] = [];
+  for (const ch of s) {
+    const cp = ch.codePointAt(0);
+    if (cp === undefined) continue;
+    if (cp > 0xffff) {
+      out.push(0xfffd);
+      continue;
+    }
+    out.push(cp);
+  }
+  return out;
+}
+
+function uc2GlyphBits(id: number): Uint8Array | null {
+  if (!uc2) return null;
+  const off = id * BYTES_PER_CHAR_16;
+  if (off + BYTES_PER_CHAR_16 > uc2.length) return null;
+  return uc2.subarray(off, off + BYTES_PER_CHAR_16);
 }
 
 function writeRow16(bits: Uint8Array, y: number, row: number): void {

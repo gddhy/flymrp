@@ -6,7 +6,7 @@ import { AppFileSystem } from "./app-fs.ts";
 import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
 import { MythroadTimer } from "./timer.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
-import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
+import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph, gbkBytesToUcs2 } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
 import { defaultProfile, type DeviceProfile } from "./profile.ts";
 import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
@@ -398,7 +398,8 @@ export class MrTableBridge {
    * table[123] = `asm_DrawText` = `_DrawText`.
    * C: `int32 _DrawText(char *text, int16 x, int16 y, uint8 r,g,b, int is_unicode, uint16 font)`.
    * LIVE: unicode=1, font=0, white text at (88,160).
-   * Glyphs are generated gb16, not device UC2. Return is 0.
+   * unicode=0 is GBK → UCS-2 (`c2u`) then the same glyph index.
+   * Glyphs come from loaded `gb16.uc2`, else generated stand-ins. Return is 0.
    */
   drawText(mem: GuestMemory, args: Uint32Array): number {
     const text = args[0]! >>> 0;
@@ -412,35 +413,15 @@ export class MrTableBridge {
     const font = args[7]! & 0xffff;
     void font;
     const screen = this.hooks.getScreen?.() ?? this.screen;
+    const chars = unicode ? readUcs2Be(mem, text) : gbkBytesToUcs2(readGuestBytes(mem, text));
     let preview = "";
     let chx = asI16(x);
     const chy = asI16(y);
-    if (unicode) {
-      for (let off = 0; off < 512; off += 2) {
-        const ch = ((mem.read8((text + off) >>> 0) << 8) | mem.read8((text + off + 1) >>> 0)) & 0xffff;
-        if (!ch) break;
-        preview += String.fromCharCode(ch);
-        const glyph = gb16Glyph(ch);
-        screen.drawGlyph(chx, chy, glyph.width, glyph.height, glyph.bits, r, g, b);
-        chx += glyph.width;
-      }
-    } else {
-      preview = readGuestCString(mem, text);
-      let i = 0;
-      while (i < preview.length) {
-        const b0 = preview.charCodeAt(i) & 0xff;
-        let ch = b0;
-        if (b0 >= 128 && i + 1 < preview.length) {
-          ch = ((b0 << 8) | (preview.charCodeAt(i + 1) & 0xff)) & 0xffff;
-          i += 2;
-        } else {
-          i += 1;
-        }
-        if (!ch) break;
-        const glyph = gb16Glyph(ch);
-        screen.drawGlyph(chx, chy, glyph.width, glyph.height, glyph.bits, r, g, b);
-        chx += glyph.width;
-      }
+    for (const ch of chars) {
+      preview += String.fromCharCode(ch);
+      const glyph = gb16Glyph(ch);
+      screen.drawGlyph(chx, chy, glyph.width, glyph.height, glyph.bits, r, g, b);
+      chx += glyph.width;
     }
     this.hooks.onDrawText?.(preview, asI16(x), chy, r, g, b, unicode ? 1 : 0, font);
     return 0;
@@ -1064,4 +1045,27 @@ export function readGuestCString(mem: GuestMemory, addr: number, max = MR_MAX_FI
     s += String.fromCharCode(b);
   }
   return s;
+}
+
+function readGuestBytes(mem: GuestMemory, addr: number, max = 1024): Uint8Array {
+  if (!addr) return new Uint8Array();
+  const tmp = new Uint8Array(max);
+  let n = 0;
+  for (; n < max; n++) {
+    const b = mem.read8((addr + n) >>> 0);
+    if (b === 0) break;
+    tmp[n] = b;
+  }
+  return tmp.subarray(0, n);
+}
+
+function readUcs2Be(mem: GuestMemory, addr: number, maxChars = 256): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < maxChars; i++) {
+    const off = (addr + i * 2) >>> 0;
+    const ch = ((mem.read8(off) << 8) | mem.read8((off + 1) >>> 0)) & 0xffff;
+    if (!ch) break;
+    out.push(ch);
+  }
+  return out;
 }

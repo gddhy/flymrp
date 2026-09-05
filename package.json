@@ -9,6 +9,7 @@
     "test:watch": "vitest",
     "bench": "tsx bench/run.ts",
     "inspect": "tsx tools/real/inspect.ts",
+    "start": "vite --config web/vite.config.ts --host 127.0.0.1 --open",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

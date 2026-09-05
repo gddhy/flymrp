@@ -24,7 +24,17 @@ export {
   atoi2,
   readGuestCString,
 } from "./mr-table.ts";
-export { gb16Glyph, gb16Metrics, gb16BitmapSize, BYTES_PER_CHAR_16 } from "./font.ts";
+export {
+  gb16Glyph,
+  gb16Metrics,
+  gb16BitmapSize,
+  gbkBytesToUcs2,
+  loadGb16Uc2,
+  unloadGb16Uc2,
+  gb16Uc2Loaded,
+  BYTES_PER_CHAR_16,
+  GB16_UC2_SIZE,
+} from "./font.ts";
 export { CurrentPackFileBackend } from "./pack-file.ts";
 export { AppFileSystem } from "./app-fs.ts";
 export type { PackFileSource, PackFileOp, ReadOnlyFileHandle } from "./pack-file.ts";
