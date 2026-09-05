@@ -1,7 +1,7 @@
 # Autonomous real-MRP progress
 
 长期目标：真实 `test/fixtures/real/app.mrp` 在 flymrp 中完成启动并进入稳定可交互运行。  
-**不要 push。** Stage 5-C **NOT COMPLETE**。Stage 5-D **NOT STARTED**。
+**不要 push。** Stage 5-C **COMPLETE**。Stage 5-D **STARTED**。
 
 基线 HEAD（goal 开始时）：`fc03f8c` / `84e17c3`。以实际 HEAD 为准。
 
@@ -44,21 +44,26 @@
 | 78 | mr_winCreate | PARTIAL | rxgj FULL `MR_IGNORE`; no window object |
 | 79 | mr_winRelease | PARTIAL | rxgj FULL `MR_IGNORE`; not LIVE yet |
 | 130 | TestCom | PARTIAL | case 7 only |
+| 31 | mr_timerStart | PARTIAL | uint16 ms; LIVE 80; owner = current/active/wrapper |
+| 32 | mr_timerStop | PARTIAL | zero-arg; leftover R0 ignored |
+| 80 | mr_getScreenInfo | PARTIAL | host 240×320 bit=16 |
 
 ### other
 
 | area | status |
 |---|---|
 | `_strCom` 601/800/801 | SUPPORTED on observed path |
-| Lua resume after `arm_ext_call(0)` | BLOCKED |
-| graphics | PARTIAL | 1 rect + 1 text + 2 presents; no Canvas backend yet |
-| timer / event / input | BLOCKED | table[32] `mr_timerStop` not implemented |
+| Lua resume after `arm_ext_call(0)` | SUPPORTED on this fixture path |
+| graphics | PARTIAL | 1 rect + 1 text + presents; no Canvas backend yet |
+| timer / event / input | PARTIAL | EXT timer armed (80ms); fire/dealtimer/event/input 未证 |
 | audio / network / SMS / WAP | OPTIONAL / DEFERRED |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
 | `mr_plat(1205)` CHECK_TOUCH | PARTIAL | rxgj FULL `MR_TOUCH_SCREEN` |
 | EFS `mr_open("gssjxz\\69")` | PARTIAL | AppFS create/write; not pack member `69.bmp` |
-| table[32] `mr_timerStop` | BLOCKED | EXT timer ABI not wired |
+| table[31] `mr_timerStart` | PARTIAL | EXT armed 80ms; owner = current/active/wrapper; not full LR resolve |
+| table[32] `mr_timerStop` | PARTIAL | zero-arg; leftover R0 ignored |
+| table[80] `mr_getScreenInfo` | PARTIAL | host 240×320 bit=16 cache; not a guest framebuffer pointer |
 
 ---
 
@@ -78,6 +83,8 @@
 | generated gb16 glyphs | metrics + packed bits | real `gb16.uc2` / `gb12.uc2` | width/height CONFIRMED; pixels not claimed pixel-perfect | text drawing will not match device |
 | NULL `mr_drawBitmap` | present host RGB565 cache | guest-mapped `mr_screenBuf` | guest draws via DrawRect/DrawText into host cache | later apps that pass a guest bmp pointer |
 | winCreate/Release IGNORE | return `MR_IGNORE` | window objects / focus | rxgj FULL `dsm.c` same | GUI-heavy apps |
+| timer owner not LR-range | owner = current \|\| active \|\| wrapper | full LR-range module resolve | LIVE start after AppFS uses current/wrapper | nested EXT timer callbacks |
+| generated gb16 (timer path) | metrics + packed bits | real `gb16.uc2` | startup text already used generated glyphs | later fonts |
 | flymrp getUserInfo | IMEI/IMSI zeros; packed ver 101020180 | real handset / rxgj IMEI | guest only used IMSI strlen/atoi prefix | later billing / SMS / license checks |
 | getNetworkID always MOBILE | return 0 | real SIM / radio | startup probe only so far | later SMS / netpay paths |
 
@@ -321,12 +328,49 @@ category           TIMER
 
 **commit:** Support in-memory EFS create and write
 
+---
+
+### 2026-09-05 — timer + getScreenInfo; Stage 5-C COMPLETE
+
+**starting blocker:** `table[32] mr_timerStop`
+
+**analysis:**
+
+* rxgj: `int32 mr_timerStart(uint16 t)` / `int32 mr_timerStop(void)`. Host `main.c` both return `MR_SUCCESS`.
+* LIVE: stop is zero-arg (R0=stub leftover); start `r0=80` (80ms).
+* Immediately after: table[29] present + table[80] `mr_getScreenInfo` (240×320×16).
+* After 80, `arm_ext_call(0)` returns `r0=0`; `_strCom(801,...,0)` returns to Lua.
+
+**implementation:** table[31]/[32] → `MythroadTimer`; table[80] writes host `ScreenBuffer` width/height/`bit=16`. Timer owner = current/active/wrapper (not full LR resolve).
+
+**tests:** `test/real/timer-31-32-abi.test.ts`; `test/real/getscreeninfo-80-abi.test.ts`; real `app.mrp` baseline retargeted to completed startup.
+
+**real-run:**
+
+```text
+previous blocker   table[32] mr_timerStop
+new blocker        (none on start(); Stage 5-D: timer fire / frames / input)
+arm_ext_call(0)    kind=return  r0=0  insn=1,596,592
+_strCom(801,0)     ok=true  returnedToLua=true
+Lua                RESUMES  luaInsn=73
+hits               4864
+last slot          80 REAL_EXECUTED
+graphicsCommands   7
+timer              RUNNING interval=80 events=0 clock=0
+category           EVENT
+Stage 5-C          COMPLETE
+Stage 5-D          STARTED
+```
+
+**commit:** Implement confirmed timer and getScreenInfo ABI
+
 ## Current blocker
 
 ```text
-table[32]  asm_mr_timerStop
-PC=0x00010080  LR=0x01eab05d  R0=0x00010080  R1=0
-category       TIMER
+start() completed
+timer armed 80ms but not yet fired
+no runtime.advance / dealtimer / multi-frame / input
+category       EVENT
 ```
 
-`arm_ext_call(0)` / Lua still not resumed. Next: implement confirmed `mr_timerStop` (likely followed by `mr_timerStart`).
+Next: `runtime.advance(80+)` → timer due → `EV_TIMER` → `dealtimer` / `arm_ext_call(2)` → multi-frame + input. Do **not** announce REAL MRP EXECUTION SUCCESS yet.

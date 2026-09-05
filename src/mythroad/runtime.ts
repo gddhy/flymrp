@@ -306,6 +306,8 @@ export class MythroadRuntime {
     const owner = this.packName || "ext";
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       getClock: () => this.clock,
+      getTimer: () => this.timers,
+      getMrState: () => this.state,
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
       getProfile: () => this.profile,
       getScreen: () => this.screen,

@@ -16,7 +16,8 @@
  * table[122]/[123]/[29] DrawRect/DrawText/drawBitmap and [78] winCreate are REAL_EXECUTED.
  * table[37] mr_plat(1205) returns MR_TOUCH_SCREEN (rxgj FULL).
  * AppFS EFS create/write for `gssjxz\\69` is REAL_EXECUTED.
- * First remaining blocker: table[32] mr_timerStop.
+ * table[32]/[31] timer and table[80] getScreenInfo are REAL_EXECUTED.
+ * arm_ext_call(0) returns; Lua resumes. Stage 5-C COMPLETE. Stage 5-D STARTED.
  * No cbRet bypass. No gzip/inflate host ABI.
  * No host filesystem / IndexedDB / archive.getResource shortcut.
  */
@@ -91,15 +92,15 @@ export const REAL_MRP_BASELINE = {
   platex1204: 1204,
   slot122: 122,
   stub122: 0x000101e8,
-  stopPc: 0x00010080,
-  stopLr: 0x01eab05d,
-  stopR0: 0x00010080,
-  stopR1: 0,
+  stopPc: 0x00010140,
+  stopLr: 0x01ea7c79,
+  stopR0: 0x01e7ffa8,
+  stopR1: 0x00010140,
   infoName: "dbglog.txt",
   infoName2: "gsidbak",
   mkdirName: "gsidbak",
   inflateInsnCount: 1_404_897,
-  productionInsnCount: 1_596_421,
+  productionInsnCount: 1_596_592,
   gzipOutLen: 30192,
   gzipAlloc: 30196,
   gzipMagic: [0x1f, 0x8b] as const,
@@ -112,7 +113,7 @@ export const REAL_MRP_BASELINE = {
   budgetStopPc: 0x01ea1ee8,
   budgetStopLr: 0x01ea1f83,
   insnBudget: DEFAULT_INSN_BUDGET,
-  totalHitCount: 4861,
+  totalHitCount: 4864,
   headerReadLen: 16,
   listStart: 240,
   indexLen: 5496,
@@ -154,8 +155,12 @@ export const UNKNOWN_SLOT_122_THROWN = "UNKNOWN_REQUIRED_SLOT = 122";
 export const UNKNOWN_PLAT_1205_THROWN = "unsupported mr_plat code 1205";
 /** Historical stop after plat 1205. AppFS EFS `gssjxz\\69` is now REAL_EXECUTED. */
 export const UNKNOWN_OPEN_GSSJXZ69_THROWN = 'unsupported mr_open filename "gssjxz\\\\69"';
-/** Production stop: table[32] mr_timerStop is not implemented. */
+/** Historical stop after AppFS. table[32]/[31] timer ABI is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_32_THROWN = "UNKNOWN_REQUIRED_SLOT = 32";
+/** Historical stop after timer. table[80] getScreenInfo is now REAL_EXECUTED. */
+export const UNKNOWN_SLOT_80_THROWN = "UNKNOWN_REQUIRED_SLOT = 80";
+/** Production start() now returns; arm_ext_call(0) + Lua resume completed. */
+export const STARTUP_COMPLETED = "(completed)";
 
 export type CpuSnap = {
   pc: number;
@@ -471,7 +476,7 @@ export type RealMrpStartupReport = {
     fingerprints: StartupFingerprint[];
     mismatches: string[];
   };
-  stage5d: "NOT STARTED";
+  stage5d: "NOT STARTED" | "STARTED";
 };
 
 export type StartupOptions = {
@@ -1047,7 +1052,7 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
           packFilenameAt40 = "";
         }
       }
-      if (!had) cpu = snapCpu(e);
+      cpu = snapCpu(e);
       handlerMap.set(130, !!e.table.handlers[130]);
       handlerMap.set(38, !!e.table.handlers[38]);
       handlerMap.set(33, !!e.table.handlers[33]);
@@ -1071,6 +1076,13 @@ function runOnce(mrp: Uint8Array, entry: string): OneRun {
       handlerMap.set(14, !!e.table.handlers[14]);
       handlerMap.set(25, !!e.table.handlers[25]);
       handlerMap.set(125, !!e.table.handlers[125]);
+      handlerMap.set(31, !!e.table.handlers[31]);
+      handlerMap.set(32, !!e.table.handlers[32]);
+      handlerMap.set(80, !!e.table.handlers[80]);
+      handlerMap.set(122, !!e.table.handlers[122]);
+      handlerMap.set(123, !!e.table.handlers[123]);
+      handlerMap.set(29, !!e.table.handlers[29]);
+      handlerMap.set(78, !!e.table.handlers[78]);
       const filePosBefore =
         (n === 44 || n === 45) && had ? (rt.mrTable?.files.peek(c.r[0] | 0)?.pos ?? -1) : -1;
       let memcpySrcPreview: number[] = [];
@@ -1381,7 +1393,9 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
   const plat1205ok = run.hits.some((h) => h.slot === 37 && h.arguments[0] === 1205 && h.return === 1001);
   const openEfs69ok = run.fileOps.filter((o) => o.op === "open").length > 4;
   const openEfs69 = run.thrown.includes("gssjxz");
+  const hit31 = run.hits.find((h) => h.slot === 31);
   const hit32 = run.hits.find((h) => h.slot === 32);
+  const hit80 = run.hits.find((h) => h.slot === 80);
   const t130ok = hit130?.status === "REAL_EXECUTED";
   const t38blocked = !!hit38 && hit38.status === "NOT_EXECUTED";
   const t33blocked = !!hit33 && hit33.status === "NOT_EXECUTED";
@@ -1695,7 +1709,39 @@ function progressOf(run: OneRun, loads: number[]): ProgressRow[] {
     {
       stage: "table32",
       status: hit32?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 32 ? "BLOCKED" : "NOT REACHED",
-      note: run.unknownSlot === 32 ? "UNKNOWN_REQUIRED_SLOT; mr_timerStop NOT_EXECUTED" : "not reached",
+      note: hit32?.status === "REAL_EXECUTED"
+        ? "REAL_EXECUTED mr_timerStop (zero-arg; leftover R0 ignored)"
+        : run.unknownSlot === 32
+          ? "UNKNOWN_REQUIRED_SLOT; mr_timerStop NOT_EXECUTED"
+          : "not reached",
+    },
+    {
+      stage: "table31",
+      status: hit31?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 31 ? "BLOCKED" : "NOT REACHED",
+      note: hit31?.status === "REAL_EXECUTED"
+        ? "REAL_EXECUTED mr_timerStart (LIVE interval 80ms; deterministic clock)"
+        : run.unknownSlot === 31
+          ? "UNKNOWN_REQUIRED_SLOT; mr_timerStart NOT_EXECUTED"
+          : "not reached",
+    },
+    {
+      stage: "table80",
+      status: hit80?.status === "REAL_EXECUTED" ? "PASS" : run.unknownSlot === 80 ? "BLOCKED" : "NOT REACHED",
+      note: hit80?.status === "REAL_EXECUTED"
+        ? "REAL_EXECUTED mr_getScreenInfo (host 240x320 bit=16)"
+        : run.unknownSlot === 80
+          ? "UNKNOWN_REQUIRED_SLOT; mr_getScreenInfo NOT_EXECUTED"
+          : "not reached",
+    },
+    {
+      stage: "arm_ext_call0",
+      status: code0?.ok && code0.kind === ExtStopKind.Return ? "PASS" : code0 ? "BLOCKED" : "NOT REACHED",
+      note: code0?.ok ? `arm_ext_call(0) NORMAL RETURN r0=${code0.r0} insn=${code0.insnCount}` : "arm_ext_call(0) did not return",
+    },
+    {
+      stage: "lua resume",
+      status: run.chunkReturned && !run.thrown ? "PASS" : "BLOCKED",
+      note: run.chunkReturned && !run.thrown ? "Lua resumed after _strCom(801,...,0)" : "Lua did not resume",
     },
   ];
 }
@@ -1729,7 +1775,7 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
         helper: run.helper,
         erRw: run.erRw,
         rwLen: run.rwLen,
-        armInsnCount: run.cpu?.insnCount ?? 0,
+        armInsnCount: run.extCalls.find((c) => c.code === 0)?.insnCount ?? run.cpu?.insnCount ?? 0,
         luaInsnCount: run.luaInsnCount,
         natives: run.natives,
         tableSlots: run.hits.map((h) => h.slot),
@@ -1795,9 +1841,12 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
     slotRow(6, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(18, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
     slotRow(7, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(31, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(32, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
+    slotRow(80, run.hits, run.handlerMap, "NOT_EXECUTED by host"),
   ];
 
-  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9, 30, 37, 26, 42, 49, 5, 35, 61, 15, 6, 18, 7];
+  const handlerSlots = [0, 14, 25, 125, 130, 38, 33, 17, 40, 44, 45, 41, 3, 10, 1, 9, 30, 37, 26, 42, 49, 5, 35, 61, 15, 6, 18, 7, 31, 32, 80];
   const handlers = handlerSlots.map((slot) => ({
     slot,
     present: run.handlerMap.get(slot) === true,
@@ -1915,14 +1964,14 @@ export function runRealMrpStartup(mrp: Uint8Array, opts: StartupOptions = {}): R
       table10: run.hits.find((h) => h.slot === 10)?.status ?? "NOT_EXECUTED",
       table1: run.hits.find((h) => h.slot === 1)?.status ?? "NOT_EXECUTED",
       table41: run.hits.find((h) => h.slot === 41)?.status ?? "NOT_EXECUTED",
-      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41]/[43] include current-pack RDONLY plus AppFS EFS create/write. table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. platEx 1204, DrawRect/DrawText/drawBitmap, winCreate, and mr_plat(1205) are REAL_EXECUTED. First remaining blocker is table[32] mr_timerStop. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
+      note: "This run does not cbRet unknown slots. table[40]/[44]/[45]/[41]/[43] include current-pack RDONLY plus AppFS EFS create/write. table[3] memcpy2 and table[10] strcmp2 are REAL_EXECUTED. table[1] mr_free is registry-only (no origin_mem reuse). table[9] memcmp2 is REAL_EXECUTED (unsigned-char exact difference, not libc-clamped). gzip/inflate is guest-side and completes; host gunzip is verification-only. platEx 1204, DrawRect/DrawText/drawBitmap, winCreate, mr_plat(1205), AppFS EFS, timer 31/32, and getScreenInfo 80 are REAL_EXECUTED. arm_ext_call(0) returns; Lua resumes. Stage 5-C COMPLETE. Stage 5-D STARTED. table[100] pack_filename is a 128-byte data slot populated at bindExt.",
     },
     consistency: {
       runs: nRuns,
       fingerprints,
       mismatches: [...mismatches],
     },
-    stage5d: "NOT STARTED",
+    stage5d: "STARTED",
   };
 }
 
@@ -1976,9 +2025,9 @@ export function renderRealMrpStartupMarkdown(r: RealMrpStartupReport): string {
     "table[1] mr_free is registry-only: validates and retires flymrp bump allocations",
     "but does not reproduce rxgj origin_mem free-list reuse/coalescing.",
     "table[9] memcmp2 is REAL_EXECUTED (unsigned char; exact *su1-*su2; early exit).",
-    "gzip/inflate is not a host ABI this stage. Guest inflate completes; next blocker is table[32] mr_timerStop.",
+    "gzip/inflate is not a host ABI this stage. Guest inflate completes; arm_ext_call(0) returns; Lua resumes.",
     "No forensic bypass. No host filesystem / IndexedDB / getResource shortcut.",
-    "Stage 5-D: **NOT STARTED**.",
+    "Stage 5-C: **COMPLETE**. Stage 5-D: **STARTED** (event loop / frames / input still required).",
     "",
     "Only the observed guest sprintf subset consisting of",
     "literal bytes and %d is currently implemented.",

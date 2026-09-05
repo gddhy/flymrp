@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { EXT_CODE_ADDR } from "../../src/abi/layout.ts";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { analyzeExtImage, extractNamedExt, runCode6Forensics, sha256hex } from "../../src/real/code6.ts";
-import { UNKNOWN_SLOT_32_THROWN } from "../../src/real/startup.ts";
+import { REAL_MRP_BASELINE } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const CF_SHA = "94b8b47f15a91e6900488d8c84cecfeffe19aa9f3a76adb98ef55983d484a926";
@@ -21,16 +21,16 @@ describe("5-C.5 cfunction init / code-6 forensics", () => {
     expect(st.blxImmTargets.some((t) => t.from === ((EXT_CODE_ADDR + 0x14) >>> 0) && t.to === 0x01ea5e0c)).toBe(true);
   });
 
-  it("memset lets code 6 enter guest; first remaining fault is table[32]", () => {
+  it("memset lets code 6 enter guest; arm_ext_call(0) returns", () => {
     const r = runCode6Forensics(new Uint8Array(readFileSync(REAL_APP)));
     expect(r.fault.loadBlxTaken).toBe(true);
     expect(r.fault.guestEntered).toBe(true);
-    expect(r.fault.classification).toBe("ABI");
-    expect(r.fault.subtype).toBe(UNKNOWN_SLOT_32_THROWN);
-    expect(r.fault.site).toBe("arm_ext_call.table");
-    expect(r.fault.slot).toBe(32);
-    expect(r.fault.kind).toBe("UNKNOWN_REQUIRED_SLOT");
-    expect(r.fault.faultPc).toBe(0x00010080);
+    expect(r.fault.classification).toBe("CONTROL");
+    expect(r.fault.subtype).toBe("arm_ext_call(0) NORMAL RETURN");
+    expect(r.fault.site).toBe("arm_ext_call.return");
+    expect(r.fault.slot).toBe(80);
+    expect(r.fault.kind).toBe("RETURN");
+    expect(r.fault.faultPc).toBe(REAL_MRP_BASELINE.stopPc);
     expect(r.fault.r9).toBe(0x00200294);
     expect(r.fault.p).toBe(0x00200178);
     expect(r.fault.helper).toBe(0x01ea5e9d);

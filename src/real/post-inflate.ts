@@ -1,7 +1,7 @@
 /**
  * Stage 5-C.10R — real MRP post-inflate continuation / Stage 5-C completion gate.
- * Observe production startup only. No new ABI. Host gunzip is verification-only.
- * Stage 5-D is not started.
+ * Observe production startup only. Host gunzip is verification-only.
+ * Stage 5-C COMPLETE when arm_ext_call(0) returns and Lua resumes.
  */
 import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
@@ -57,18 +57,18 @@ export const POST_INFLATE = {
   table30Blx: 0x01eaadaa,
   table30Lr: 0x01eaadad,
   table30Fn: 0x01eaad6c,
-  hitCount: 4861,
+  hitCount: 4864,
   table0: 283,
   table1: 264,
   table3: 3843,
   table3Inflate: 3432,
   table1Teardown: 37,
   slotRle:
-    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35,61,40,14,45,44,41,14,15,14,6,18,37,0,14x3,5,7x3,5,7,14,5,7x5,14,17,7,14,7x3,42,0,14,5,7x3,14,38,3,15,38,42,15,38,1,42,0x2,14x2,42,0x3,14,0,14,42,1,14,42,14x2,42,14,42,14,0x3,14,18,14x3,18,14x2,18,14x2,18,14x2,18,3x2,14x2,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14x2,18,14x2,18,14x2,18,26x5,40,14,45,44,41,14,26,122,123,29,0,14,0,29,78,37,14x2,7x3,40,42,49,14x2,7x3,40,41,7,0,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0x105,14,0,3x19,1x107,14x2,7x3,40,45,43x4,41,1x2,14x2,7x3,40,45,0,44x4,41,0,14,3,14x2,7x3,40,42,14x2,7x3,40,41,7,0,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0x105,14,0,3x22,1x107,14x2,7x3,40,45,43x4,41,1x2,14x2,7x3,40,45,0,44x4,41,0,14,3,14,42x2,122,123,0,33x2,32",
+    "25,0,125,25,0,14,130,14,38,33,17,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0,1,14,0x34,14,0x2,3x3432,1x37,30,14,37,26x2,42,14,42,49,5,40,45,44,3,45,44,45,44,45,44,45,44,41,35,61,40,14,45,44,41,14,15,14,6,18,37,0,14x3,5,7x3,5,7,14,5,7x5,14,17,7,14,7x3,42,0,14,5,7x3,14,38,3,15,38,42,15,38,1,42,0x2,14x2,42,0x3,14,0,14,42,1,14,42,14x2,42,14,42,14,0x3,14,18,14x3,18,14x2,18,14x2,18,14x2,18,3x2,14x2,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14,3,14,18,14x2,18,14x2,18,14x2,18,26x5,40,14,45,44,41,14,26,122,123,29,0,14,0,29,78,37,14x2,7x3,40,42,49,14x2,7x3,40,41,7,0,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0x105,14,0,3x19,1x107,14x2,7x3,40,45,43x4,41,1x2,14x2,7x3,40,45,0,44x4,41,0,14,3,14x2,7x3,40,42,14x2,7x3,40,41,7,0,40,14,44,0,45,44,0,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,10,3x2,1x2,0,45,44,41,9x2,0,14,0x105,14,0,3x22,1x107,14x2,7x3,40,45,43x4,41,1x2,14x2,7x3,40,45,0,44x4,41,0,14,3,14,42x2,122,123,0,33x2,32,31,29,80",
   liveAllocs: 18,
   mrAllocs: 284,
   bump: 0x0021dee8,
-  blockerCategory: "TIMER" as BlockerCategory,
+  blockerCategory: "EVENT" as BlockerCategory,
 } as const;
 
 export type NativeRec = {
@@ -300,6 +300,7 @@ function runOnce(mrp: Uint8Array, raw: Uint8Array, reference: Uint8Array | null,
   let outBuf: number | null = null;
   let outAlloc: number | null = null;
   let table30: OneRun["table30"] = null;
+  let lastTableCpu: OneRun["cpu"] | null = null;
   const extCalls: { code: number; ok: boolean; kind: string | null; r0: number | null; insnCount: number | null }[] = [];
 
   const origBind = rt.bindExt.bind(rt);
@@ -345,6 +346,17 @@ function runOnce(mrp: Uint8Array, raw: Uint8Array, reference: Uint8Array | null,
     const origD = e.table.dispatch.bind(e.table);
     e.table.dispatch = (c, mem, pc) => {
       const n = tableSlotIndex(pc);
+      lastTableCpu = {
+        pc: pc >>> 0,
+        lr: c.r[14] >>> 0,
+        r0: c.r[0] >>> 0,
+        r1: c.r[1] >>> 0,
+        r2: c.r[2] >>> 0,
+        r3: c.r[3] >>> 0,
+        r9: c.r[9] >>> 0,
+        sp: c.r[13] >>> 0,
+        cpsr: e.cpu.cpsr >>> 0,
+      };
       slots.push(n);
       const r0 = c.r[0] >>> 0;
       const r1 = c.r[1] >>> 0;
@@ -385,7 +397,7 @@ function runOnce(mrp: Uint8Array, raw: Uint8Array, reference: Uint8Array | null,
   }
   const wallMs = performance.now() - t0;
   const e = rt.ext;
-  const cpu = e
+  const leftover = e
     ? {
         pc: e.cpu.r[15] >>> 0,
         lr: e.cpu.r[14] >>> 0,
@@ -398,6 +410,7 @@ function runOnce(mrp: Uint8Array, raw: Uint8Array, reference: Uint8Array | null,
         cpsr: e.cpu.cpsr >>> 0,
       }
     : { pc: 0, lr: 0, r0: 0, r1: 0, r2: 0, r3: 0, r9: 0, sp: 0, cpsr: 0 };
+  const cpu = thrown === "" ? lastTableCpu ?? leftover : leftover;
 
   if (outBuf === null) {
     const guessed = rt.mrAllocs.find((a) => a.size === POST_INFLATE.outAlloc);
@@ -546,7 +559,9 @@ export function runPostInflateStartup(
     luaResume: run.lua.resumed ? ("PASS" as GateStatus) : ("NOT REACHED" as GateStatus),
     stage5cComplete: false,
     recommendStage5d: false,
-    blocker: run.unknownSlot === 32
+    blocker: run.unknownSlot === 80
+      ? "table[80] mr_getScreenInfo"
+      : run.unknownSlot === 32
       ? "table[32] mr_timerStop"
       : run.thrown.includes("gssjxz")
       ? 'mr_open("gssjxz\\\\69") EFS'

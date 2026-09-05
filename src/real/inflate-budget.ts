@@ -424,6 +424,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
   let tableStubAsCode = 0;
   let bridgeMs = 0;
   let cpuSnap: InflateBudgetReport["cpu"] = null;
+  let lastTableCpu: InflateBudgetReport["cpu"] = null;
   const extCalls: { code: number; ok: boolean; kind: string | null; r0: number | null; insnCount: number | null; error?: string }[] = [];
 
   const origBind = rt.bindExt.bind(rt);
@@ -500,6 +501,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
     const origD = e.table.dispatch.bind(e.table);
     e.table.dispatch = (c, mem, pc) => {
       const n = tableSlotIndex(pc);
+      lastTableCpu = snapExtCpu(e);
       slotCounts.set(n, (slotCounts.get(n) ?? 0) + 1);
       const r0 = c.r[0] >>> 0;
       const r1 = c.r[1] >>> 0;
@@ -555,7 +557,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
   const wallMs = performance.now() - t0;
 
   const e = rt.ext;
-  const cpu = cpuSnap ?? (e ? snapExtCpu(e) : null);
+  const cpu = cpuSnap ?? lastTableCpu ?? (e ? snapExtCpu(e) : null);
 
   if (gzipIn === null && REAL_MRP_BASELINE) {
     const hint = 0x00206e6c;
@@ -650,7 +652,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
   return {
     budget,
     productionDefaultBudget: DEFAULT_INSN_BUDGET,
-    insnCount: cpu?.insnCount ?? 0,
+    insnCount: code0?.ok && code0.insnCount != null ? code0.insnCount : cpu?.insnCount ?? 0,
     wallMs,
     mips: wallMs > 0 && cpu ? cpu.insnCount / wallMs / 1000 : 0,
     bridgeMs,

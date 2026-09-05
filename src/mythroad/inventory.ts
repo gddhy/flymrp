@@ -144,4 +144,9 @@ export const IMPLEMENTED_C = [
   "mr_table/29/mr_drawBitmap/host-present",
   // rxgj FULL: mr_winCreate / mr_winRelease → MR_IGNORE.
   "mr_table/78/mr_winCreate/MR_IGNORE",
+  // Platform one-shot timer. Deterministic virtual clock. Not wall-clock.
+  "mr_table/31/mr_timerStart",
+  "mr_table/32/mr_timerStop",
+  // Host ScreenBuffer width/height, bit=16. Not a guest framebuffer pointer.
+  "mr_table/80/mr_getScreenInfo",
 ] as const;

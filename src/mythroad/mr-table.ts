@@ -3,7 +3,8 @@ import type { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
+import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
+import { MythroadTimer } from "./timer.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
@@ -120,6 +121,8 @@ export class MrTableBridge {
    * Production always reads `MythroadRuntime.clock` via `getClock`.
    */
   clock = 0;
+  /** Isolated-test timer when `hooks.getTimer` is absent. */
+  localTimer = new MythroadTimer();
 
   constructor(
     readonly ext: ExtRuntime,
@@ -137,6 +140,8 @@ export class MrTableBridge {
       onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
       onFlush?: (x: number, y: number, w: number, h: number) => void;
       onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
+      getTimer?: () => MythroadTimer;
+      getMrState?: () => number;
     } = {},
   ) {
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null, this.appFs);
@@ -176,6 +181,9 @@ export class MrTableBridge {
     this.ext.registerHandler(122, (_cpu, _mem, args) => this.drawRect(args));
     this.ext.registerHandler(123, (_cpu, mem, args) => this.drawText(mem, args));
     this.ext.registerHandler(29, (_cpu, mem, args) => this.drawBitmap(mem, args));
+    this.ext.registerHandler(31, (_cpu, _mem, args) => this.timerStart(args[0]! >>> 0));
+    this.ext.registerHandler(32, (_cpu, _mem, _args) => this.timerStop());
+    this.ext.registerHandler(80, (_cpu, mem, args) => this.getScreenInfo(mem, args[0]! >>> 0));
     this.ext.registerHandler(78, (_cpu, _mem, _args) => this.winCreate());
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
     if (!this.hooks.onUnknownSlot) return;
@@ -499,6 +507,61 @@ export class MrTableBridge {
    * Android rxgj returns `MR_NORMAL_SCREEN` for 1205; this is not that fork.
    * It is not the complete `mr_plat` API.
    */
+  /**
+   * table[31] = `asm_mr_timerStart` = `mr_timerStart`.
+   *
+   * C: `int32 mr_timerStart(uint16 t)`.
+   * rxgj host always returns `MR_SUCCESS`. One-shot flymrp timer.
+   * Timer owner is current || active || wrapper (not full LR-range resolve).
+   */
+  timerStart(interval: number): number {
+    const t = interval & 0xffff;
+    const now = this.hooks.getClock ? this.hooks.getClock() : this.clock;
+    const state = this.hooks.getMrState?.() ?? MR_STATE_RUN;
+    const timer = this.hooks.getTimer?.() ?? this.localTimer;
+    if (timer.start(now, t, "dealtimer", state)) this.recordTimerOwner();
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[32] = `asm_mr_timerStop` = `mr_timerStop`.
+   *
+   * C: `int32 mr_timerStop(void)`. Zero-arg. LIVE R0 is the stub leftover.
+   * rxgj host always returns `MR_SUCCESS` and clears timer owner.
+   */
+  timerStop(): number {
+    const timer = this.hooks.getTimer?.() ?? this.localTimer;
+    timer.stop();
+    this.ext.owners.timer = { p: 0, helper: 0 };
+    return MR_SUCCESS;
+  }
+
+  /**
+   * rxgj `arm_ext_record_timer_owner` fallback: current || active || wrapper.
+   * Full LR-range resolve is not implemented.
+   */
+  recordTimerOwner(): void {
+    const o = this.ext.owners;
+    const p = (o.current.p || o.active.p || o.wrapper.p) >>> 0;
+    const helper = (o.current.helper || o.active.helper || o.wrapper.helper) >>> 0;
+    if (p && helper) this.ext.owners.timer = { p, helper };
+  }
+
+  /**
+   * table[80] = `asm_mr_getScreenInfo` = `mr_getScreenInfo`.
+   *
+   * C: `int32 mr_getScreenInfo(mr_screeninfo *s)`.
+   * Writes width/height/bit=16. NULL → `MR_FAILED` (rxgj `aex_t080`).
+   */
+  getScreenInfo(mem: GuestMemory, addr: number): number {
+    if (!addr) return MR_FAILED;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    mem.write32(addr >>> 0, screen.width >>> 0);
+    mem.write32((addr + 4) >>> 0, screen.height >>> 0);
+    mem.write32((addr + 8) >>> 0, 16);
+    return MR_SUCCESS;
+  }
+
   plat(code: number, param: number): number {
     void param;
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;

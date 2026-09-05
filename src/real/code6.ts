@@ -765,6 +765,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           subtype: "missing_P_or_helper",
           kind: thrown.kind,
         })
+    : thrown === null
+      ? faultFromCtx(ctx, {
+          guestEntered,
+          loadBlxTaken,
+          site: "arm_ext_call.return",
+          classification: "CONTROL",
+          subtype: "arm_ext_call(0) NORMAL RETURN",
+          kind: "RETURN",
+        })
       : (() => {
           throw new Error(`unexpected throw: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
         })();
@@ -794,7 +803,7 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           ? `STOP: ${open.message}`
         : budget
           ? "STOP: ARM insn watchdog during guest inflate after memcmp2"
-          : "",
+          : "arm_ext_call(0) NORMAL RETURN; Lua resumed; Stage 5-C COMPLETE",
     ].filter(Boolean),
     confirmed: [
       "table[14] memset2(s,c,n) returns s; r0=dest r1=byte r2=size_t; GuestMemory.fill",
@@ -809,13 +818,15 @@ export function runCode6Forensics(mrp: Uint8Array): Code6ForensicsReport {
           ? `strict first fault after memset: ${plat.message} during arm_ext_call(0)`
         : open
           ? `strict first fault after memset: ${open.message} during arm_ext_call(0)`
-        : `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
+        : thrown === null
+          ? "arm_ext_call(0) NORMAL RETURN after memset/code6/inflate/timer/getScreenInfo"
+          : `strict first fault after memset: UNKNOWN_REQUIRED_SLOT = ${unknownSlot} during arm_ext_call(0)`,
     ],
     inferred: [
       "docs/反汇编研究.c: helper case 6 stores input_len at R9+0x20 — not observed (word at +0x20 is 0)",
     ],
     unknown: [
-      "table[9] memcmp2 is implemented; guest gzip/inflate completes; AppFS EFS create/write is REAL_EXECUTED; next is table[32] mr_timerStop",
+      "table[9] memcmp2 is implemented; guest gzip/inflate completes; AppFS EFS + timer 31/32 + getScreenInfo 80 are REAL_EXECUTED; arm_ext_call(0) returns",
       "table[1] mr_free is registry-only; table[40]/[44]/[45]/[41]/[43] current-pack RDONLY plus AppFS EFS are implemented",
       "ER_RW 19952-byte Image$$ layout",
     ],
@@ -828,7 +839,7 @@ export function renderCode6Markdown(r: Code6ForensicsReport): string {
   const lines = [
     "# Real cfunction.ext initialization (Stage 5-C.5)",
     "",
-    "Stage 5-C.5 implements CONFIRMED `table[14]` memset2. **Code 6 is guest-run, not host-implemented. table[33] is not implemented. Stage 5-D NOT STARTED.**",
+    "Stage 5-C.5 implements CONFIRMED `table[14]` memset2. **Code 6 is guest-run, not host-implemented. arm_ext_call(0) now returns. Stage 5-C COMPLETE. Stage 5-D STARTED.**",
     "",
     "## Binary",
     "",

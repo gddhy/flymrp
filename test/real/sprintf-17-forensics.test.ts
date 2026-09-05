@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MythroadRuntime } from "../../src/mythroad/index.ts";
 import { SPRINTF17, runSprintf17Forensics } from "../../src/real/sprintf17.ts";
-import { UNKNOWN_SLOT_32_THROWN } from "../../src/real/startup.ts";
 
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 
@@ -15,8 +14,8 @@ describe("5-C.10F table[17] / sprintf_ forensics", () => {
     expect(r.handler38).toBe(true);
     expect(r.handler33).toBe(true);
     expect(r.handler17).toBe(true);
-    expect(r.productionThrown).toBe(UNKNOWN_SLOT_32_THROWN);
-    expect(r.probeThrown).toBe(UNKNOWN_SLOT_32_THROWN);
+    expect(r.productionThrown).toBe("");
+    expect(r.probeThrown).toBe("");
     expect(r.owner).toBe("gssjxz.mrp");
 
     expect(r.cpu.pc).toBe(SPRINTF17.stub);
