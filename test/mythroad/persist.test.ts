@@ -30,6 +30,25 @@ function saveLoad(rt: MythroadRuntime, build: (L: typeof rt.lua.L) => { tag: num
 }
 
 describe("5-C SaveTable / LoadTable", () => {
+  it('_store preserves scores and cyclic tables through the Lua wrapper entry points', () => {
+    const rt = new MythroadRuntime(), L = rt.lua.L, perms = L.newTable(), root = L.newTable();
+    L.tables[root]!.setNum(1, { tag: TAG_NUMBER, num: 12345 });
+    L.tables[root]!.setNum(2, { tag: TAG_TABLE, num: root });
+    const store = L.tables[L.getGlobal('_store').num]!;
+    L.top = 0; L.base = 1; L.ci.length = 1; L.ci[0]!.base = 1;
+    L.setFn(0, store.getStr(L.internStr('store')).num);
+    L.setTbl(1, perms); L.setTbl(2, root); L.top = 3;
+    call(L, 0, 1);
+    expect(L.tags[0]).toBe(TAG_STRING);
+    const bytes = L.strings[L.nums[0]];
+    L.setFn(0, store.getStr(L.internStr('load')).num);
+    L.setTbl(1, perms); L.top = 2; L.pushString(bytes);
+    call(L, 0, 1);
+    expect(L.tags[0]).toBe(TAG_TABLE);
+    const restored = L.nums[0];
+    expect(L.tables[restored]!.getNum(1)).toEqual({ tag: TAG_NUMBER, num: 12345 });
+    expect(L.tables[restored]!.getNum(2)).toEqual({ tag: TAG_TABLE, num: restored });
+  });
   it("roundtrip number", () => {
     const rt = new MythroadRuntime();
     const o = saveLoad(rt, () => ({ tag: TAG_NUMBER, num: 42 }));

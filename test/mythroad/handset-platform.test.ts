@@ -1,9 +1,27 @@
 import { expect, it } from 'vitest';
 import { ExtRuntime } from '../../src/abi/runtime.ts';
 import { tableSlotAddr } from '../../src/abi/layout.ts';
-import { MrTableBridge, readGuestCString } from '../../src/mythroad/mr-table.ts';
+import { MrTableBridge, readGuestCString, writeFixedCString } from '../../src/mythroad/mr-table.ts';
 import { MythroadVfs } from '../../src/mythroad/vfs.ts';
 import { MR_FAILED, MR_SUCCESS } from '../../src/mythroad/constants.ts';
+
+it('compares strings in the fixed C locale through strcoll', () => {
+  const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'strcoll'); bridge.install();
+  const a = ext.alloc(16), b = ext.alloc(16);
+  writeFixedCString(ext.mem, a, 'abc\0z', 16); writeFixedCString(ext.mem, b, 'abc\0a', 16);
+  expect(ext.runGuest(tableSlotAddr(12), { r0: a, r1: b }).r0).toBe(0);
+  ext.mem.write8(b, 0xff);
+  expect(ext.runGuest(tableSlotAddr(12), { r0: a, r1: b }).r0 | 0).toBeLessThan(0);
+});
+
+it('memchr respects the count, unsigned byte value and embedded zero bytes', () => {
+  const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'memchr'); bridge.install();
+  const data = ext.alloc(4); ext.mem.load(data, new Uint8Array([1, 0, 255, 1]));
+  const find = (value: number, count: number) => ext.runGuest(tableSlotAddr(13), { r0: data, r1: value, r2: count }).r0;
+  expect(find(0, 4)).toBe(data + 1); expect(find(-1, 4)).toBe(data + 2);
+  expect(find(1, 4)).toBe(data); expect(find(255, 2)).toBe(0);
+  expect(ext.runGuest(tableSlotAddr(13), { r0: 0xffffffff, r2: 0 }).r0).toBe(0);
+});
 
 it('enumerates immediate EFS children with independent search handles and bounded output', () => {
   const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'find'); bridge.install();

@@ -182,6 +182,20 @@ export function installNatives(rt: MythroadRuntime): void {
   const load = makeLoadTable(rt);
   reg("SaveTable", save);
   reg("LoadTable", load);
+  // init0.mr may replace SaveTable/LoadTable with Lua wrappers around _store.
+  // Both entry points must use the same binary persistence format.
+  const store = L.newTable();
+  L.setTableFn(store, "store", Ls => {
+    Ls.checkTable(1); Ls.checkTable(2);
+    Ls.pushString(persistRoot(Ls, Ls.nums[Ls.absindex(1)], Ls.slot(Ls.absindex(2))));
+    return 1;
+  });
+  L.setTableFn(store, "load", Ls => {
+    Ls.checkTable(1);
+    const root = unpersistRoot(Ls, Ls.nums[Ls.absindex(1)], binToBytes(Ls.checkString(2).s));
+    Ls.pushSlot(root); return 1;
+  });
+  L.setGlobal("_store", TAG_TABLE, store);
   const runFile = makeRunFile(rt);
   reg("RunFile", runFile);
   reg("_runFile", runFile);

@@ -56,6 +56,20 @@ function putName(ext: ExtRuntime, s: string): number {
 }
 
 describe("5-C.10K current-pack read-only file backend", () => {
+  it('opens extracted files case-insensitively like handset FAT storage', () => {
+    const { ext, bridge } = wirePack();
+    bridge.appFs.mkdir('Game');
+    bridge.appFs.replace('Game/mapValue.txt', new Uint8Array([1, 2, 3]));
+    const handle = bridge.files.open('GAME\\mapvalue.TXT', MR_FILE_RDWR);
+    expect(handle).toBeGreaterThan(0);
+    const data = ext.alloc(4); ext.mem.write8(data, 9);
+    expect(bridge.files.write(ext.mem, handle, data, 1)).toBe(1);
+    expect([...bridge.appFs.file('game/MAPVALUE.txt')!]).toEqual([9, 2, 3]);
+    expect(bridge.files.rename('GAME/mapvalue.txt', 'Game/Next.TXT')).toBe(0);
+    expect(bridge.appFs.file('game/next.txt')?.[0]).toBe(9);
+    expect(bridge.files.remove('GAME/NEXT.txt')).toBe(0);
+    expect(bridge.appFs.file('game/next.txt')).toBeNull();
+  });
   it('keeps container writes private, shares changes with open handles and resets the copy', () => {
     const { ext, bridge, pack } = wirePack(new Uint8Array([1, 2, 3, 4]));
     const reader = bridge.files.open(PACK, MR_FILE_RDONLY);

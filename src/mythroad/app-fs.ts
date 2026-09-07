@@ -17,7 +17,9 @@ export class AppFileSystem {
   readonly nodes = new Map<string, AppFsNode>();
 
   normalize(name: string): string {
-    return name.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "");
+    // Handset EFS uses FAT-style case-insensitive filenames. Archive resource
+    // names remain in the separate, case-sensitive MythroadVfs namespace.
+    return name.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "").toLowerCase();
   }
 
   clear(): void {

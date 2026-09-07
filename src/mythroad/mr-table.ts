@@ -274,6 +274,13 @@ export class MrTableBridge {
       for (let i = 0; i < count; i++) { const x = mem.read8(a + i), y = mem.read8(b + i); if (x !== y) return x - y; if (!x) break; }
       return 0;
     });
+    // DSM's default C locale compares byte strings; it has no host locale.
+    this.ext.registerHandler(12, (_cpu, mem, [a, b]) => strcmp2(mem, a, b));
+    this.ext.registerHandler(13, (_cpu, mem, [pointer, value, count]) => {
+      if (!pointer) return 0;
+      for (let i = 0; i < count; i++) if (mem.read8(pointer + i) === (value & 255)) return pointer + i;
+      return 0;
+    });
     this.ext.registerHandler(15, (_cpu, mem, args) => strlen2(mem, args[0]!));
     this.ext.registerHandler(16, (_cpu, mem, args) => {
       const haystack = args[0] >>> 0, needle = args[1] >>> 0;
