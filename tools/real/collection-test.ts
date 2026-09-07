@@ -1,3 +1,4 @@
+import { SYSTEM_COMPONENTS } from "../../src/mythroad/system-components.ts";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
@@ -41,7 +42,7 @@ if(worker) {
   if(hash(bytes)!==game.sha256) throw new Error("game content differs from frozen manifest");
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
-  const systemFiles = Object.fromEntries(["system/gb16.uc2", "system/gb12.uc2", "system/gb12_uc2.adl", "system/gb16_uc2.adl", "plugins/netpay.mrp"].map(name => [name, readFileSync(`assets/${name}`)]));
+  const systemFiles = Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)]));
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
   const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,graphics:display});
   let phase="load",ticks=0,inputChanges=0,controlChanges=0,keysTested=0,error:string|null=null;
@@ -73,7 +74,7 @@ if(worker) {
   const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>c.name.startsWith("control")&&scenario.controlSha256!.includes(c.sha256));
   const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
   console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,controlChanges,presentedFrames:display.frames,interactionVerified,distinctFrames:distinct.size,nonBlack,sceneVerified,
-    checkpoints,exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
+    checkpoints,missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
 } else {
   const onlyArg=args.find(a=>a.startsWith("--only="));
   const only=onlyArg?new Set(onlyArg.slice(7).split(",").map(Number)):null;
@@ -82,7 +83,7 @@ if(worker) {
   const revision=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim();
   const diff=execFileSync("git",["diff"],{encoding:"utf8"});
   const meta={revision,workingDiffSha256:hash(diff),manifestSha256:hash(readFileSync(manifestPath)),scenarioSha256:existsSync(scenarioPath)?hash(readFileSync(scenarioPath)):null,
-    systemFilesSha256:Object.fromEntries(["system/gb16.uc2","system/gb12.uc2","system/gb12_uc2.adl","system/gb16_uc2.adl","plugins/netpay.mrp"].map(name=>[name,hash(readFileSync(`assets/${name}`))])),
+    systemFilesSha256:Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,hash(readFileSync(`assets/${name}`))])),
     startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
   const results: any[]=[];
   const save=()=>writeFileSync(join(output,"results.json"),JSON.stringify({...meta,complete:results.length===games.length,

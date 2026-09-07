@@ -23,7 +23,10 @@ describe("collection string and platform ABI",()=>{
   it("initializes a virtual network, reports unavailable transport, and rejects unknown platform extensions",()=>{
     const {ext,bridge,str,call}=setup();expect(call(81,0,str("CMNET"),0)).toBe(0);
     expect(bridge.networkMode).toBe("CMNET");expect(call(83,str("example.invalid"),0,0)).toBe(-1);
-    expect(call(84,0,0,0)).toBe(-1);expect(call(82,0,0,0)).toBe(0);expect(bridge.networkMode).toBeNull();
+    const socket=call(84,0,0,0);expect(socket).toBeGreaterThan(0);
+    expect(call(85,socket,0x08080808,80)).toBe(-1);
+    expect(call(82,0,0,0)).toBe(0);expect(bridge.networkMode).toBeNull();
+    expect(call(87,socket,0,1)).toBe(-1);
     expect(bridge.platEx(ext.mem,new Uint32Array([2221,0,0,0,0]))).toBe(-1);
     expect(()=>bridge.platEx(ext.mem,new Uint32Array([999999,0,0,0,0]))).toThrow();
   });

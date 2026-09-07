@@ -6,4 +6,9 @@
 - `system/gb12.uc2`、`gb12_uc2.adl`、`gb16_uc2.adl`：来自用户游戏集合中的 `320×480分辨率游戏（无中文明命名）/相关文件/system/`。12 点字库 SHA-256 为 `f8e9a443e28eecce3a99f0ebf26a197b1ef5e65bab5406054ff7e985d48274b3`，两个索引文件均为 `3149a176488216bda8e4656c918962584c19d29fdde1a9e40c162e0da3a33bce`。
 - `plugins/netpay.mrp`：来自本机参考项目 `rxgj-main/test/fixtures/plugins/netpay.mrp` 的兼容测试组件，appid 480010、版本 386，SHA-256 `6f6d7f07d9751860bd77f76e4b844bf60332e6a36af1966ccb86eecdff3cfd4c`。参考项目的 `omx_wiki/gjxwsmn-netpay-plugin-update-progress.md` 记录了该文件的来源与版本。此前测试用户集合的版本 374 时，《干柴烈火美女剑》会报付费值异常；版本 386 能完成本地提示回调并恢复剧情。
 
-每次运行将组件复制到独立的内存文件系统。来宾无法访问真实短信、支付或网络；传输接口返回失败。组件存在不意味着依赖在线服务器的游戏已经兼容。
+每次运行将组件复制到独立的内存文件系统。`OfflineNetwork` 在内存中复用参考项目 `tools/pay-server/skymobi-pay-server.go` 的 `/payOneAsTlv` 和 `/payOne` 测试响应，保留事务号回显、PREREG 非授权响应以及 REG/PROP 的继续动作；本地使用已安装的 386 组件，不强制下载更新。测试报告单独记录命中的离线服务。
+
+来宾无法访问真实短信、支付或网络；未知域名、端点和 UDP 均返回失败。离线测试服务不等于原在线业务或真实支付功能，也不意味着其他依赖在线服务器的游戏已经兼容。
+
+- `system/gb12v2.uc2`、`gb12v2.adl`：来自同一集合的 `相关文件/system/`，供第二版字库加载器直接读取，避免反复提示下载字库。SHA-256 分别为 `728e3c78b4a7ebd11c3cdcec671a4c0c70d2cb03fe5f919ca0b4379ac74533f9` 和 `05ff9a62aeea4d5c8a2a0c3d2a45fa086c478e2f9628f1bbe1cdb75f3a9b61ee`。
+- `plugins/flaengine.mrp`：来自同一集合的 `相关文件/plugins/`，appid 490284、版本 1029，SHA-256 `e8cf02e024c451368f8d2dd8af868a287b4e2aa5f278c231a749c2f1920e5d0d`。供《格子风暴》等游戏加载本地引擎。

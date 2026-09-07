@@ -15,6 +15,7 @@ import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from
 import type { MythroadVfs } from "./vfs.ts";
 import { GuestHeap } from "./guest-heap.ts";
 import { MediaDevices } from "./media.ts";
+import { OfflineNetwork } from "./offline-network.ts";
 
 /** `sizeof(mr_userinfo)` in `mrporting.h`. */
 export const MR_USERINFO_SIZE = 64;
@@ -142,6 +143,8 @@ export class MrTableBridge {
   private diskInfoAddr = 0;
   private randSeed: number | null = null;
   networkMode: string | null = null;
+  readonly offlineNetwork = new OfflineNetwork();
+  readonly missingComponents = new Set<string>();
   private readonly media = new MediaDevices({
     alloc: size => this.ext.alloc(size),
     readFile: name => this.appFs.file(name),
@@ -328,13 +331,24 @@ export class MrTableBridge {
     this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
     // rxgj aex_t082: closing an already inactive network succeeds.
     this.ext.registerHandler(81, (_cpu, mem, args) => {
-      // Initializing the virtual network is synchronous. No host connection
-      // is opened; DNS/socket requests below report unavailable transport.
+      // Initializing the in-memory legacy service transport is synchronous.
       this.networkMode = args[1] ? readGuestCString(mem, args[1]) : "";
       return MR_SUCCESS;
     });
-    this.ext.registerHandler(82, () => { this.networkMode = null; return MR_SUCCESS; });
-    for (const slot of [83,84,85,86,87,88,89,90]) this.ext.registerHandler(slot, () => MR_FAILED);
+    this.ext.registerHandler(82, () => { this.networkMode = null; this.offlineNetwork.closeAll(); return MR_SUCCESS; });
+    this.ext.registerHandler(83, (_cpu, mem, [host]) => this.offlineNetwork.resolve(readGuestCString(mem, host)));
+    this.ext.registerHandler(84, (_cpu, _mem, [type, protocol]) => this.offlineNetwork.socket(type, protocol));
+    this.ext.registerHandler(85, (_cpu, _mem, [id, ip, port]) => this.offlineNetwork.connect(id, ip, port));
+    this.ext.registerHandler(86, (_cpu, _mem, [id]) => this.offlineNetwork.close(id));
+    this.ext.registerHandler(87, (_cpu, mem, [id, ptr, length]) => {
+      const result = this.offlineNetwork.receive(id, length);
+      if (typeof result === "number") return result;
+      mem.load(ptr, result);
+      return result.length;
+    });
+    this.ext.registerHandler(89, (_cpu, mem, [id, ptr, length]) =>
+      length > 1024 * 1024 ? MR_FAILED : this.offlineNetwork.send(id, mem.slice(ptr, length)));
+    for (const slot of [88,90]) this.ext.registerHandler(slot, () => MR_FAILED);
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
@@ -1000,7 +1014,8 @@ export class MrTableBridge {
   }
 
   plat(code: number, param: number): number {
-    if (code === 1101 || code === 1011) return MR_IGNORE;
+    if (code === 1001) return this.offlineNetwork.state(param);
+    if (code === 1101 || code === 1011 || code === 1215) return MR_IGNORE;
     if (code === 1214) return MR_SUCCESS; // Enable key-release events (always supported).
     if (code === 1302) { this.volume = Math.max(0, Math.min(100, param)); return MR_SUCCESS; }
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;
@@ -1026,7 +1041,9 @@ export class MrTableBridge {
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
     try {
-      return this.files.open(readGuestCString(mem, nameAddr), mode >>> 0);
+      const name = readGuestCString(mem, nameAddr), result = this.files.open(name, mode >>> 0);
+      if (!result && /(^|[\\/])plugins[\\/]/i.test(name) && this.missingComponents.size < 128) this.missingComponents.add(name);
+      return result;
     } catch (e) {
       if (e instanceof UnknownAbiError) {
         this.hooks.onUnknownAbi?.({
