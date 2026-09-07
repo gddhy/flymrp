@@ -34,7 +34,7 @@ export class ARMCPU {
   }
 
   get cpsr(): number {
-    let w = (this.cpsrExtra & ~0xf800_0020) >>> 0;
+    let w = (this.cpsrExtra & ~0xf000_0020) >>> 0;
     if (this.n) w |= 0x8000_0000;
     if (this.z) w |= 0x4000_0000;
     if (this.c) w |= 0x2000_0000;
@@ -55,7 +55,7 @@ export class ARMCPU {
     this.v = (w >>> 28) & 1;
     this.t = (w >>> 5) & 1;
     this.itState = ((w >>> 8) & 0xfc) | ((w >>> 25) & 3);
-    this.cpsrExtra = (w & ~0xf800_0020 & ~0x0600_fc00) >>> 0;
+    this.cpsrExtra = (w & ~0xf000_0020 & ~0x0600_fc00) >>> 0;
   }
 
   reset(pc = 0, thumb = 0): void {

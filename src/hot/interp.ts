@@ -419,6 +419,26 @@ export function execPacked(
     case Op.SMLAL:
       execMul(cpu, instPC, u.op, u.rd, u.rn, u.rm, u.s, w1 & 0xf);
       break;
+    case Op.DSP_MUL: {
+      const a = cpu.r[u.rm], b = cpu.r[w1 & 15];
+      const halfA = u.shiftType & 1 ? a >> 16 : (a << 16) >> 16;
+      const halfB = u.shiftType & 2 ? b >> 16 : (b << 16) >> 16;
+      // 32x16 fits exactly in JavaScript's 53-bit integer precision. Floor
+      // matches arithmetic >>16 for negative products as well.
+      const product = u.aux === 1 ? Math.floor((a | 0) * halfB / 65536) : halfA * halfB;
+      if (u.aux === 2) {
+        const acc = (BigInt(cpu.r[u.rd]) << 32n) | BigInt(cpu.r[u.rn]);
+        const result = BigInt.asUintN(64, acc + BigInt(product));
+        cpu.r[u.rn] = Number(result & 0xffffffffn);
+        cpu.r[u.rd] = Number(result >> 32n);
+      } else {
+        const accumulate = u.aux === 0 || (u.aux === 1 && !(u.shiftType & 1));
+        const result = product + (accumulate ? cpu.r[u.rn] | 0 : 0);
+        if (accumulate && (result > 0x7fffffff || result < -0x80000000)) cpu.cpsrExtra |= 0x08000000;
+        cpu.r[u.rd] = result >>> 0;
+      }
+      break;
+    }
     case Op.LDR:
     case Op.STR:
     case Op.LDRB:
@@ -477,6 +497,7 @@ export function execPacked(
         cpu.z = (val >>> 30) & 1;
         cpu.c = (val >>> 29) & 1;
         cpu.v = (val >>> 28) & 1;
+        cpu.cpsrExtra = (cpu.cpsrExtra & ~0x08000000) | (val & 0x08000000);
       }
       break;
     }

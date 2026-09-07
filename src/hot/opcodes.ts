@@ -74,6 +74,7 @@ export const enum Op {
   MOVW,
   MOVT,
   NOP,
+  DSP_MUL,
   UNDEF = 255,
 }
 
@@ -169,6 +170,7 @@ OP_NAMES[Op.MOV] = "MOV";
 OP_NAMES[Op.BIC] = "BIC";
 OP_NAMES[Op.MVN] = "MVN";
 OP_NAMES[Op.MUL] = "MUL";
+OP_NAMES[Op.DSP_MUL] = "DSP_MUL";
 OP_NAMES[Op.MLA] = "MLA";
 OP_NAMES[Op.UMULL] = "UMULL";
 OP_NAMES[Op.UMLAL] = "UMLAL";

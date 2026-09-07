@@ -133,6 +133,21 @@ export function decodeArm(word: number, out: Uint32Array, idx: number): void {
     return;
   }
 
+  // ARMv5TE signed halfword multiply family. Bits 6/5 select top/bottom
+  // halves; kind=1 uses a full signed word and takes product[47:16].
+  if ((word & 0x0f90_0090) === 0x0100_0080) {
+    const kind = (word >>> 21) & 3;
+    const rd = (word >>> 16) & 15, rn = (word >>> 12) & 15;
+    const rs = (word >>> 8) & 15, rm = word & 15;
+    const xy = (word >>> 5) & 3;
+    if ([rd, rs, rm].includes(15) ||
+        ((kind === 3 || (kind === 1 && (xy & 1))) ? rn !== 0 : rn === 15) ||
+        (kind === 2 && rd === rn)) {
+      undef(out, idx, cond, word);
+    } else emit(out, idx, Op.DSP_MUL, cond, rd, rn, rm, xy, 0, kind, rs);
+    return;
+  }
+
   if ((word & 0x0e00_0090) === 0x0000_0090) {
     const sh = (word >>> 5) & 3;
     if (sh !== 0) {
