@@ -1,0 +1,53 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { PlayerClient } from '../../web/player-client.ts';
+import type { PlayerResponse } from '../../web/player-protocol.ts';
+
+class WorkerDouble {
+  static latest: WorkerDouble;
+  onmessage: ((event: { data: PlayerResponse }) => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
+  messages: unknown[] = [];
+  terminated = false;
+  constructor() { WorkerDouble.latest = this; }
+  postMessage(message: unknown) { this.messages.push(message); }
+  terminate() { this.terminated = true; }
+  emit(data: PlayerResponse) { this.onmessage?.({ data }); }
+}
+function fixture() {
+  vi.stubGlobal('Worker', WorkerDouble);
+  const draw = vi.fn();
+  const canvas = { width: 240, height: 320, getContext: () => ({
+    createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: draw,
+  }) };
+  const hooks = { edit: vi.fn(), sound: vi.fn(), soundStop: vi.fn(), error: vi.fn() };
+  const player = new PlayerClient(canvas as unknown as HTMLCanvasElement, hooks);
+  return { player, worker: WorkerDouble.latest, canvas, hooks, draw };
+}
+afterEach(() => vi.unstubAllGlobals());
+it('bounds pending ticks and preserves key presses and releases during a busy callback', () => {
+  const { player, worker } = fixture();
+  player.tick(16, 1); player.tick(20, 4);
+  player.input.press('FIRE'); player.input.release('FIRE');
+  expect(worker.messages).toEqual([{ type: 'tick', milliseconds: 16, speed: 1 }, { type: 'key', key: 'FIRE', pressed: true }, { type: 'key', key: 'FIRE', pressed: false }]);
+  worker.emit({ type: 'tick-complete' }); player.tick(17, 2);
+  expect(worker.messages.at(-1)).toEqual({ type: 'tick', milliseconds: 17, speed: 2 });
+});
+it('terminates loading immediately and ignores stale frames and errors after replacement', async () => {
+  const { player, worker, draw, hooks } = fixture();
+  const ready = player.start({ type: 'start', bytes: new ArrayBuffer(4), files: {}, profile: {} });
+  const cancelled = expect(ready).rejects.toThrow('取消');
+  player.stop(); await cancelled;
+  worker.emit({ type: 'frame', width: 1, height: 1, pixels: new Uint16Array([0xffff]) });
+  worker.emit({ type: 'error', message: 'old guest', exited: false });
+  expect(worker.terminated).toBe(true); expect(draw).not.toHaveBeenCalled(); expect(hooks.error).not.toHaveBeenCalled();
+});
+it('renders transferred LCD pixels and handles resolution changes and editor messages', () => {
+  const { player, worker, canvas, draw, hooks } = fixture();
+  worker.emit({ type: 'frame', width: 2, height: 1, pixels: new Uint16Array([0xf800, 0x07e0]) });
+  expect([canvas.width, canvas.height, player.frames]).toEqual([2, 1, 1]);
+  expect([...draw.mock.calls[0][0].data]).toEqual([255, 0, 0, 255, 0, 255, 0, 255]);
+  worker.emit({ type: 'edit', state: { handle: 1, title: '姓名', text: '', type: 0, maxLength: 8 } });
+  expect(hooks.edit).toHaveBeenCalledOnce();
+  player.finishEdit('阿明', true);
+  expect(worker.messages.at(-1)).toEqual({ type: 'edit', text: '阿明', accepted: true });
+});

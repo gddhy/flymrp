@@ -1,23 +1,21 @@
-import { DEFAULT_NETWORK_RULES } from "../src/mythroad/network-rules.ts";
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
-import { binToBytes, MRPArchive } from "../src/mrp/index.ts";
-import { Canvas2DBackend, gb16Uc2Loaded, loadGb16Uc2, MythroadRuntime, type Canvas2DContextLike } from "../src/mythroad/index.ts";
+import { MRPArchive } from "../src/mrp/index.ts";
+import { PlayerClient } from "./player-client.ts";
 import { MR_MOUSE_DOWN, MR_MOUSE_UP, MR_MOUSE_MOVE } from "../src/mythroad/constants.ts";
 import { inferScreenSize } from "../src/mythroad/device-size.ts";
 import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 import { assetUrl, readGame, readLibrary } from "./library.ts";
-import { clockSlices, rotatedDirection, screenPoint } from "./player-options.ts";
+import { rotatedDirection, screenPoint } from "./player-options.ts";
 
-const networkRules = DEFAULT_NETWORK_RULES;
 let rotation = 0, speed = 1;
 const editorDialog = document.querySelector<HTMLDialogElement>("#guest-editor")!;
 const editorText = document.querySelector<HTMLInputElement>("#guest-editor-text")!;
-let editingRuntime: MythroadRuntime | null = null;
-document.querySelector("#guest-editor-form")!.addEventListener("submit", ev => { ev.preventDefault(); editingRuntime?.mrTable?.editor.finish(editorText.value, true); });
-document.querySelector("#guest-editor-cancel")!.addEventListener("click", () => editingRuntime?.mrTable?.editor.finish(editorText.value, false));
-editorDialog.addEventListener("cancel", ev => { ev.preventDefault(); editingRuntime?.mrTable?.editor.finish(editorText.value, false); });
+let editingRuntime: PlayerClient | null = null;
+document.querySelector("#guest-editor-form")!.addEventListener("submit", ev => { ev.preventDefault(); editingRuntime?.finishEdit(editorText.value, true); });
+document.querySelector("#guest-editor-cancel")!.addEventListener("click", () => editingRuntime?.finishEdit(editorText.value, false));
+editorDialog.addEventListener("cancel", ev => { ev.preventDefault(); editingRuntime?.finishEdit(editorText.value, false); });
 const canvas = document.querySelector<HTMLCanvasElement>("#screen")!;
 const fileInput = document.querySelector<HTMLInputElement>("#file")!;
 const stopBtn = document.querySelector<HTMLButtonElement>("#stop")!;
@@ -32,9 +30,6 @@ let paused = false;
 let frames = 0;
 let fpsStart = 0;
 let lastGame: { name: string; read: () => Promise<ArrayBuffer> } | null = null;
-const rawCtx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-if (!rawCtx) throw new Error("Canvas2D unavailable");
-const ctx: Canvas2DContextLike = rawCtx;
 const audio = new BrowserAudio();
 const midiPlayer = document.querySelector<HTMLSelectElement>("#midi-player")!;
 try { audio.setMidiPlayer(localStorage.getItem("flymrp.midi-player") === "simple" ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
@@ -43,8 +38,9 @@ midiPlayer.addEventListener("change", () => {
   audio.setMidiPlayer(midiPlayer.value === "simple" ? "simple" : "tinysynth");
   try { localStorage.setItem("flymrp.midi-player", audio.midiPlayer); } catch { /* storage is optional */ }
 });
-type Session = { rt: MythroadRuntime; gfx: Canvas2DBackend; raf: number; last: number; title: string; nextHud: number };
+type Session = { rt: PlayerClient; raf: number; last: number; title: string; nextHud: number };
 let session: Session | null = null;
+let loadingRuntime: PlayerClient | null = null;
 let generation = 0;
 let fontPromise: Promise<void> | null = null;
 const systemFiles: Record<string, Uint8Array> = {};
@@ -61,7 +57,8 @@ function stop(keepStatus = false): void {
   editingRuntime = null;
   held.clear();
   touch = null;
-  if (session) cancelAnimationFrame(session.raf);
+  if (session) { cancelAnimationFrame(session.raf); session.rt.stop(); }
+  loadingRuntime?.stop(); loadingRuntime = null;
   session = null;
   audio.stopAll();
   stopBtn.disabled = true;
@@ -71,7 +68,7 @@ function stop(keepStatus = false): void {
   fpsEl.textContent = "— FPS";
   if (!keepStatus) setStatus("已停止。选择游戏即可重新加载。");
 }
-function fail(e: unknown, rt?: MythroadRuntime): void {
+function fail(e: unknown, rt?: PlayerClient): void {
   const exited = rt?.exited;
   stop(true);
   setStatus(exited ? "游戏已退出，可重新加载。" : `运行失败：${e instanceof Error ? e.message : String(e)}`, !exited);
@@ -81,31 +78,26 @@ function frame(now: number): void {
   if (!s) return;
   if (paused) { s.last = now; s.raf = requestAnimationFrame(frame); return; }
   try {
-    for (const elapsed of clockSlices(now - s.last, speed)) {
-      s.rt.advance(elapsed);
-      for (let i = 0; i < 16 && s.rt.step(); i++);
-      if (s.rt.exited) break;
-    }
+    s.rt.tick(now - s.last, speed);
     s.last = now;
     if (s.rt.exited) { stop(true); setStatus("游戏已退出，可重新加载。"); return; }
     if (now >= s.nextHud) {
       setStatus(`${s.title} · ${s.rt.screenW}×${s.rt.screenH} · 运行中${audio.lastError ? ` · 声音：${audio.lastError}` : ""}`);
       s.nextHud = now + 500;
       const elapsed = now - fpsStart;
-      if (elapsed >= 500) { fpsEl.textContent = `${Math.round((s.gfx.frames - frames) * 1000 / elapsed)} FPS`; frames = s.gfx.frames; fpsStart = now; }
+      if (elapsed >= 500) { fpsEl.textContent = `${Math.round((s.rt.frames - frames) * 1000 / elapsed)} FPS`; frames = s.rt.frames; fpsStart = now; }
     }
     s.raf = requestAnimationFrame(frame);
   } catch (e) { fail(e, s.rt); }
 }
 async function ensureFont(): Promise<void> {
-  if (gb16Uc2Loaded() && systemFiles["system/gb12.uc2"]) return;
+  if (systemFiles["system/gb16.uc2"] && systemFiles["system/gb12.uc2"]) return;
   fontPromise ??= (async () => {
     await Promise.all(SYSTEM_COMPONENTS.map(async name => {
       const res = await fetch(assetUrl(name));
       if (!res.ok) throw new Error(`缺少运行组件 ${name}`);
       systemFiles[name] = new Uint8Array(await res.arrayBuffer());
     }));
-    loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   })().catch(e => { fontPromise = null; throw e; });
   await fontPromise;
 }
@@ -157,7 +149,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
   stopBtn.disabled = false;
   audio.resume();
   setStatus(`正在读取 ${name.split("/").at(-1)}…`);
-  let rt: MythroadRuntime | undefined;
+  let rt: PlayerClient | undefined;
   try {
     const [buffer] = await Promise.all([read(), ensureFont()]);
     if (token !== generation) return;
@@ -167,12 +159,10 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.width = profile.width;
     canvas.height = profile.height;
     fitScreen();
-    const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
     const packName = MRPArchive.parse(new Uint8Array(buffer)).header.filename;
     const localFiles = { ...await loadLocalSystem(), ...await loadLocalSystem(packName) };
     if (token !== generation) return;
-    loadGb16Uc2(localFiles["system/gb16.uc2"] ?? systemFiles["system/gb16.uc2"]);
-    rt = new MythroadRuntime({ networkRules, onEditChange: state => {
+    rt = new PlayerClient(canvas, { edit: state => {
       if (!state) { if (editorDialog.open) editorDialog.close(); editingRuntime = null; canvas.focus(); return; }
       editingRuntime = rt ?? null;
       document.querySelector("#guest-editor-title")!.textContent = state.title || "游戏输入";
@@ -180,27 +170,17 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
       editorText.inputMode = state.type === 1 ? "numeric" : "text";
       editorText.maxLength = state.maxLength; editorText.value = state.text;
       if (!editorDialog.open) editorDialog.showModal(); editorText.focus();
-    }, systemFiles: { ...systemFiles, ...localFiles }, profile, graphics: gfx, abiMode: "strict",
-      onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
-    const archive = rt.loadMrp(new Uint8Array(buffer));
-    rt.start();
-    // Only the guest's flush presents a frame. Between callbacks the guest may
-    // already have cleared dialogue/sprites to prepare its next background.
-    // Yield between boot ticks so stop/reload stays responsive during animations.
-    for (let i = 0; i < 32; i++) {
-      rt.advance(80);
-      for (let j = 0; j < 16 && rt.step(); j++);
-      if (i % 4 === 0) {
-        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-        if (token !== generation) return;
-      }
-    }
+    }, sound: (type, data, loop) => audio.play(type, data, loop), soundStop: type => audio.stop(type),
+      error: error => { if (token === generation) fail(error, rt); } });
+    loadingRuntime = rt;
+    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, profile });
     if (token !== generation) return;
-    const title = archive.header.appname ? new TextDecoder("gbk").decode(binToBytes(archive.header.appname)) : name.split("/").at(-1)!;
-    session = { rt, gfx, raf: 0, last: performance.now(), nextHud: 0, title };
+    loadingRuntime = null;
+    const title = guestTitle || name.split('/').at(-1)!;
+    session = { rt, raf: 0, last: performance.now(), nextHud: 0, title };
     titleEl.textContent = title;
     pauseBtn.disabled = false;
-    frames = gfx.frames; fpsStart = performance.now();
+    frames = rt.frames; fpsStart = performance.now();
     if (window.matchMedia("(max-width: 760px)").matches) setDrawer(false);
     canvas.focus();
     session.raf = requestAnimationFrame(frame);
@@ -220,7 +200,7 @@ pauseBtn.addEventListener("click", () => {
     paused = !paused;
     pauseBtn.textContent = paused ? "继续" : "暂停";
     session.last = performance.now();
-    fpsStart = session.last; frames = 0;
+    fpsStart = session.last; frames = session.rt.frames;
     setStatus(paused ? "已暂停" : "运行中");
   } catch (e) { fail(e, session.rt); }
 });
@@ -237,6 +217,12 @@ document.querySelector("#fullscreen")!.addEventListener("click", async () => {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen();
   } catch { setStatus("此浏览器暂不支持全屏，可隐藏虚拟键盘扩大画面。"); }
+});
+document.addEventListener("fullscreenchange", () => {
+  const button = document.querySelector<HTMLButtonElement>("#fullscreen")!;
+  button.setAttribute("aria-pressed", String(Boolean(document.fullscreenElement)));
+  button.setAttribute("aria-label", document.fullscreenElement ? "退出全屏" : "全屏");
+  button.title = document.fullscreenElement ? "退出全屏" : "进入全屏";
 });
 window.addEventListener("keydown", ev => {
   if (!session || paused || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
@@ -359,7 +345,8 @@ try { const saved = localStorage.getItem('flymrp.volume'); if (saved !== null &&
 function applyVolume(): void {
   audio.setVolume(Number(volume.value) / 100); audio.setMuted(muted);
   document.querySelector('#volume-value')!.textContent = `${volume.value}%`;
-  mute.textContent = muted ? '♪̸' : '♪'; mute.setAttribute('aria-pressed', String(muted)); mute.setAttribute('aria-label', muted ? '开启声音' : '静音');
+  mute.setAttribute('aria-pressed', String(muted)); mute.setAttribute('aria-label', muted ? '开启声音' : '静音');
+  mute.title = muted ? '开启声音' : '静音';
   storeSetting('volume', volume.value); storeSetting('muted', String(muted));
 }
 volume.addEventListener('input', () => { applyVolume(); audio.resume(); });
