@@ -247,7 +247,7 @@ export class MrTableBridge {
       if (record) {
         record.live = false;
         this.liveAllocations.delete(record.guestAddr);
-        this.retiredBlocks.push({ pointer: record.guestAddr, size: record.alignedSize });
+        this.retireBlock(record.guestAddr, record.alignedSize);
       }
       return MR_SUCCESS;
     });
@@ -1384,7 +1384,28 @@ export class MrTableBridge {
    * (or guest return), so that cleanup cannot erase the allocator's headers.
    * Blocks are still reusable by the very next malloc; no errors are ignored.
    */
+  private retiredReadHook: GuestMemory['onBeforeRead'] = null;
+  private previousReadHook: GuestMemory['onBeforeRead'] = null;
+
+  private retireBlock(pointer: number, size: number): void {
+    this.retiredBlocks.push({ pointer, size });
+    if (this.retiredReadHook) return;
+    const mem = this.ext.mem, previous = mem.onBeforeRead;
+    this.previousReadHook = previous;
+    // Some SDKs immediately read a freed node to splice in a temporary arena
+    // for decompression. Publish its headers before that read, while retaining
+    // the destructor's write-only cleanup window up to the next ABI boundary.
+    mem.onBeforeRead = this.retiredReadHook = (address, length) => {
+      if (this.retiredBlocks.some(b => address < b.pointer + b.size && address + length > b.pointer)) this.recycleRetiredBlocks();
+      previous?.(address, length);
+    };
+  }
+
   private recycleRetiredBlocks(): void {
+    if (this.retiredReadHook) {
+      if (this.ext.mem.onBeforeRead === this.retiredReadHook) this.ext.mem.onBeforeRead = this.previousReadHook;
+      this.retiredReadHook = this.previousReadHook = null;
+    }
     for (const block of this.retiredBlocks.splice(0)) this.heap?.free(block.pointer, block.size);
   }
 

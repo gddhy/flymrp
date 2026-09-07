@@ -47,6 +47,8 @@ export class GuestMemory {
 
   /** Optional write watch (code-cache invalidation). Not on the Stage 3 hot path. */
   onWrite: ((addr: number, size: number) => void) | null = null;
+  /** Resolve pending host writes before a guest observes their memory. */
+  onBeforeRead: ((addr: number, size: number) => void) | null = null;
 
   constructor(ramBase = 0x0001_0000, ramSize = 0x0010_0000) {
     if (ramBase !== (ramBase >>> 0) || (ramBase & 3) !== 0) {
@@ -130,6 +132,7 @@ export class GuestMemory {
 
   read8(addr: number): number {
     const a = addr >>> 0;
+    this.onBeforeRead?.(a, 1);
     const off = (a - this.ramBase) >>> 0;
     if (off < this.ramSize) return this.ram8[off]!;
     const hit = this.find(a, 1);
@@ -152,6 +155,7 @@ export class GuestMemory {
   /** Little-endian. Unaligned is byte-assembled (no rotate). */
   read16(addr: number): number {
     const a = addr >>> 0;
+    this.onBeforeRead?.(a, 2);
     const off = (a - this.ramBase) >>> 0;
     if (off < this.ramSize - 1) {
       if ((a & 1) === 0) return this.ram16[off >>> 1]!;
@@ -191,6 +195,7 @@ export class GuestMemory {
   /** Little-endian. Unaligned is byte-assembled (no ARMv5 LDR rotate). */
   read32(addr: number): number {
     const a = addr >>> 0;
+    this.onBeforeRead?.(a, 4);
     const off = (a - this.ramBase) >>> 0;
     if (off < this.ramSize - 3) {
       if ((a & 3) === 0) return this.ram32[off >>> 2]!;

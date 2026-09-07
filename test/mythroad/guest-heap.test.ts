@@ -71,3 +71,17 @@ describe("shared Mythroad heap and framebuffer", () => {
     expect(ext.mem.read32(tile)).toBe(0xabcdef);
   });
 });
+
+it('publishes freed headers before an SDK reads them inside the same guest call', () => {
+  const ext=new ExtRuntime(), bridge=new MrTableBridge(ext,new MythroadVfs(),'arena-splice');bridge.install();
+  const pointer=bridge.malloc(16); bridge.malloc(16); // keep the next node allocated
+  ext.mem.fill(pointer,0x38,16);
+  const code=ext.alloc(64);
+  // Save pointer and return address; free(pointer,16); return pointer[1].
+  [0xe92d4030,0xe1a04000,0xe59f5010,0xe1a0e00f,0xe12fff15,
+    0xe5940004,0xe8bd8030,0,tableSlotAddr(1)]
+    .forEach((word,i)=>ext.mem.write32(code+i*4,word));
+  const result=ext.runGuest(code,{r0:pointer,r1:16});
+  expect(result.kind).toBe('return');expect(result.r0).toBe(16);
+  expect(ext.mem.onBeforeRead).toBeNull();expect(bridge.malloc(16)).toBe(pointer);
+});

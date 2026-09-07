@@ -1597,5 +1597,14 @@
         "wait": 15
       }
     ]
+  },
+  "16": {
+    "gameplaySha256": [
+      "8a122b7c9f82b1de0ddccd2b728c8ff1bffa7b0c6d62d9d88da006c653d9f418"
+    ],
+    "controlSha256": [
+      "6bde5c73a3196351814ddb33348f3c14b86eeab3c864ed07e9cdbb7c0685de24"
+    ],
+    "reviewNote": "人工核对海滩连连看棋盘、选中光标与计时条；默认方向与确认键输入后持续运行 60 秒。仅覆盖此场景。"
   }
 }
