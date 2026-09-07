@@ -27,7 +27,7 @@ describe("5-D.1 real MRP playable path", () => {
     expect(r.fingerprints.intro).toBe(GSSJXZ_FP.intro);
     expect(r.fingerprints.gameplay).toBe(GSSJXZ_FP.gameplay);
     expect(r.fingerprints.afterInput).not.toBe(r.fingerprints.gameplay);
-    expect(r.frames.toSoundDialog).toBeLessThanOrEqual(24);
+    expect(r.frames.toSoundDialog).toBeLessThanOrEqual(48);
     expect(r.inputSequence).toEqual([
       "SOFTRIGHT press",
       "SOFTRIGHT release",

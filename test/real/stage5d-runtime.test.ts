@@ -83,7 +83,7 @@ describe("5-D real MRP runtime loop", () => {
 
   it("SOFTRIGHT on 开启声音？ changes framebuffer after next timer", () => {
     const { rt } = boot();
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 48; i++) {
       rt.advance(80);
       expect(rt.step()).toBe(true);
     }

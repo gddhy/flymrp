@@ -55,7 +55,7 @@ export function frameChecksum(pixels: Uint16Array): number {
 
 /**
  * Real host input → Mythroad event → guest → application.
- * 24-frame dialog wait is a baseline cap, not the only check.
+ * Scene waits allow the original single-dispatch timer cadence.
  */
 export function runPlayablePath(rt: MythroadRuntime, opts: { entry?: string } = {}): PlayablePathResult {
   const inputSequence: string[] = [];
@@ -81,7 +81,7 @@ export function runPlayablePath(rt: MythroadRuntime, opts: { entry?: string } = 
   if (rt.ext) rt.ext.onExtCall = rt.onExtCall;
   try {
     rt.start(opts.entry ?? "start.mr");
-    const dialog = waitChecksum(rt, GSSJXZ_FP.soundDialog, 32);
+    const dialog = waitChecksum(rt, GSSJXZ_FP.soundDialog, 64);
     frames.toSoundDialog = dialog.frames;
     fingerprints.soundDialog = dialog.sum;
     soundDialog = dialog.hit;

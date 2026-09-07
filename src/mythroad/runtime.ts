@@ -423,13 +423,16 @@ export class MythroadRuntime {
       return MR_SUCCESS;
     }
     if (!this.canRun()) return MR_IGNORE;
+    // Lua launchers forward dealtimer to EXT themselves. Calling both paths
+    // doubles animation, counters and timer rearming (e.g. Pocket Spirit).
+    const name = this.timers.callback;
+    if (this.lua.hasGlobalFn(name)) {
+      this.lua.callGlobal(name);
+      return MR_SUCCESS;
+    }
     if (this.ext) {
       const out = this.ext.arm_ext_call(2, new Uint8Array(0));
       if (out.kind !== "return") throw new ExtFault(out.kind, out.pc ?? 0, `timer EXT${out.detail ? `: ${out.detail}` : ""}`);
-    }
-    const name = this.timers.callback;
-    if (!this.lua.callGlobal(name)) {
-      /* official prints warning; not a swallowed fault */
     }
     return MR_SUCCESS;
   }
