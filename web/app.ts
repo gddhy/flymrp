@@ -79,10 +79,10 @@ function frame(now: number): void {
 async function ensureFont(): Promise<void> {
   if (gb16Uc2Loaded() && systemFiles["system/gb12.uc2"]) return;
   fontPromise ??= (async () => {
-    await Promise.all(["gb16.uc2", "gb12.uc2", "gb12_uc2.adl", "gb16_uc2.adl"].map(async name => {
-      const res = await fetch(`/system/${name}`);
-      if (!res.ok) throw new Error(`缺少 system/${name} 中文字库`);
-      systemFiles[`system/${name}`] = new Uint8Array(await res.arrayBuffer());
+    await Promise.all(["system/gb16.uc2", "system/gb12.uc2", "system/gb12_uc2.adl", "system/gb16_uc2.adl", "plugins/netpay.mrp"].map(async name => {
+      const res = await fetch(`/${name}`);
+      if (!res.ok) throw new Error(`缺少运行组件 ${name}`);
+      systemFiles[name] = new Uint8Array(await res.arrayBuffer());
     }));
     loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   })().catch(e => { fontPromise = null; throw e; });

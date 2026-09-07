@@ -78,6 +78,8 @@ export class ExtRuntime {
   bridgeCalls = 0;
   guestCallSerial = 0;
   debugOutput = "";
+  guestExitCode: number | null = null;
+  onGuestExit: (() => void) | null = null;
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
 
   constructor() {
@@ -88,7 +90,14 @@ export class ExtRuntime {
     this.cpu.onBeforeFetch = (cpu) => this.intercept(cpu);
     this.cpu.onSvc = (cpu, immediate) => {
       // ARM semihosting SYS_WRITEC, used by vendor debug putchar stubs.
-      if (!cpu.t || immediate !== 0xab || cpu.r[0] !== 3) return false;
+      if (immediate !== (cpu.t ? 0xab : 0x123456)) return false;
+      if (cpu.r[0] === 0x18) {
+        this.guestExitCode = cpu.r[1] === 0x20026 ? 0 : 1;
+        cpu.r[0] = this.guestExitCode;
+        this.onGuestExit?.();
+        throw new ExtStopped(ExtStopKind.Return, cpu.r[15]);
+      }
+      if (cpu.r[0] !== 3) return false;
       const ch = this.mem.read8(cpu.r[1]);
       this.debugOutput = (this.debugOutput + String.fromCharCode(ch)).slice(-4096);
       return true;

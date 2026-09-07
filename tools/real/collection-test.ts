@@ -40,7 +40,7 @@ if(worker) {
   if(hash(bytes)!==game.sha256) throw new Error("game content differs from frozen manifest");
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
-  const systemFiles = Object.fromEntries(["gb16.uc2", "gb12.uc2", "gb12_uc2.adl", "gb16_uc2.adl"].map(name => [`system/${name}`, readFileSync(`assets/system/${name}`)]));
+  const systemFiles = Object.fromEntries(["system/gb16.uc2", "system/gb12.uc2", "system/gb12_uc2.adl", "system/gb16_uc2.adl", "plugins/netpay.mrp"].map(name => [name, readFileSync(`assets/${name}`)]));
   const rt=new MythroadRuntime({profile,abiMode:"strict",systemFiles});
   let phase="load",ticks=0,inputChanges=0,keysTested=0,error:string|null=null;
   const distinct=new Set<string>();

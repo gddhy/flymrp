@@ -320,16 +320,18 @@ export class MythroadRuntime {
       return;
     }
     const owner = this.packName || "ext";
+    const exitGuest = () => {
+      this.state = MR_STATE_STOP;
+      this.exited = true;
+      this.timers.stop();
+      this.events.clear();
+      throw new LuaRuntimeError("Exiting...");
+    };
+    rt.onGuestExit = exitGuest;
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       getClock: () => this.clock,
       onSleep: (ms) => { this.clock += ms; },
-      onExit: () => {
-        this.state = MR_STATE_STOP;
-        this.exited = true;
-        this.timers.stop();
-        this.events.clear();
-        throw new LuaRuntimeError("Exiting...");
-      },
+      onExit: exitGuest,
       getTimer: () => this.timers,
       getMrState: () => this.state,
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),

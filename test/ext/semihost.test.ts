@@ -30,4 +30,14 @@ describe("Thumb semihost debug ABI", () => {
     const out = rt.runGuest(code | 1, { r0: 3, r1: 0xffffffff, lr: EXT_STOP_ADDR });
     expect(out.kind).toBe("unmapped");
   });
+  it("recognizes ARM SYS_EXIT without executing following guest instructions", () => {
+    const rt = new ExtRuntime(), code = rt.alloc(12);
+    rt.mem.write32(code, 0xef123456); rt.mem.write32(code+4, 0xe3a00007); rt.mem.write32(code+8, 0xe12fff1e);
+    let exits=0; rt.onGuestExit=()=>{exits++;};
+    expect(rt.runGuest(code,{r0:0x18,r1:0x20026}).r0).toBe(0);
+    expect(exits).toBe(1); expect(rt.guestExitCode).toBe(0);
+    expect(rt.runGuest(code,{r0:0x18,r1:0x20023}).r0).toBe(1);
+    expect(rt.guestExitCode).toBe(1);
+  });
+
 });

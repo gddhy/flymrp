@@ -487,6 +487,8 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1015) return this.free(input, inputLen);
+    // Optional platform billing-state query; this offline host does not take over.
+    if (code === 0x90004) return MR_IGNORE;
     const mediaResult = this.media.dispatch(mem, code, input, inputLen, output, outputLen);
     if (mediaResult !== null) return mediaResult;
     if (code === 1207) {
@@ -998,6 +1000,8 @@ export class MrTableBridge {
   }
 
   plat(code: number, param: number): number {
+    if (code === 1101 || code === 1011) return MR_IGNORE;
+    if (code === 1214) return MR_SUCCESS; // Enable key-release events (always supported).
     if (code === 1302) { this.volume = Math.max(0, Math.min(100, param)); return MR_SUCCESS; }
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;
     if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;

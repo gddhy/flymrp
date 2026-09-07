@@ -60,4 +60,11 @@ describe("collection string and platform ABI",()=>{
     expect(bridge.platEx(ext.mem,new Uint32Array([1305,str("z:"),2,out,len]))).toBe(1);
     expect(ext.mem.read32(out)).toBe(p);
   });
+  it("exposes key-release support and declines optional platform billing takeover", () => {
+    const {ext,bridge}=setup();
+    expect(bridge.plat(1214,1)).toBe(0);
+    expect(bridge.plat(1101,2)).toBe(1); expect(bridge.plat(1011,0)).toBe(1);
+    expect(bridge.platEx(ext.mem,new Uint32Array([0x90004,0,48,0,0]))).toBe(1);
+  });
+
 });
