@@ -18,7 +18,7 @@ import {
   MR_TIMER_STATE_IDLE,
   MythroadRuntime,
 } from "../../src/mythroad/index.ts";
-import { kn, ks } from "../helpers/lua.ts";
+import { kn, ks, invoke } from "../helpers/lua.ts";
 
 function chunkSetFlag(n: number): Uint8Array {
   return dumpChunk(
@@ -37,6 +37,21 @@ function chunkSetFlag(n: number): Uint8Array {
 }
 
 describe("5-C restart / runFile", () => {
+  it('switches archive resources, keeps extracted files and returns to the parent entry', () => {
+    const rt = new MythroadRuntime();
+    const child = buildMrp([{name:'start.mr', data:chunkSetFlag(2)}, {name:'scene.dat', data:new Uint8Array([2])}]);
+    rt.loadMrp(buildMrp([{name:'start.mr',data:chunkSetFlag(1)}, {name:'return.mr',data:chunkSetFlag(3)}, {name:'child.mrp',data:child}, {name:'scene.dat',data:new Uint8Array([1])}]));
+    rt.start(); const parent = rt.packName;
+    rt.appFs.replace('save.dat', new Uint8Array([42]));
+    invoke(rt.lua, '_strCom', [3, parent, 'return.mr']);
+    rt.requestRunFile('child.mrp', 'start.mr', 'child'); rt.advance(100); rt.step();
+    expect(rt.gcThreshold).toBe(2); expect(rt.vfs.readFile('scene.dat')?.[0]).toBe(2);
+    expect(rt.vfs.readFile('save.dat')?.[0]).toBe(42);
+    expect(() => rt.exitGuest()).toThrow();
+    rt.advance(100); rt.step();
+    expect(rt.gcThreshold).toBe(3); expect(rt.packName).toBe(parent);
+    expect(rt.vfs.readFile('scene.dat')?.[0]).toBe(1);
+  });
   it("RunFile sets RESTART and arms 100ms restart timer", () => {
     const rt = new MythroadRuntime();
     rt.state = MR_STATE_RUN;
@@ -68,7 +83,7 @@ describe("5-C restart / runFile", () => {
       ]),
     );
     rt.start();
-    rt.requestRunFile("pack", "next.mr", "q");
+    rt.requestRunFile(rt.packName, "next.mr", "q");
     expect(rt.state).toBe(MR_STATE_RESTART);
     rt.advance(100);
     expect(rt.step()).toBe(true);

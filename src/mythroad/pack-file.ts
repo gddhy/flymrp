@@ -53,12 +53,17 @@ export class CurrentPackFileBackend {
     private readonly appFs: AppFileSystem | null = null,
   ) {}
 
-  reset(): void {
+  currentPackCopy(): Uint8Array | null {
+    const pack = this.getPack();
+    return pack ? this.packCopies.get(pack.bytes) ?? null : null;
+  }
+
+  reset(clearFiles = true): void {
     this.handles.clear();
     this.packCopies = new WeakMap();
     this.nextHandle = 1;
     this.ops.length = 0;
-    this.appFs?.clear();
+    if (clearFiles) this.appFs?.clear();
   }
 
   peek(f: number): ReadOnlyFileHandle | null {

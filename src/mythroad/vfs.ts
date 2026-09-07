@@ -32,8 +32,21 @@ export class MythroadVfs {
   lastErrno = 0;
   reads = 0;
 
+  reset(): void {
+    this.ramNames.length = 0; this.ramData.length = 0;
+    this.fdOpen.fill(0); this.fdName.fill(null); this.fdRam.fill(-1);
+  }
+
   attach(archive: MRPArchive | null): void {
     this.archive = archive;
+  }
+
+  removeRam(name: string): boolean {
+    const index = this.ramIndex(name);
+    if (index < 0) return false;
+    this.ramNames[index] = null;
+    this.ramData[index] = null;
+    return true;
   }
 
   exists(name: string): boolean {

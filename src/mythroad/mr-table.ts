@@ -1,3 +1,4 @@
+import { WorkPath, diskSpace } from './work-path.ts';
 import { NativeUi } from "./native-ui.ts";
 import { NativeEditor, type EditState } from "./native-editor.ts";
 import type { NetworkRules } from "./network-rules.ts";
@@ -140,7 +141,7 @@ export class MrTableBridge {
   private readonly liveAllocations = new Map<number, AllocRecord>();
   readonly reads: ReadFileRecord[] = [];
   readonly files: CurrentPackFileBackend;
-  readonly appFs = new AppFileSystem();
+  readonly appFs: AppFileSystem;
   unknownRequiredSlot: number | null = null;
   /** rxgj `char_bitmap_addr`: one 32-byte EXT bump slot, reused. */
   charBitmapAddr = 0;
@@ -165,7 +166,9 @@ export class MrTableBridge {
   });
   volume = 100;
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
-  workPath = MYTHROAD_WORK_PATH;
+  private readonly localWorkPath = new WorkPath();
+  get workPath(): string { return (this.hooks.workPath ?? this.localWorkPath).value; }
+  set workPath(value: string) { (this.hooks.workPath ?? this.localWorkPath).value = value; }
   /** Isolated-test screen when `hooks.getScreen` is absent. */
   screen = new ScreenBuffer(240, 320);
   /**
@@ -187,6 +190,10 @@ export class MrTableBridge {
     readonly owner: string,
     readonly hooks: {
       networkRules?: NetworkRules;
+      appFs?: AppFileSystem;
+      workPath?: WorkPath;
+      onSetReturnApp?: (pack: string, entry: string) => void;
+      getReturnApp?: () => { pack: string; entry: string } | null;
       onUiChange?: () => void;
       onPlatformEvent?: (type: number, value: number) => void;
       onEditChange?: (state: EditState | null) => void;
@@ -212,13 +219,22 @@ export class MrTableBridge {
       getMrState?: () => number;
     } = {},
   ) {
+    this.appFs = hooks.appFs ?? new AppFileSystem();
     this.nativeUi = new NativeUi(ext.mem, hooks.onUiChange ?? (() => {}), hooks.onPlatformEvent ?? (() => {}));
     this.editor = new NativeEditor(ext.mem, size => ext.alloc(size), hooks.onEditChange, hooks.onEditComplete);
     this.offlineNetwork = new OfflineNetwork({ rules: hooks.networkRules, readFile: name => hooks.getDownloadFile?.(name) ?? this.appFs.file(name) });
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null, this.appFs);
   }
 
+  syncReturnApp(): void {
+    const app = this.hooks.getReturnApp?.();
+    for (const [slot, name] of [[102, app?.pack ?? ''], [103, app?.entry ?? '']] as const) {
+      writeFixedCString(this.ext.mem, this.ext.mem.read32(tableSlotAddr(slot)), name, MR_MAX_FILENAME_SIZE);
+    }
+  }
+
   install(): void {
+    this.syncReturnApp();
     // mythroad.c publishes addresses of these globals, not function pointers.
     // Games read them directly to size their clear/background operations.
     const screen = this.hooks.getScreen?.() ?? this.screen;
@@ -318,6 +334,10 @@ export class MrTableBridge {
     });
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
     this.ext.registerHandler(131, (_cpu, _mem, args) => {
+      if (args[1] === 3) {
+        this.hooks.onSetReturnApp?.(readGuestCString(this.ext.mem, args[2]), 'start.mr');
+        this.syncReturnApp(); return MR_SUCCESS;
+      }
       if (args[1] === 9) {
         const address = args[2] >>> 0;
         const length = args[3] >>> 0;
@@ -600,9 +620,7 @@ export class MrTableBridge {
     }
     if (code === 1305) {
       if (!input || !output || !outputLen) return MR_FAILED;
-      const drive = mem.read8(input) & ~32;
-      const values = drive === 65 ? [1722, 1024, 1271, 1024] : drive === 66 ? [95, 1024, 77, 1024] :
-        drive === 67 ? [1874, 1048576, 1873, 1048576] : null;
+      const values = diskSpace(String.fromCharCode(mem.read8(input)));
       if (!values) return MR_IGNORE;
       this.diskInfoAddr ||= this.ext.alloc(16);
       values.forEach((n, i) => mem.write32(this.diskInfoAddr + i * 4, n));
@@ -630,68 +648,13 @@ export class MrTableBridge {
       this.hooks.onUnknownAbi?.({ family: "mr_platEx", code: MR_SWITCHPATH, message });
       throw new UnknownAbiError(message, { family: "mr_platEx", code: MR_SWITCHPATH, caller: "ext" });
     }
-    const cmd = mem.read8(input >>> 0) & 0xff;
-    const suffix = (inputLen | 0) > 3 ? readGuestCString(mem, (input + 3) >>> 0) : "";
-    switch (cmd) {
-      case 0x59:
-      case 0x79:
-        return this.switchPathQuery(mem, output, outputLen);
-      case 0x5a:
-      case 0x7a:
-        this.setWorkPath(MYTHROAD_WORK_PATH);
-        return MR_SUCCESS;
-      case 0x58:
-      case 0x78:
-        this.setWorkPath(DSM_DRIVE_X);
-        return MR_SUCCESS;
-      case 0x41:
-      case 0x61:
-        this.setWorkPath((inputLen | 0) > 3 ? DSM_DRIVE_A + suffix : DSM_DRIVE_A);
-        return MR_SUCCESS;
-      case 0x42:
-      case 0x62:
-        this.setWorkPath((inputLen | 0) > 3 ? DSM_DRIVE_B + suffix : DSM_DRIVE_B);
-        return MR_SUCCESS;
-      case 0x43:
-      case 0x63:
-        this.setWorkPath((inputLen | 0) > 3 ? suffix : "./");
-        return MR_SUCCESS;
-      default:
-        return MR_IGNORE;
-    }
+    const value = readGuestCString(mem, input), paths = this.hooks.workPath ?? this.localWorkPath;
+    if (value.charAt(0).toUpperCase() === 'Y') return this.switchPathQuery(mem, output, outputLen);
+    return paths.switch(value, inputLen);
   }
 
-  /** rxgj `SetDsmWorkPath`: unify separators and force a trailing `/`. */
-  setWorkPath(path: string): void {
-    let out = "";
-    let slash = false;
-    for (let i = 0; i < path.length; i++) {
-      const ch = path.charCodeAt(i);
-      if (ch === 0x2f || ch === 0x5c) {
-        if (!slash) {
-          out += "/";
-          slash = true;
-        }
-      } else {
-        out += path[i]!;
-        slash = false;
-      }
-    }
-    if (out && !out.endsWith("/")) out += "/";
-    this.workPath = out;
-  }
-
-  /** rxgj `dsmSwitchPath('Y')` hide-drive vs default `c:/%s` formatting. */
-  formatSwitchPathY(): string {
-    const hide = this.workPath.indexOf(DSM_HIDE_DRIVE);
-    if (hide >= 0) {
-      const rest = this.workPath.slice(hide + DSM_HIDE_DRIVE.length);
-      const drive = rest.charAt(0);
-      const tail = rest.slice(2);
-      return tail ? `${drive}:/${tail}` : `${drive}:/`;
-    }
-    return `c:/${this.workPath}`;
-  }
+  setWorkPath(path: string): void { (this.hooks.workPath ?? this.localWorkPath).set(path); }
+  formatSwitchPathY(): string { return (this.hooks.workPath ?? this.localWorkPath).query(); }
 
   /** Native drawing follows the guest's mutable mr_screenBuf/width/height globals.
    * Games temporarily redirect them to build background tiles off screen.
@@ -1212,15 +1175,11 @@ export class MrTableBridge {
    * Does not touch the current pack or archive members.
    */
   findStart(name: string, buffer: number, length: number): number {
-    const normalized = this.appFs.normalize(name).replace(/^c:\//i, '').replace(/^mythroad(?:\/|$)/i, '').replace(/^\.\/?/, '').replace(/^\//, '');
-    const prefix = normalized ? normalized + '/' : '';
-    const names = new Set<string>();
-    const paths = [...this.appFs.nodes.keys()];
-    const pack = this.hooks.getPack?.(); if (pack) paths.push(pack.name);
-    for (const path of paths) if (path.startsWith(prefix)) { const child = path.slice(prefix.length).split('/')[0]; if (child) names.add(child); }
-    if (normalized && this.appFs.info(normalized) !== MR_IS_DIR && !names.size) return MR_FAILED;
+    const pack = this.hooks.getPack?.();
+    const names = this.appFs.list(name, pack ? [pack.name] : []);
+    if (!names) return MR_FAILED;
     const handle = this.nextSearch++;
-    this.searches.set(handle, { names: [...names].sort(), index: 0 });
+    this.searches.set(handle, { names, index: 0 });
     this.findNext(handle, buffer, length); return handle;
   }
   findNext(handle: number, buffer: number, length: number): number {

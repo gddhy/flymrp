@@ -29,12 +29,18 @@ export function createStrCom(ctx: {
   getVfs: () => MythroadVfs;
   getExt: () => ExtRuntime | null;
   setExt: (rt: ExtRuntime | null) => void;
+  setReturnApp?: (pack: string, entry: string) => void;
+  setRamPack?: (bytes: Uint8Array) => void;
   onUnknown?: (code: number, L: LuaState) => number;
 }): NativeFunction {
   return (L: LuaState) => {
     const code = L.optNumber(1, 0) | 0;
-    const extra = L.optNumber(3, 0) | 0;
+    const extra = code >= 800 && code <= 802 ? L.optNumber(3, 0) | 0 : 0;
     switch (code) {
+      case 2: ctx.setRamPack?.(strComPayload(L, 2, ctx.getExt())); return 0;
+      case 3:
+        ctx.setReturnApp?.(L.checkString(2).s, L.top > L.base + 2 ? L.checkString(3).s : 'start.mr');
+        return 0;
       case 601: {
         const data = ctx.getVfs().readFile(L.checkString(2).s);
         if (!data) {

@@ -1,3 +1,4 @@
+import { WorkPath } from './work-path.ts';
 import { AppFileSystem } from "./app-fs.ts";
 import type { EditState } from "./native-editor.ts";
 import type { NetworkRules } from "./network-rules.ts";
@@ -79,6 +80,8 @@ export type MythroadRuntimeOptions = {
  * Lua VM → native ABI → Mythroad → (VFS / timer / events / gfx) → mr_table → EXT → CPU.
  * State lives here, not inside LuaVM.
  */
+class AppReturn extends Error {}
+
 export class MythroadRuntime {
   lua = new LuaVM();
   readonly vfs = new MythroadVfs();
@@ -86,6 +89,11 @@ export class MythroadRuntime {
   private readonly onEditChange?: (state: EditState | null) => void;
   private readonly systemFiles: Readonly<Record<string, Uint8Array>>;
   private readonly resourceFiles = new AppFileSystem();
+  readonly workPath = new WorkPath();
+  readonly appFs = new AppFileSystem();
+  private readonly knownPacks = new Map<string, Uint8Array>();
+  private returnApp: { pack: string; entry: string } | null = null;
+  private ramPack: Uint8Array | null = null;
   readonly userFiles = new AppFileSystem();
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
@@ -136,6 +144,7 @@ export class MythroadRuntime {
   readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number, positionMs?: number) => void) | null;
   readonly onStopSound: ((type: number) => void) | null;
   soundOn = false;
+  shakeOn = false;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.monotonicTime = opts.monotonicTime;
@@ -161,8 +170,9 @@ export class MythroadRuntime {
     this.screenH = this.profile.height;
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
-    this.vfs.readExternal = name => this.mrTable?.appFs.file(name) ?? this.userFiles.file(name);
+    this.vfs.readExternal = name => this.appFs.file(name);
     this.systemFiles = opts.systemFiles ?? {};
+    for (const [name, bytes] of Object.entries(this.systemFiles)) { this.appFs.createFile(name, true); this.appFs.replace(name, bytes.slice()); }
     for (const [name, bytes] of Object.entries(opts.userFiles ?? {})) this.setUserFile(name, bytes);
     for (const [name, bytes] of Object.entries(opts.resourceFiles ?? {})) this.resourceFiles.replace(name, bytes);
     this.networkRules = opts.networkRules;
@@ -174,6 +184,8 @@ export class MythroadRuntime {
     this.onStopSound = opts.onStopSound ?? null;
     this.strCom = createStrCom({
       getVfs: () => this.vfs,
+      setReturnApp: (pack, entry) => this.setReturnApp(pack, entry),
+      setRamPack: bytes => { this.ramPack = bytes.slice(); },
       getExt: () => this.ext,
       setExt: (rt) => {
         this.bindExt(rt);
@@ -215,12 +227,14 @@ export class MythroadRuntime {
   }
 
   loadMrp(bytes: Uint8Array): MRPArchive {
+    this.saveCurrentPack();
     this.archive = MRPArchive.parse(bytes);
     this.vfs.attach(this.archive);
     this.packName = this.archive.header.filename || "app.mrp";
+    this.knownPacks.set(this.appFs.normalize(this.packName), bytes);
     this.ext?.setPackTableName(this.packName);
     // Old current-pack handles must not silently alias a newly loaded archive.
-    this.mrTable?.files.reset();
+    this.mrTable?.files.reset(false);
     return this.archive;
   }
 
@@ -232,7 +246,7 @@ export class MythroadRuntime {
     this.lua.L.setGlobal("_mr_param", TAG_STRING, this.lua.L.internStr(this.param));
     const chunk = this.vfs.readFile(entry);
     if (!chunk) throw new LuaRuntimeError(`cannot read ${entry}`);
-    this.lua.runBytes(chunk);
+    try { this.lua.runBytes(chunk); } catch (error) { if (!(error instanceof AppReturn)) throw error; }
     if (this.timers.state === MR_TIMER_STATE_IDLE && this.lua.hasGlobalFn("dealtimer")) {
       this.timers.start(this.clock, 100, "dealtimer", this.state);
     }
@@ -270,7 +284,7 @@ export class MythroadRuntime {
     const ev = this.events.poll();
     if (!ev) return false;
     this.steps++;
-    this.dispatchEvent(ev);
+    try { this.dispatchEvent(ev); } catch (error) { if (!(error instanceof AppReturn)) throw error; }
     return true;
   }
 
@@ -283,7 +297,37 @@ export class MythroadRuntime {
     this.state = MR_STATE_RESTART;
   }
 
+  private saveCurrentPack(): void {
+    for (let i = 0; i < this.vfs.ramNames.length; i++) {
+      const name = this.vfs.ramNames[i], data = this.vfs.ramData[i];
+      if (name && data) this.appFs.replace(name, data);
+    }
+    const bytes = this.mrTable?.files.currentPackCopy();
+    if (bytes) this.knownPacks.set(this.appFs.normalize(this.packName), bytes);
+  }
+
+  setReturnApp(pack: string, entry = MR_START_FILE): void {
+    this.returnApp = pack ? { pack, entry } : null;
+    this.mrTable?.syncReturnApp();
+  }
+
+  exitGuest(): never {
+    this.saveCurrentPack(); this.timers.stop(); this.events.clear();
+    if (this.returnApp) {
+      const app = this.returnApp; this.returnApp = null;
+      this.requestRunFile(app.pack, app.entry, this.param);
+      throw new AppReturn();
+    }
+    this.state = MR_STATE_STOP; this.exited = true;
+    throw new LuaRuntimeError('Exiting...');
+  }
+
   applyRestart(): void {
+    this.saveCurrentPack();
+    const pack = this.pendingPack || this.packName;
+    const bytes = pack === '$' ? this.ramPack : this.appFs.file(pack) ?? this.knownPacks.get(this.appFs.normalize(pack)) ?? this.vfs.readFile(pack);
+    if (!bytes) throw new LuaRuntimeError(`cannot read application ${pack}`);
+    const archive = MRPArchive.parse(bytes);
     this.lastAction = { kind: "RESTART" };
     this.timers.stop();
     this.exited = false;
@@ -291,7 +335,8 @@ export class MythroadRuntime {
     this.mrTable = null;
     this.events.clear();
     this.rebindLua();
-    this.packName = this.pendingPack || this.packName;
+    this.archive = archive; this.vfs.reset(); this.vfs.attach(archive);
+    this.packName = pack; this.knownPacks.set(this.appFs.normalize(pack), bytes);
     this.param = this.pendingParam;
     this.lua.L.setGlobal("_mr_entry", TAG_STRING, this.lua.L.internStr(this.entry));
     this.lua.L.setGlobal("_mr_param", TAG_STRING, this.lua.L.internStr(this.param));
@@ -299,7 +344,7 @@ export class MythroadRuntime {
     const name = this.pendingStartFile || MR_START_FILE;
     const chunk = this.vfs.readFile(name);
     if (!chunk) throw new LuaRuntimeError(`cannot read ${name}`);
-    this.lua.runBytes(chunk);
+    try { this.lua.runBytes(chunk); } catch (error) { if (!(error instanceof AppReturn)) throw error; }
     if (this.timers.state === MR_TIMER_STATE_IDLE && this.lua.hasGlobalFn("dealtimer")) {
       this.timers.start(this.clock, 100, "dealtimer", this.state);
     }
@@ -339,29 +384,28 @@ export class MythroadRuntime {
   }
 
   setUserFile(name: string, bytes: Uint8Array | null): void {
-    if (bytes === null) { this.userFiles.remove(name); this.mrTable?.appFs.remove(name); }
+    if (bytes === null) { this.userFiles.remove(name); this.appFs.remove(name); }
     else {
       this.userFiles.createFile(name, true); this.userFiles.replace(name, bytes.slice());
-      this.mrTable?.appFs.createFile(name, true); this.mrTable?.appFs.replace(name, bytes.slice());
+      this.appFs.createFile(name, true); this.appFs.replace(name, bytes.slice());
     }
   }
 
   bindExt(rt: ExtRuntime | null): void {
+    this.saveCurrentPack();
     if (!rt) {
       this.ext = null;
       this.mrTable = null;
       return;
     }
     const owner = this.packName || "ext";
-    const exitGuest = () => {
-      this.state = MR_STATE_STOP;
-      this.exited = true;
-      this.timers.stop();
-      this.events.clear();
-      throw new LuaRuntimeError("Exiting...");
-    };
+    const exitGuest = () => this.exitGuest();
     rt.onGuestExit = exitGuest;
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
+      appFs: this.appFs,
+      workPath: this.workPath,
+      onSetReturnApp: (pack, entry) => this.setReturnApp(pack, entry),
+      getReturnApp: () => this.returnApp,
       networkRules: this.networkRules,
       onUiChange: () => this.present(),
       onPlatformEvent: (type, value) => this.queueEvent(EV_SYSTEM, type, value, 0),
@@ -414,10 +458,6 @@ export class MythroadRuntime {
         throw new UnknownAbiError(message, { family: "mr_table", code: n, caller: "ext" });
       },
     });
-    for (const [name, bytes] of Object.entries(this.systemFiles)) bridge.appFs.replace(name, bytes.slice());
-    for (const [name, node] of this.userFiles.nodes) if (node.kind === "file") {
-      bridge.appFs.createFile(name, true); bridge.appFs.replace(name, node.bytes.slice());
-    }
     bridge.install();
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;

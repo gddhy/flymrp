@@ -1,4 +1,4 @@
-import { LuaRuntimeError, NativeAbiError } from "../err/errors.ts";
+import { LuaRuntimeError, NativeAbiError, UnknownAbiError } from "../err/errors.ts";
 import { LuaState } from "./state.ts";
 import { LuaTable } from "./table.ts";
 import {
@@ -49,6 +49,36 @@ function installBase(L: LuaState): void {
   L.register("next", luaNext);
   L.register("_iPairs", ipairsFn);
   L.register("_rawEq", rawequalFn);
+  L.register("pcall", protectedCall);
+}
+
+function protectedCall(L: LuaState): number {
+  L.checkAny(1);
+  const base = L.base, depth = L.ci.length, func = L.top;
+  const count = L.gettop();
+  L.grow(count + 1);
+  for (let i = 0; i < count; i++) L.copy(base + i, L.top++);
+  try {
+    requireCall().call(L, func, -1);
+  } catch (error) {
+    // Host faults and execution limits must still reach the emulator debugger.
+    if (error instanceof UnknownAbiError ||
+        !(error instanceof LuaRuntimeError || error instanceof NativeAbiError) ||
+        L.insnCount > L.insnBudget) throw error;
+    L.closeFrom(func);
+    L.ci.length = depth;
+    L.base = base;
+    L.top = func;
+    L.pushBoolean(false);
+    L.pushString(error.message);
+    return 2;
+  }
+  const results = L.top - func;
+  L.grow(1);
+  for (let i = L.top; i > func; i--) L.copy(i - 1, i);
+  L.setBool(func, 1);
+  L.top++;
+  return results + 1;
 }
 
 function installString(L: LuaState): void {

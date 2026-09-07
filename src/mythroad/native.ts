@@ -1,9 +1,11 @@
+import { diskSpace } from "./work-path.ts";
 import { LuaRuntimeError, NativeAbiError, VfsError } from "../err/errors.ts";
 import { LuaState } from "../lua/state.ts";
 import { TAG_NUMBER, TAG_TABLE, TAG_STRING, TAG_NIL, type NativeFunction } from "../lua/types.ts";
 import {
   BITMAPMAX,
   MR_FAILED,
+  MR_IGNORE,
   MR_FILE_CREATE,
   MR_FILE_RDONLY,
   MR_FILE_STATE_CLOSED,
@@ -23,7 +25,7 @@ import {
   TILEMAX,
 } from "./constants.ts";
 import { persistRoot, unpersistRoot } from "./persist.ts";
-import { gb16Glyph, gbkBytesToUcs2 } from "./font.ts";
+import { gb16Glyph, gbkBytesToUcs2, ucs2ToGbk } from "./font.ts";
 import { binToBytes } from "../mrp/archive.ts";
 import { makeRgb565, DRAW_BM_COPY, DRAW_BM_TRANSPARENT, MR_SPRITE_INDEX_MASK, MR_SPRITE_TRANSPARENT } from "./graphics.ts";
 import { lcgNext } from "./profile.ts";
@@ -33,6 +35,13 @@ export function installNatives(rt: MythroadRuntime): void {
   const L = rt.lua.L;
   const reg = (name: string, fn: NativeFunction) => L.register(name, fn);
 
+  const c2u: NativeFunction = Ls => {
+    const chars = gbkBytesToUcs2(binToBytes(Ls.checkString(1).s.split('\0')[0]));
+    const bytes = new Uint8Array((chars.length + 1) * 2);
+    chars.forEach((ch,i) => { bytes[i*2]=ch>>>8; bytes[i*2+1]=ch&255; });
+    Ls.pushString(bytes); return 1;
+  };
+  reg('c2u', c2u); L.setTableFn(L.getGlobal('string').num, 'c2u', c2u);
   reg("_strCom", rt.strCom);
   reg("TestCom1", rt.strCom);
   reg("GetNetworkID", Ls => { Ls.pushInteger(MR_NET_ID_MOBILE); return 1; });
@@ -41,6 +50,19 @@ export function installNatives(rt: MythroadRuntime): void {
   reg("_platEx", (Ls) => {
     const code = Ls.optNumber(1, 0) | 0;
     if (code === 1201) { Ls.pushString(new Uint8Array([16, 16, 8, 16])); Ls.pushInteger(MR_SUCCESS); return 2; }
+    if (code === 1204) {
+      const input = Ls.checkString(2).s;
+      const status = rt.workPath.switch(input);
+      Ls.pushString(input.charAt(0).toUpperCase() === 'Y' ? rt.workPath.query() + '\0' : '');
+      Ls.pushInteger(status); return 2;
+    }
+    if (code === 1305) {
+      const values = diskSpace(Ls.checkString(2).s);
+      if (!values) { Ls.pushString(''); Ls.pushInteger(MR_IGNORE); return 2; }
+      const bytes = new Uint8Array(16), view = new DataView(bytes.buffer);
+      values.forEach((value, index) => view.setUint32(index * 4, value, true));
+      Ls.pushString(bytes); Ls.pushInteger(MR_SUCCESS); return 2;
+    }
     throw new NativeAbiError(`unsupported Lua _platEx code ${code}`);
   });
   const sounds = new Map<number, { data: Uint8Array; type: number }>();
@@ -240,6 +262,9 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
         break;
       case 300:
         rt.soundOn = a1 !== 0;
+        break;
+      case 301:
+        rt.shakeOn = a1 !== 0;
         break;
       case 400:
         rt.sleeps.push(a1);
@@ -446,11 +471,7 @@ function makePoint(rt: MythroadRuntime): NativeFunction {
 }
 
 function makeExit(rt: MythroadRuntime): NativeFunction {
-  return () => {
-    rt.state = 4; // MR_STATE_STOP
-    rt.exited = true;
-    throw new LuaRuntimeError("Exiting...");
-  };
+  return () => rt.exitGuest();
 }
 
 function typeShort(L: LuaState): number {
@@ -639,13 +660,47 @@ function installSysLib(rt: MythroadRuntime, sysInfo: NativeFunction, dt: NativeF
     return 1;
   });
   L.setTableFn(id, "getFileInfo", (Ls) => {
-    Ls.pushInteger(rt.vfs.info(Ls.checkString(1).s));
+    const name = Ls.checkString(1).s;
+    Ls.pushInteger(rt.appFs.info(name) ?? rt.vfs.info(name));
     return 1;
   });
   L.setTableFn(id, "getfileinfo", (Ls) => {
-    Ls.pushInteger(rt.vfs.info(Ls.checkString(1).s));
+    const name = Ls.checkString(1).s;
+    Ls.pushInteger(rt.appFs.info(name) ?? rt.vfs.info(name));
     return 1;
   });
+  const remove: NativeFunction = Ls => {
+    const name = Ls.checkString(1).s;
+    const ram = rt.vfs.removeRam(name), external = rt.appFs.remove(name) === MR_SUCCESS;
+    if (ram || external) { Ls.pushBoolean(true); return 1; }
+    Ls.pushNil(); Ls.pushString(`file err: ${name}: 2`); Ls.pushInteger(2); return 3;
+  };
+  L.setTableFn(id, 'rm', remove); L.setTableFn(id, 'remove', remove);
+  for (const [name, operation] of [['mkDir', 'mkdir'], ['rmDir', 'rmdir']] as const) {
+    L.setTableFn(id, name, Ls => {
+      const path = Ls.checkString(1).s;
+      if (rt.appFs[operation](path) === MR_SUCCESS) { Ls.pushBoolean(true); return 1; }
+      Ls.pushNil(); Ls.pushString(`file err: ${path}: 2`); Ls.pushInteger(2); return 3;
+    });
+  }
+  const searches = new Map<number, string[]>();
+  let nextSearch = 1;
+  const pushName = (Ls: LuaState, name: string) => Ls.pushString(ucs2ToGbk(Array.from(name, c => c.charCodeAt(0))));
+  const findStart: NativeFunction = Ls => {
+    const names = rt.appFs.list(Ls.checkString(1).s, [rt.packName]);
+    if (!names) { Ls.pushInteger(MR_FAILED); Ls.pushString(''); return 2; }
+    const handle = nextSearch++; searches.set(handle, names);
+    Ls.pushInteger(handle); pushName(Ls, names.shift() ?? ''); return 2;
+  };
+  const findNext: NativeFunction = Ls => {
+    const name = searches.get(Ls.optNumber(1, 0))?.shift();
+    if (name === undefined) Ls.pushNil(); else pushName(Ls, name);
+    return 1;
+  };
+  const findStop: NativeFunction = Ls => { Ls.pushInteger(searches.delete(Ls.optNumber(1, 0)) ? MR_SUCCESS : MR_FAILED); return 1; };
+  for (const [name, fn] of [['findStart', findStart], ['findNext', findNext], ['findStop', findStop]] as const) {
+    L.setTableFn(id, name, fn); L.setTableFn(id, name.toLowerCase(), fn);
+  }
   L.setGlobal("sys", TAG_TABLE, id);
 }
 

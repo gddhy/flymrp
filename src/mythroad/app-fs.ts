@@ -32,6 +32,19 @@ export class AppFileSystem {
     this.nodes.clear();
   }
 
+  list(name: string, extraPaths: string[] = []): string[] | null {
+    const key = this.normalize(name).replace(/^c:\//i, '').replace(/^\.\/?/, '');
+    const prefix = key ? key + '/' : '';
+    const children = new Set<string>();
+    for (const path of [...this.nodes.keys(), ...extraPaths.map(p => this.normalize(p))]) {
+      if (!path.startsWith(prefix)) continue;
+      const child = path.slice(prefix.length).split('/')[0];
+      if (child) children.add(child);
+    }
+    if (key && this.info(key) !== MR_IS_DIR && !children.size) return null;
+    return [...children].sort();
+  }
+
   info(name: string): number | null {
     const key = this.normalize(name);
     if (!key) return null;
