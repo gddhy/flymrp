@@ -25,3 +25,35 @@ it("lets a synchronous ARM millisecond delay finish without host ticks", () => {
   ext.mem.write32(code,0xeafffffe); ext.cache.invalidate(code,4); ext.insnBudget=32;
   expect(ext.runGuest(code).kind).toBe(ExtStopKind.AbiFault);
 });
+
+it('advances timed allocation loops without discarding time at malloc/free calls', () => {
+  let clock = 100;
+  const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'memory-benchmark', {
+    getClock: () => clock, onSleep: ms => { clock += ms; },
+  });
+  bridge.install();
+  const code = ext.alloc(128);
+  const words = [
+    0xe92d41f0, // push {r4-r8,lr}
+    0xe59f5044, // ldr r5, [pc,#68] => getTime literal at +80
+    0xe59f6044, // malloc literal +84
+    0xe59f7044, // free literal +88
+    0xe1a0e00f, 0xe12fff15, // getTime()
+    0xe1a08000, // r8 = start time
+    0xe3a00008, 0xe1a0e00f, 0xe12fff16, // malloc(8)
+    0xe3a01008, 0xe1a0e00f, 0xe12fff17, // free(pointer,8)
+    0xe1a0e00f, 0xe12fff15, // getTime()
+    0xe0400008, 0xe3500002, // elapsed >= 2?
+    0x3afffff4, // bcc loop at +28
+    0xe8bd81f0, 0xe1a00000,
+    tableSlotAddr(33), tableSlotAddr(0), tableSlotAddr(1),
+  ];
+  words.forEach((word, i) => ext.mem.write32(code + i * 4, word));
+  ext.insnBudget = 100_000;
+  expect(ext.runGuest(code).kind).toBe(ExtStopKind.Return);
+  expect(clock).toBe(102);
+  expect(bridge.liveAllocs()).toHaveLength(0);
+  // Calls separated by host events must not inherit another call's counters.
+  clock += 80;
+  expect(ext.runGuest(tableSlotAddr(33)).r0).toBe(182);
+});

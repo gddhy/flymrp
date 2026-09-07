@@ -166,6 +166,7 @@ export class MrTableBridge {
    */
   clock = 0;
   private lastTimeCall = { serial: -1, bridge: -1, instructions: 0 };
+  private timePolls = 0;
   private pollingInstructions = 0;
   /** Isolated-test timer when `hooks.getTimer` is absent. */
   localTimer = new MythroadTimer();
@@ -439,13 +440,19 @@ export class MrTableBridge {
     return n >>> 0;
   }
 
-  /** Synchronous guest delay loops must see elapsed time, even before they
-   * return to the host event loop. Charge only uninterrupted clock polling at
-   * a deterministic 16.384 MIPS; normal event-driven time stays unchanged. */
+  /** Synchronous guest loops must see elapsed time before returning to the
+   * host event loop. Count instructions between clock reads within one call,
+   * including loops that also allocate memory or draw. Reset at call boundaries
+   * so event-driven time is not charged twice. This is a virtual 16.384 MIPS
+   * clock, not a measurement of the host device's CPU performance. */
   private pollTime(): number {
     const serial = this.ext.guestCallSerial, bridge = this.ext.bridgeCalls;
     const instructions = this.ext.cpu.insnCount, last = this.lastTimeCall;
-    if (serial === last.serial && bridge === last.bridge + 1) {
+    if (serial !== last.serial) this.timePolls = 0;
+    this.timePolls++;
+    // Keep normal frame pacing unchanged. A few timestamp samples around
+    // drawing/decoding are not a synchronous wait; sustained polling is.
+    if (serial === last.serial && (bridge === last.bridge + 1 || this.timePolls >= 32)) {
       this.pollingInstructions += Math.max(0, instructions - last.instructions);
       const ms = Math.floor(this.pollingInstructions / 16384);
       if (ms) {
@@ -1050,6 +1057,7 @@ export class MrTableBridge {
   plat(code: number, param: number): number {
     if (code === 1001) return this.offlineNetwork.state(param);
     if (code === 1101 || code === 1011 || code === 1215) return MR_IGNORE;
+    if (code === 1327 || code === 1391) return MR_IGNORE; // No guest Wi-Fi/background service (dsm.c).
     if (code === 1214) return MR_SUCCESS; // Enable key-release events (always supported).
     if (code === 1302) { this.volume = Math.max(0, Math.min(100, param)); return MR_SUCCESS; }
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;

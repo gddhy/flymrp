@@ -1,0 +1,39 @@
+{
+  "1": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 5
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 5
+      },
+      {
+        "key": "FIRE",
+        "wait": 100
+      }
+    ],
+    "controls": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 5
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 5
+      },
+      {
+        "key": "FIRE",
+        "wait": 100
+      }
+    ],
+    "reviewNote": "先打开信息、返回、完成五项跑分；结果页再次打开信息并返回，再重复完整跑分。",
+    "gameplaySha256": [
+      "6bbc3e2c064223ad0de84e3cd85d0441c5b53a9f9db843730d964c9359aeacde"
+    ],
+    "controlSha256": [
+      "0a41be3f6497d9fb2ad18002437ed19319edbd2e0a9973ad58180a302723a969"
+    ]
+  }
+}

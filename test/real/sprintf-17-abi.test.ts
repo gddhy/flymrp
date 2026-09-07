@@ -116,7 +116,7 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
     const { ext } = wire();
     const buf = ext.alloc(16);
     const fmt = ext.alloc(16);
-    const bad = ["%f", "%n", "%p", "%lld", "%ls", "%*d", "%", "%9999d"];
+    const bad = ["%f", "%n", "%p", "%ls", "%*d", "%", "%9999d"];
     for (const format of bad) {
       writeCString(ext, fmt, format);
       expect(() => call17(ext, buf, fmt, 0, 0)).toThrow(UnknownAbiError);

@@ -1,0 +1,10 @@
+{
+  "description": "白跑分兼容性回归；源文件相对于 MRP_TEST 的游戏根目录，独立于发布精选清单。",
+  "games": [
+    {
+      "path": "bpaofen/baipaofenv1.1.5.mrp",
+      "title": "白跑分 v1.1.5",
+      "sha256": "341999f1f51f12266e24181323fdc5871ebe5133d555e38cac8fcf3ab69f3fad"
+    }
+  ]
+}

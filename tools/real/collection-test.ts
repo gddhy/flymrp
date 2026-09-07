@@ -17,10 +17,10 @@ import { inferScreenSize } from "../../src/mythroad/device-size.ts";
 type Game = { id: number; path: string; sha256: string; required?: boolean };
 type Action = ({ key: string } | { tap: [number, number] }) & { hold?: number; wait?: number };
 type Scenario = { entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
-const manifestPath = resolve("docs/compatibility/collection-100.json");
-const scenarioPath = resolve("docs/compatibility/scenarios.json");
+const manifestPath = resolve(process.env.MRP_TEST_MANIFEST ?? "docs/compatibility/collection-100.json");
+const scenarioPath = resolve(process.env.MRP_TEST_SCENARIOS ?? "docs/compatibility/scenarios.json");
 const manifest = JSON.parse(readFileSync(manifestPath,"utf8"));
-const allGames: Game[] = [...manifest.requiredGames,...manifest.selected];
+const allGames: Game[] = manifest.games ? manifest.games.map((game: Game, index: number) => ({ ...game, id: index + 1 })) : [...manifest.requiredGames,...manifest.selected];
 const scenarios: Record<string, Scenario> = existsSync(scenarioPath) ? JSON.parse(readFileSync(scenarioPath,"utf8")) : {};
 const hash = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const args = process.argv.slice(2), worker = args[0] === "--worker";
@@ -48,7 +48,7 @@ if(worker) {
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
   const resourceFiles = await loadGameResourceFiles(process.env.MRP_RESOURCE_DIR ?? join(root, "mythroad_res"), MRPArchive.parse(bytes).header.filename);
-  const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory), ...resourceFiles };
+  const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(process.env.MRP_TEST_PRODUCTION ? undefined : localSystemDirectory), ...resourceFiles };
   loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
   const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,graphics:display});
@@ -90,7 +90,7 @@ if(worker) {
   const revision=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim();
   const diff=execFileSync("git",["diff"],{encoding:"utf8"});
   const meta={revision,workingDiffSha256:hash(diff),manifestSha256:hash(readFileSync(manifestPath)),scenarioSha256:existsSync(scenarioPath)?hash(readFileSync(scenarioPath)):null,
-    systemFilesSha256:systemFileHashes({ ...Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory) }),
+    systemFilesSha256:systemFileHashes({ ...Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(process.env.MRP_TEST_PRODUCTION ? undefined : localSystemDirectory) }),
     startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
   const results: any[]=[];
   const save=()=>writeFileSync(join(output,"results.json"),JSON.stringify({...meta,complete:results.length===games.length,

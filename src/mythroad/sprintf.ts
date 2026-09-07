@@ -53,19 +53,23 @@ export function guestSprintf(
   };
   for (let i = 0; i < fmt.length;) {
     if (fmt[i] !== "%") { write(fmt[i++]); continue; }
-    const match = /^%([0-]?)(\d{0,4})(l?)([diuxXsc%])/.exec(fmt.slice(i));
+    const match = /^%([0-]?)(\d{0,4})(l{0,2})([diuxXsc%])/.exec(fmt.slice(i));
     if (!match) unsupported(fmt.slice(i, i + 2));
     i += match[0].length;
     const [, flag, widthText, length, spec] = match;
-    // ARM's ILP32 long occupies one argument word, just like int. Wide
-    // strings/chars and long long use different ABIs and remain explicit errors.
+    // ARM's ILP32 long is one word. AAPCS long long is an aligned pair;
+    // sprintf's first vararg is R2, so even vararg indices are aligned.
     if (length && !"diuxX".includes(spec)) unsupported(match[0]);
     const width = Number(widthText || 0);
     if (width > 4096) unsupported("width too large");
     if (spec === "%") { write("%"); continue; }
+    if (length === "ll") vi = (vi + 1) & ~1;
     const value = nextVararg(vi++) >>> 0;
+    const wide = length === "ll" ? (BigInt(nextVararg(vi++) >>> 0) << 32n) | BigInt(value) : null;
     let piece = "";
-    if (spec === "s") {
+    if (wide !== null) {
+      piece = (spec === "d" || spec === "i" ? BigInt.asIntN(64, wide) : wide).toString(spec === "x" || spec === "X" ? 16 : 10);
+    } else if (spec === "s") {
       if (value) {
         for (let j = 0; ; j++) {
           const b = mem.read8((value + j) >>> 0);
@@ -125,12 +129,21 @@ export function guestPrintf(
     }
     if (width > 4096) unsupported("width too large");
     if (spec === 0) unsupported("%");
+    let wide = false;
     if (spec === 0x6c) {
       spec = mem.read8((fmt + ++i) >>> 0) & 0xff;
+      if (spec === 0x6c) { wide = true; spec = mem.read8((fmt + ++i) >>> 0) & 0xff; }
       if (![0x64, 0x69, 0x75, 0x78, 0x58].includes(spec)) unsupported("%l" + String.fromCharCode(spec));
     }
     let piece = "";
-    if (spec === 0x25) {
+    if (wide) {
+      // printf's first vararg is R1: skip an odd register/stack word.
+      vi |= 1;
+      const lo = nextVararg(vi++) >>> 0, hi = nextVararg(vi++) >>> 0;
+      const value = (BigInt(hi) << 32n) | BigInt(lo);
+      piece = (spec === 0x64 || spec === 0x69 ? BigInt.asIntN(64, value) : value).toString(spec === 0x78 || spec === 0x58 ? 16 : 10);
+      if (spec === 0x58) piece = piece.toUpperCase();
+    } else if (spec === 0x25) {
       piece = "%";
     } else if (spec === 0x75 || spec === 0x78 || spec === 0x58) {
       piece = (nextVararg(vi++) >>> 0).toString(spec === 0x75 ? 10 : 16);
