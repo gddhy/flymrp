@@ -28,3 +28,13 @@ npx tsx tools/real/collection-test.ts "$MRP_GAME_DIR" artifacts/original-13-curr
 ```
 
 默认路径只检查启动、预设输入和持续运行。只有人工核对游戏场景与操作结果并固定对应校验值，runner 才会给出 `passed`。`needs-scene-review`、`no-input-response`、缺资源或注册页均不能计入全部通过。
+
+## 更长时间的网页检查
+
+俄罗斯方块在约 123 秒结算时会通过 `init0.mr` 调用 `_store.store` 保存分数。该库缺失会导致 `attempt to index a non-table`，60 秒用例无法暴露。接入已有的二进制表序列化后，`artifacts/tetris-storage/results.json` 的 2000 个尾部 tick 已覆盖结算；另外用原始文件连续模拟 804240 毫秒，未再出现该错误。Lua `_store` 的循环引用与分数读写已有独立回归测试。
+
+## 精选 100 个文件的复测边界
+
+`artifacts/classic-controls-native/results.json` 是一次完整的 100 文件运行，使用 `config/classic-scenarios.json` 和生产资源。结果为 77 个待核对场景、18 个预设操作未产生变化、5 个运行错误，**并非全部通过**。该配置只有从旧报告迁移的部分游戏路径，不是 100 个已审批的场景。
+
+后续 `artifacts/classic-errors-storage` 与 `artifacts/classic-libc` 的定向检查又修复了 EFS 文件名大小写与缺失的 C 字符串接口。《三国志群英会》原有读取失败消失；《口袋灵兽》通过了资源加载但进入后续阶段后仍超时。清凉海滩连连看、植物大战僵尸和夜间版还存在扩展模块运行错误。这些定向结果不覆盖、也不修改之前的完整报告。
