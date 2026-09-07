@@ -41,6 +41,8 @@ import { MythroadVfs } from "./vfs.ts";
 
 export type MythroadRuntimeOptions = {
   profile?: Partial<DeviceProfile>;
+  /** Bundled handset files, copied into each runtime’s virtual filesystem. */
+  systemFiles?: Readonly<Record<string, Uint8Array>>;
   graphics?: GraphicsBackend;
   entry?: string;
   param?: string;
@@ -69,6 +71,7 @@ export type MythroadRuntimeOptions = {
 export class MythroadRuntime {
   lua = new LuaVM();
   readonly vfs = new MythroadVfs();
+  private readonly systemFiles: Readonly<Record<string, Uint8Array>>;
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
   readonly gfx: GraphicsBackend;
@@ -140,6 +143,7 @@ export class MythroadRuntime {
     this.screenH = this.profile.height;
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
+    this.systemFiles = opts.systemFiles ?? {};
     this.entry = opts.entry ?? "_dsm";
     this.param = opts.param ?? "";
     this.onExtCall = opts.onExtCall ?? null;
@@ -368,6 +372,7 @@ export class MythroadRuntime {
         throw new UnknownAbiError(message, { family: "mr_table", code: n, caller: "ext" });
       },
     });
+    for (const [name, bytes] of Object.entries(this.systemFiles)) bridge.appFs.replace(name, bytes.slice());
     bridge.install();
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;

@@ -28,6 +28,7 @@ type Session = { rt: MythroadRuntime; gfx: Canvas2DBackend; raf: number; last: n
 let session: Session | null = null;
 let generation = 0;
 let fontPromise: Promise<void> | null = null;
+const systemFiles: Record<string, Uint8Array> = {};
 let touch: number | null = null;
 const held = new HeldKeys(key => session?.rt.input.press(key), key => session?.rt.input.release(key));
 
@@ -76,11 +77,14 @@ function frame(now: number): void {
   } catch (e) { present(s); fail(e, s.rt); }
 }
 async function ensureFont(): Promise<void> {
-  if (gb16Uc2Loaded()) return;
+  if (gb16Uc2Loaded() && systemFiles["system/gb12.uc2"]) return;
   fontPromise ??= (async () => {
-    const res = await fetch("/system/gb16.uc2");
-    if (!res.ok) throw new Error("缺少 assets/system/gb16.uc2 中文字库");
-    loadGb16Uc2(new Uint8Array(await res.arrayBuffer()));
+    await Promise.all(["gb16.uc2", "gb12.uc2", "gb12_uc2.adl", "gb16_uc2.adl"].map(async name => {
+      const res = await fetch(`/system/${name}`);
+      if (!res.ok) throw new Error(`缺少 system/${name} 中文字库`);
+      systemFiles[`system/${name}`] = new Uint8Array(await res.arrayBuffer());
+    }));
+    loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   })().catch(e => { fontPromise = null; throw e; });
   await fontPromise;
 }
@@ -106,7 +110,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.height = profile.height;
     canvas.style.setProperty("--screen-ratio", `${profile.width} / ${profile.height}`);
     const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
-    rt = new MythroadRuntime({ profile, graphics: gfx, abiMode: "strict",
+    rt = new MythroadRuntime({ systemFiles, profile, graphics: gfx, abiMode: "strict",
       onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
     const archive = rt.loadMrp(new Uint8Array(buffer));
     try {
