@@ -273,11 +273,11 @@ export function decodeThumb16(hw: number, out: Uint32Array, idx: number): void {
 
   if ((hw & 0xf000) === 0xd000) {
     const cond = (hw >>> 8) & 0xf;
-    if (cond === 0xe) {
+    if (cond === 0xf) {
       emit(out, idx, Op.SVC, COND_AL, 0, 0, 0, 0, 0, 0, hw & 0xff, 0);
       return;
     }
-    if (cond === 0xf) {
+    if (cond === 0xe) {
       undef(out, idx, hw);
       return;
     }

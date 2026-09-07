@@ -570,6 +570,7 @@ export function execPacked(
     case Op.BKPT:
       throw new CpuTrap("BKPT", instPC, w1);
     case Op.SVC:
+      if (cpu.onSvc?.(cpu, w1)) break;
       throw new CpuTrap("SVC", instPC, w1);
     case Op.UNDEF:
       throw new UnsupportedInsn(instPC, w1, cpu.t);

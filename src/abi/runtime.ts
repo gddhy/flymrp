@@ -82,6 +82,7 @@ export class ExtRuntime {
   insnBudget = DEFAULT_INSN_BUDGET;
   lastKind: ExtStopKind = ExtStopKind.Return;
   bridgeCalls = 0;
+  debugOutput = "";
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
 
   constructor() {
@@ -90,6 +91,13 @@ export class ExtRuntime {
     this.cache = new BlockCache();
     this.cpu.cache = this.cache;
     this.cpu.onBeforeFetch = (cpu) => this.intercept(cpu);
+    this.cpu.onSvc = (cpu, immediate) => {
+      // ARM semihosting SYS_WRITEC, used by vendor debug putchar stubs.
+      if (!cpu.t || immediate !== 0xab || cpu.r[0] !== 3) return false;
+      const ch = this.mem.read8(cpu.r[1]);
+      this.debugOutput = (this.debugOutput + String.fromCharCode(ch)).slice(-4096);
+      return true;
+    };
     this.mem.onWrite = (addr, size) => this.onGuestWrite(addr, size);
     this.installBuiltinHandlers();
     this.initTable();

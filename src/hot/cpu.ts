@@ -24,6 +24,8 @@ export class ARMCPU {
    * handler consumed this fetch (PC already updated). Not used by Stage 3.
    */
   onBeforeFetch: ((cpu: ARMCPU) => boolean) | null = null;
+  /** Optional platform SVC ABI; false retains the architectural trap. */
+  onSvc: ((cpu: ARMCPU, immediate: number) => boolean) | null = null;
   /** Set when the last instruction was a taken control-flow write to R15. */
   branched = 0;
   insnCount = 0;
