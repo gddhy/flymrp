@@ -182,6 +182,7 @@ function releaseAll(): void {
 }
 window.addEventListener("blur", releaseAll);
 document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
+let activationId = 0;
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
   btn.addEventListener("pointerdown", ev => {
     ev.preventDefault();
@@ -194,6 +195,15 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("lostpointercapture", release);
+  // Keyboard/assistive activation emits click without pointerdown/up. Keep its
+  // key down briefly so games that poll the keypad can observe the activation.
+  btn.addEventListener("click", ev => {
+    if (ev.detail !== 0 || !session || paused) return;
+    const source = `activation:${++activationId}`;
+    audio.resume();
+    held.press(source, btn.dataset.key!);
+    setTimeout(() => held.release(source), 120);
+  });
 }
 function touchEvent(ev: PointerEvent, type: number): void {
   if (!session) return;
