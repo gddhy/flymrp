@@ -64,6 +64,19 @@ describe("real collection compatibility ABI", () => {
     ext.mem.write32(staged + 8, 0xabcdef);
     call(131, 0, 9, staged, image.length);
     expect(ext.mem.read32(staged + 8)).toBe(0xabcdef); // never overwrite live code
+    // A validated extChunk distinguishes a transient nonzero private body
+    // from arbitrary cache-sync calls. Preserve its record/P metadata.
+    const record=ext.alloc(584), p=ext.alloc(20), chunk=ext.alloc(56);
+    ext.mem.write32(staged,record); ext.mem.write32(staged+4,p);
+    ext.mem.write32(p+12,chunk);
+    for(const [off,value] of [[0,0x7fd854eb],[4,staged+8],[12,staged],[16,image.length],[28,p],[44,record]]) ext.mem.write32(chunk+off,value);
+    ext.mem.write32(record+125*4,0xdeadbeef);
+    call(131,0,9,staged,image.length);
+    expect([...ext.mem.slice(staged+8,image.length-8)]).toEqual([...image.slice(8)]);
+    expect(ext.mem.read32(record+125*4)).toBe(tableSlotAddr(125));
+    expect(ext.mem.read32(staged+4)).toBe(p);
+    ext.mem.write32(chunk+16,image.length+4);
+    expect(ext.privateLoaderChunk(staged,image.length)).toBe(0);
     ext.mem.write32(ram, 0);
     expect(call(125, name, lenp, 0)).toBe(0);
   });

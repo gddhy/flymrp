@@ -29,7 +29,7 @@ function runSlot(ext: ExtRuntime, slot: number, r0: number, r1: number) {
   return ext.runGuest(stub, { r0, r1, lr: EXT_STOP_ADDR });
 }
 
-describe("5-C.10O table[1] registry-only mr_free", () => {
+describe("5-C.10O table[1] first-fit mr_free", () => {
   it("exact valid free returns 0 and retires the live record", () => {
     const { ext, b } = wire();
     const p = b.malloc(132);
@@ -39,8 +39,8 @@ describe("5-C.10O table[1] registry-only mr_free", () => {
     expect(b.free(p, 132)).toBe(MR_SUCCESS);
     expect(b.liveAllocs()).toHaveLength(0);
     expect(b.allocs[0]).toMatchObject({ guestAddr: p, size: 132, alignedSize: 136, live: false });
-    expect(ext.mem.read32(p)).toBe(128);
-    expect([...ext.mem.slice((p + 4) >>> 0, 2)]).toEqual([0xaa, 0xbb]);
+    expect(ext.mem.read32(p)).toBe(1024 * 1024);
+    expect(ext.mem.read32(p + 4)).toBe(1024 * 1024);
   });
 
   it("NULL / unknown pointer / already-free return MR_SUCCESS without touching others", () => {
@@ -56,7 +56,7 @@ describe("5-C.10O table[1] registry-only mr_free", () => {
     expect(b.allocs.filter((a) => a.guestAddr === keep)).toHaveLength(1);
   });
 
-  it("uses the owned bump allocation size even when the guest length hint differs", () => {
+  it("uses the owned allocation size even when the guest length hint differs", () => {
     const { b } = wire();
     const p = b.malloc(56);
     const keep = b.malloc(16);
@@ -66,19 +66,19 @@ describe("5-C.10O table[1] registry-only mr_free", () => {
     expect(b.liveAllocs().map(a => a.guestAddr)).toEqual([keep]);
   });
 
-  it("free A does not affect B; next bump malloc does not reuse A", () => {
+  it("free A does not affect B; first-fit reuses A", () => {
     const { b } = wire();
     const a = b.malloc(132);
     const keep = b.malloc(64);
     expect(b.free(a, 132)).toBe(MR_SUCCESS);
     expect(b.liveAllocs().map((x) => x.guestAddr)).toEqual([keep]);
     const again = b.malloc(132);
-    expect(again).not.toBe(a);
-    expect(again).toBeGreaterThan(keep);
+    expect(again).toBe(a);
+    expect(again).toBeLessThan(keep);
     expect(b.liveAllocs().map((x) => x.guestAddr)).toEqual([keep, again]);
   });
 
-  it("guest table[1] writes R0=MR_SUCCESS and does not reuse", () => {
+  it("guest table[1] writes R0=MR_SUCCESS and reuses the block", () => {
     const { ext, b } = wire();
     const p = b.malloc(8);
     const out = runSlot(ext, 1, p, 8);
@@ -87,6 +87,6 @@ describe("5-C.10O table[1] registry-only mr_free", () => {
     expect(b.allocs[0]!.live).toBe(false);
     const second = runSlot(ext, 0, 8, 0);
     expect(second.kind).toBe(ExtStopKind.Return);
-    expect(second.r0).not.toBe(p);
+    expect(second.r0).toBe(p);
   });
 });

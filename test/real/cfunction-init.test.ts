@@ -10,8 +10,8 @@ import { MythroadVfs } from "../../src/mythroad/vfs.ts";
 const REAL_APP = resolve(import.meta.dirname, "../fixtures/real/app.mrp");
 const THUMB_INIT = 0x01ea5e0c;
 const HELPER = 0x01ea5e9d;
-const P = 0x00200178;
-const ER_RW = 0x00200294;
+const P = 0x0034b5c8;
+const ER_RW = 0x0024b5cc;
 
 describe("5-C.5 isolated cfunction.ext init", () => {
   it("takes ARM BLX(1), table[25], then table[14] memset zeros ER_RW", () => {

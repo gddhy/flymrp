@@ -560,7 +560,7 @@ export function runInflateBudget(mrp: Uint8Array, opts: { budget?: number } = {}
   const cpu = cpuSnap ?? lastTableCpu ?? (e ? snapExtCpu(e) : null);
 
   if (gzipIn === null && REAL_MRP_BASELINE) {
-    const hint = 0x00206e6c;
+    const hint = 0x002503c4;
     if (e) {
       try {
         if (e.mem.read8(hint) === 0x1f && e.mem.read8(hint + 1) === 0x8b) {

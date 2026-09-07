@@ -14,7 +14,7 @@ import {
 
 function wire() {
   const ext = new ExtRuntime();
-  ext.owners.wrapper = { p: 0x00200178, helper: 0x01ea5e9d };
+  ext.owners.wrapper = { p: 0x0034b5c8, helper: 0x01ea5e9d };
   const bridge = new MrTableBridge(ext, new MythroadVfs(), "test");
   bridge.install();
   return { ext, bridge };
@@ -46,7 +46,7 @@ describe("table[31]/[32] mr_timerStart / mr_timerStop ABI", () => {
     expect(bridge.localTimer.interval).toBe(50);
     expect(bridge.localTimer.deadline).toBe(60);
     expect(bridge.localTimer.callback).toBe("dealtimer");
-    expect(ext.owners.timer).toEqual({ p: 0x00200178, helper: 0x01ea5e9d });
+    expect(ext.owners.timer).toEqual({ p: 0x0034b5c8, helper: 0x01ea5e9d });
   });
 
   it("timerStart masks to uint16; stop clears owner", () => {

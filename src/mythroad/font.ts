@@ -80,6 +80,29 @@ export function gbkBytesToUcs2(bytes: Uint8Array): number[] {
   return out;
 }
 
+let gbkEncode: Map<number, number> | null = null;
+/** Reverse GBK's two-byte mapping; native encode.c uses ◆ for missing UCS2. */
+export function ucs2ToGbk(chars: readonly number[]): Uint8Array {
+  if (!gbkEncode) {
+    gbkEncode = new Map();
+    const decoder = new TextDecoder("gbk", { fatal: true });
+    for (let high = 0x81; high <= 0xfe; high++) for (let low = 0x40; low <= 0xfe; low++) {
+      if (low === 0x7f) continue;
+      try {
+        const s = decoder.decode(new Uint8Array([high, low]));
+        if (s.length === 1 && !gbkEncode.has(s.charCodeAt(0))) gbkEncode.set(s.charCodeAt(0), (high << 8) | low);
+      } catch { /* Unassigned GBK pair. */ }
+    }
+  }
+  const out: number[] = [];
+  for (const c of chars) {
+    const encoded = c < 128 ? c : gbkEncode.get(c) ?? 0xa1f4;
+    if (encoded > 255) out.push(encoded >>> 8);
+    out.push(encoded & 255);
+  }
+  return new Uint8Array(out);
+}
+
 function uc2GlyphBits(id: number): Uint8Array | null {
   if (!uc2) return null;
   const off = id * BYTES_PER_CHAR_16;

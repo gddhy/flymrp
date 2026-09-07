@@ -26,19 +26,13 @@ import { mapExtImage, parseExtImage, type MappedExt } from "./loader.ts";
 import { ModuleOwners } from "./owners.ts";
 import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table.ts";
 
-/**
- * Finite ARM/Thumb instruction watchdog per `runGuest` / `arm_ext_call`.
- * This is a safety/debug limit, not a browser event-loop execution slice.
- * Forensic runners may overwrite `ExtRuntime.insnBudget`; values are clamped to `MAX_INSN_BUDGET`.
+/** Finite watchdog per guest call, not a browser execution slice.
+ * Vendor wrappers scan 8 MiB during their first memory check (~34M
+ * instructions). Allow resource decoding in that same call, while retaining
+ * the explicit per-runtime budget for tests and diagnostics.
  */
-/**
- * Finite ARM watchdog per `runGuest`. Start of this fixture is ~1.60M.
- * Dismissing the LIVE sound dialog (`否`/`是`) extracts pack members
- * `71`–`79`/`18` into AppFS and needs ~5.10M. 8M is that path plus margin.
- * Not a browser event-loop slice. Ceiling is `MAX_INSN_BUDGET`.
- */
-export const DEFAULT_INSN_BUDGET = 8_000_000;
-export const MAX_INSN_BUDGET = 20_000_000;
+export const DEFAULT_INSN_BUDGET = 64_000_000;
+export const MAX_INSN_BUDGET = 64_000_000;
 
 export function createExtMemory(): GuestMemory {
   const mem = new GuestMemory(EXT_BASE_ADDR, EXT_MEM_SIZE);
@@ -398,6 +392,22 @@ export class ExtRuntime {
     }
     this.maybeSwitchOwner(cpu, pc);
     return false;
+  }
+
+  /** Private SDK loader's P -> extChunk ties the runtime header to its image. */
+  privateLoaderChunk(address: number, length: number): number {
+    if (!address || length < 16) return 0;
+    try {
+      const p = this.mem.read32(address + 4), record = this.mem.read32(address);
+      if (!p || !record) return 0;
+      const chunk = this.mem.read32(p + 12);
+      if (!chunk || this.mem.read32(chunk) !== 0x7fd854eb ||
+          this.mem.read32(chunk + 4) !== address + 8 || this.mem.read32(chunk + 12) !== address ||
+          this.mem.read32(chunk + 16) !== length || this.mem.read32(chunk + 28) !== p ||
+          this.mem.read32(chunk + 44) !== record) return 0;
+      this.mem.read32(record + 125 * 4);
+      return chunk;
+    } catch (e) { if (e instanceof MemoryFault) return 0; throw e; }
   }
 
   private maybeSwitchOwner(cpu: ARMCPU, pc: number): void {

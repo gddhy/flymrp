@@ -6,12 +6,12 @@ import { MythroadRuntime } from "../mythroad/index.ts";
  * of treating a raw frame count as the only success condition.
  */
 export const GSSJXZ_FP = {
-  // Screen globals 92/93 now let the guest clear its splash/title before text.
-  // The former fingerprints included stale background pixels in these scenes.
+  // Shared guest framebuffer and first-fit allocations render title art and
+  // character sprites that were absent from the former bump-only baseline.
   soundDialog: 64289835,
-  title: 2567031015,
-  intro: 66393696,
-  gameplay: 2054893696,
+  title: 2562174401,
+  intro: 13444704,
+  gameplay: 2026550267,
 } as const;
 
 export type PlayableExtCall = {

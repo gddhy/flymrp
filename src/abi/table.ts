@@ -23,9 +23,16 @@ function range(lo: number, hi: number): number[] {
   return out;
 }
 
-/** Guest allocation size for a data slot. Most slots are u32; pack_filename is 128. */
+/** Native arrays must not alias adjacent globals when guests write them. */
 export function dataSlotAllocSize(n: number): number {
-  return n === PACK_FILENAME_SLOT ? MR_MAX_FILENAME_SIZE : 4;
+  if ([PACK_FILENAME_SLOT, 101, 102, 103, 138].includes(n)) return MR_MAX_FILENAME_SIZE;
+  if (n === 95) return 31 * 16; // mr_bitmapSt, including screen bitmap
+  if (n === 96) return 3 * 20; // mr_tileSt
+  if (n === 97) return 3 * 4; // map pointers
+  if (n === 98) return 5 * 12; // mr_soundSt
+  if (n === 99) return 10 * 2; // mr_spriteSt
+  if (n === 146) return 8; // LG_mem_free_t
+  return 4;
 }
 
 export type TableHandler = (cpu: ARMCPU, mem: GuestMemory, args: Uint32Array) => number;

@@ -21,7 +21,8 @@ if (directory === "--worker") {
   let inputFrames = 0;
   let keysTested = 0;
   const hashes = new Set<string>();
-  const fingerprint = () => createHash("sha256").update(new Uint8Array(rt.screen.pixels.buffer)).digest("hex");
+  const fingerprint = () => createHash("sha256").update(new Uint8Array(rt.screen.pixels.buffer,
+    rt.screen.pixels.byteOffset, rt.screen.pixels.byteLength)).digest("hex");
   const tick = (n: number) => {
     for (let i = 0; i < n; i++) {
       rt.advance(80);
