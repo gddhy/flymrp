@@ -272,6 +272,10 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
       case 301:
         rt.shakeOn = a1 !== 0;
         break;
+      case 302:
+        // Legacy network-clock probe; browser networking is offline by policy.
+        ret = 0;
+        break;
       case 400:
         rt.sleeps.push(a1);
         break;

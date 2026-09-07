@@ -53,7 +53,7 @@ export function guestSprintf(
   };
   for (let i = 0; i < fmt.length;) {
     if (fmt[i] !== "%") { write(fmt[i++]); continue; }
-    const match = /^%([0-]?)(\d{0,4})(l{0,2})([diuxXsc%])/.exec(fmt.slice(i));
+    const match = /^%([0-]?)(\d{0,4})(l{0,2})([diuxXpsc%])/.exec(fmt.slice(i));
     if (!match) unsupported(fmt.slice(i, i + 2));
     i += match[0].length;
     const [, flag, widthText, length, spec] = match;
@@ -79,6 +79,7 @@ export function guestSprintf(
         }
       } else piece = "(null)";
     } else if (spec === "c") piece = String.fromCharCode(value & 255);
+    else if (spec === "p") piece = `0x${value.toString(16)}`;
     else if (spec === "d" || spec === "i") piece = String(value | 0);
     else if (spec === "u") piece = String(value);
     else piece = value.toString(16);
@@ -145,8 +146,9 @@ export function guestPrintf(
       if (spec === 0x58) piece = piece.toUpperCase();
     } else if (spec === 0x25) {
       piece = "%";
-    } else if (spec === 0x75 || spec === 0x78 || spec === 0x58) {
-      piece = (nextVararg(vi++) >>> 0).toString(spec === 0x75 ? 10 : 16);
+    } else if (spec === 0x75 || spec === 0x78 || spec === 0x58 || spec === 0x70) {
+      const value = nextVararg(vi++) >>> 0;
+      piece = spec === 0x75 ? value.toString(10) : (spec === 0x70 ? `0x${value.toString(16)}` : value.toString(16));
       if (spec === 0x58) piece = piece.toUpperCase();
     } else if (spec === 0x63) {
       piece = String.fromCharCode(nextVararg(vi++) & 255);

@@ -55,6 +55,16 @@ export function createStrCom(ctx: {
         else L.pushInteger(MR_SUCCESS);
         return 1;
       }
+      case 600: {
+        // Legacy launcher metadata reader: return a bounded byte slice from
+        // an MRP file (offset/length are the historical third/fourth args).
+        const data = ctx.getVfs().readFile(L.checkString(2).s);
+        const offset = Math.max(0, L.optNumber(3, 0) | 0);
+        const length = Math.max(0, L.optNumber(4, 0) | 0);
+        if (!data || offset > data.length) { L.pushNil(); return 1; }
+        L.pushString(data.subarray(offset, Math.min(data.length, offset + length)));
+        return 1;
+      }
       case 300: {
         const s = L.checkString(2).s;
         const raw = strBytes(s);

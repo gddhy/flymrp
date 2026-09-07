@@ -127,7 +127,7 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
     const { ext } = wire();
     const buf = ext.alloc(16);
     const fmt = ext.alloc(16);
-    const bad = ["%f", "%n", "%p", "%ls", "%*d", "%", "%9999d"];
+    const bad = ["%f", "%n", "%ls", "%*d", "%", "%9999d"];
     for (const format of bad) {
       writeCString(ext, fmt, format);
       expect(() => call17(ext, buf, fmt, 0, 0)).toThrow(UnknownAbiError);
@@ -140,6 +140,16 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
         expect(u.message.startsWith("unsupported sprintf format")).toBe(true);
       }
     }
+  });
+
+  it("formats pointers with the legacy 0x hexadecimal form", () => {
+    const { ext } = wire();
+    const buf = ext.alloc(32);
+    const fmt = ext.alloc(8);
+    writeCString(ext, fmt, "%p");
+    const out = call17(ext, buf, fmt, 0x1234, 0);
+    expect(out.r0).toBe(6);
+    expect(readGuestCString(ext.mem, buf)).toBe("0x1234");
   });
 
   it("unmapped buffer / format is MemoryFault on GuestMemory", () => {

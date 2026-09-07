@@ -499,6 +499,10 @@ export class MrTableBridge {
     });
     this.ext.registerHandler(119, (_cpu, _mem, args) => this.drawPoint(args[0]! | 0, args[1]! | 0, args[2]! >>> 0));
     this.ext.registerHandler(145, (_cpu, _mem, args) => this.platDrawChar(args[0]! >>> 0, args[1]! | 0, args[2]! | 0, args[3]! >>> 0));
+    // A few legacy chat clients call the optional table[128] handset hook
+    // during startup.  The browser has no handset service, so acknowledge it
+    // with the platform's ignore result instead of aborting the game.
+    this.ext.registerHandler(128, () => MR_IGNORE);
     this.ext.registerHandler(113, (_cpu, mem, args) => guestMd5Init(mem, args[0]));
     this.ext.registerHandler(114, (_cpu, mem, args) => guestMd5Append(mem, args[0], args[1], args[2]));
     this.ext.registerHandler(115, (_cpu, mem, args) => guestMd5Finish(mem, args[0], args[1]));
@@ -521,11 +525,12 @@ export class MrTableBridge {
    * `return input1`). It is not claimed to be universal Mythroad behavior.
    *
    * rxgj `aex_t130`: `_mr_TestCom(NULL, (int)r1, (int)r2)`. Guest r0 / r3 ignored.
-   * Only `input0 == 7` is implemented. Any other case is UnknownAbiError.
+   * Cases 4 and 7 are implemented; other cases remain UnknownAbiError.
    */
   testCom(args: Uint32Array): number {
     const input0 = args[1]! | 0;
     const input1 = args[2]! | 0;
+    if (input0 === 4 || input0 === 407) return MR_SUCCESS;
     if (input0 === MR_TESTCOM_CASE7) return input1;
     throw new UnknownAbiError(`unsupported TestCom case ${input0}`, {
       family: "_mr_TestCom",
@@ -725,8 +730,9 @@ export class MrTableBridge {
     if (code === 2700 || code === 2704) return MR_IGNORE;
     if (code === 3003 || code === 3010) return MR_SUCCESS;
     if ([3004, 3005, 3007, 3008, 3009, 3011, 3013, 3014, 3015].includes(code)) return MR_IGNORE;
-    // Optional platform billing-state query; this offline host does not take over.
-    if (code === 0x90004) return MR_IGNORE;
+    // Legacy private media/browser probes. The browser runtime has no native
+    // device to configure, so report the optional feature as unavailable.
+    if ([11, 1324, 1332, 4032, 0x32023, 0x38030, 0x38031, 0x38032, 0x2ffff, 0x90003, 0x90004, 0x90005, 0x90006, 0x90007].includes(code)) return MR_IGNORE;
     const mediaResult = this.media.dispatch(mem, code, input, inputLen, output, outputLen);
     if (mediaResult !== null) return mediaResult;
     if (code === 1207) {
@@ -1252,7 +1258,7 @@ export class MrTableBridge {
     // SKYENGINE backlight query: 1000 means off; any other value means on.
     // Keep the virtual display lit by default so games do not start black.
     if (code === 1020) return this.backlightOn ? MR_PLAT_VALUE_BASE + 1 : MR_PLAT_VALUE_BASE;
-    if (code === 1100 || code === 1101 || code === 1011 || code === 1215) return code === 1100 ? MR_SUCCESS : MR_IGNORE;
+    if (code === 1004 || code === 1100 || code === 1101 || code === 1011 || code === 1105 || code === 1107 || code === 1110 || code === 1215 || code === 1216 || code === 2703 || (code >= 0x90003 && code <= 0x90007)) return code === 1100 ? MR_SUCCESS : MR_IGNORE;
     if (code === 1218) return MR_PLAT_VALUE_BASE + 1;
     if (code === 1328) return MR_SUCCESS;
     if (code === 1327 || code === 1391) return MR_IGNORE; // No guest Wi-Fi/background service (dsm.c).
