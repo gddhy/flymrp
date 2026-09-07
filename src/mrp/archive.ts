@@ -134,11 +134,11 @@ export class MRPArchive {
   }
 
   hasFile(name: string): boolean {
-    return this.find(name) !== undefined;
+    return this.findEntry(name) !== undefined;
   }
 
   readFile(name: string): Uint8Array {
-    const e = this.find(name);
+    const e = this.findEntry(name);
     if (!e) throw new MrpFormatError(`MRP file not found: ${name}`);
     if (!inRange(e.offset, e.storedLength, this.data.length)) {
       throw new MrpFormatError(`invalid offset/length for ${name}`);
@@ -153,11 +153,15 @@ export class MRPArchive {
     return MRPArchive.parse(this.readFile(name));
   }
 
-  private find(name: string): MrpEntry | undefined {
+  findEntry(name: string): MrpEntry | undefined {
     for (const e of this.entries) {
       if (e.name === name) return e;
     }
-    return undefined;
+    // Legacy packs may lowercase resource names while scripts retain capitals
+    // (e.g. UID.scene). Exact entries win; ambiguous folded names stay missing.
+    const key = name.replace(/[A-Z]/g, ch => ch.toLowerCase());
+    const matches = this.entries.filter(e => e.name.replace(/[A-Z]/g, ch => ch.toLowerCase()) === key);
+    return matches.length === 1 ? matches[0] : undefined;
   }
 }
 

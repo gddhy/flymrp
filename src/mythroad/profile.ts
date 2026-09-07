@@ -45,7 +45,9 @@ export function defaultProfile(over: Partial<DeviceProfile> = {}): DeviceProfile
     chh: 16,
     ascw: 8,
     asch: 16,
-    datetime: { year: 2026, month: 9, day: 3, hour: 16, minute: 0, second: 0, ...datetime },
+    // Emulate a period handset clock: many offline titles expire into a
+    // mandatory update screen when shown a modern date. Explicit dates win.
+    datetime: { year: 2011, month: 1, day: 1, hour: 16, minute: 0, second: 0, ...datetime },
     randSeed: 1,
     memMin: 0,
     memTop: 1024 * 1024,

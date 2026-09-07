@@ -59,7 +59,7 @@ describe("5-A-1/2 MRPArchive", () => {
     const a = MRPArchive.parse(bytes);
     expect(a.hasFile("a/b")).toBe(true);
     expect(a.hasFile("A.TXT")).toBe(true);
-    expect(a.hasFile("a.txt")).toBe(false);
+    expect(a.hasFile("a.txt")).toBe(true);
     expect(Array.from(a.readFile("."))).toEqual([0x64]);
   });
 

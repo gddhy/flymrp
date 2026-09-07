@@ -262,6 +262,15 @@ export class MrTableBridge {
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
+    this.ext.registerHandler(132, (_cpu, mem, [input, error, size]) => {
+      const chars = gbkBytesToUcs2(Uint8Array.from(readGuestCString(mem, input), ch => ch.charCodeAt(0)));
+      const length = (chars.length + 1) * 2, output = this.malloc(length);
+      if (error) mem.write32(error, 0xffffffff);
+      if (size) mem.write32(size, output ? length : 0);
+      if (!output) return 0;
+      [...chars, 0].forEach((ch, i) => { mem.write8(output + i * 2, ch >>> 8); mem.write8(output + i * 2 + 1, ch & 255); });
+      return output;
+    });
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
     this.ext.registerHandler(131, (_cpu, _mem, args) => {
       if (args[1] === 9) {
@@ -1216,7 +1225,7 @@ export class MrTableBridge {
       let archive: MRPArchive;
       try { archive = MRPArchive.parse(new Uint8Array(mem.slice(p, length))); }
       catch (e) { if (e instanceof MrpFormatError) return 0; throw e; }
-      const entry = archive.entries.find(e => e.name === name);
+      const entry = archive.findEntry(name);
       if (!entry) return 0;
       if (lookfor === 1) return 1;
       if (lookfor === 2 || !entry.compressed) {

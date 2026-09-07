@@ -31,8 +31,8 @@ import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table
  * instructions). Allow resource decoding in that same call, while retaining
  * the explicit per-runtime budget for tests and diagnostics.
  */
-export const DEFAULT_INSN_BUDGET = 64_000_000;
-export const MAX_INSN_BUDGET = 64_000_000;
+export const DEFAULT_INSN_BUDGET = 128_000_000;
+export const MAX_INSN_BUDGET = 128_000_000;
 
 export function createExtMemory(): GuestMemory {
   const mem = new GuestMemory(EXT_BASE_ADDR, EXT_MEM_SIZE);

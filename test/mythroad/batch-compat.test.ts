@@ -88,8 +88,8 @@ describe("real collection compatibility ABI", () => {
     expect(call(16, haystack, str("abcd"))).toBe(0);
     const date = ext.alloc(8);
     expect(call(34, date)).toBe(0);
-    expect(ext.mem.read16(date)).toBe(2026);
-    expect([...ext.mem.slice(date + 2, 5)]).toEqual([9, 3, 16, 0, 0]);
+    expect(ext.mem.read16(date)).toBe(2011);
+    expect([...ext.mem.slice(date + 2, 5)]).toEqual([1, 1, 16, 0, 0]);
     expect(call(34, 0)).toBe(-1);
     call(36, 10000);
     expect(call(33)).toBe(10000);
