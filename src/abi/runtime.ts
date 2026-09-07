@@ -171,7 +171,7 @@ export class ExtRuntime {
 
   private onGuestWrite(addr: number, size: number): void {
     const a = addr >>> 0;
-    if (this.cache.findRegion(a)) this.cache.invalidate(a, size);
+    this.cache.invalidate(a, size);
   }
 
   load(bytes: Uint8Array, opts: LoadOptions = {}): LoadResult {

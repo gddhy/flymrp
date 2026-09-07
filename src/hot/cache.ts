@@ -14,6 +14,8 @@ export type BasicBlock = {
   thumb: number;
   /** Copied from the region at decode time; stale if region.generation differs. */
   generation: number;
+  valid: boolean;
+  region: ExecRegion | null;
 };
 
 export type ExecRegion = {
@@ -62,6 +64,8 @@ export class BlockCache {
   readonly pool: Array<BasicBlock | null> = [null];
   hits = 0;
   misses = 0;
+  private readonly freeIds: number[] = [];
+  private nextVictim = 1;
 
   addRegion(base: number, len: number): ExecRegion {
     base >>>= 0;
@@ -128,7 +132,7 @@ export class BlockCache {
         b &&
         b.guestPC === pc &&
         b.thumb === thumb &&
-        (!region || b.generation === region.generation)
+        b.valid
       ) {
         this.hits++;
         return b;
@@ -165,10 +169,16 @@ export class BlockCache {
       packed: Uint32Array.from(words),
       thumb,
       generation: region ? region.generation : 0,
+      valid: true,
+      region,
     };
-    if (region && this.pool.length < POOL_CAP) {
-      const id = this.pool.length;
-      this.pool.push(block);
+    if (region) {
+      let id = this.freeIds.pop();
+      if (id === undefined) {
+        if (this.pool.length < POOL_CAP) id = this.pool.length;
+        else { id = this.nextVictim; this.nextVictim = this.nextVictim % (POOL_CAP - 1) + 1; this.drop(id, false); }
+      }
+      this.pool[id] = block;
       const table = this.slot(region, pc, thumb);
       if (table) table[this.index(pc, region.base, thumb)] = id;
     }
@@ -193,24 +203,41 @@ export class BlockCache {
       execPacked(cpu, instPC, packed[o]!, packed[o + 1]!, packed[o + 2]!);
       cpu.insnCount++;
       budget--;
-      if (cpu.branched) return;
+      if (cpu.branched || !block.valid) return;
       instPC = (instPC + insnSize(packed[o + 2]!)) >>> 0;
     }
   }
 
+  private drop(id: number, recycle: boolean): void {
+    const block = this.pool[id];
+    if (!block) return;
+    block.valid = false;
+    if (block.region) {
+      const table = this.slot(block.region, block.guestPC, block.thumb);
+      const index = this.index(block.guestPC, block.region.base, block.thumb);
+      if (table?.[index] === id) table[index] = 0;
+    }
+    this.pool[id] = null;
+    if (recycle) this.freeIds.push(id);
+  }
+
   invalidate(base: number, len: number): void {
-    const end = (base + len) >>> 0;
+    if (len <= 0) return;
+    const end = base + len;
     for (const r of this.regions) {
-      const a = Math.max(r.base, base);
-      const b = Math.min(r.base + r.len, end);
+      const a = Math.max(r.base, base), b = Math.min(r.base + r.len, end);
       if (a >= b) continue;
       r.generation = (r.generation + 1) >>> 0 || 1;
-      const arm0 = (a - r.base) >>> 2;
-      const arm1 = (b - r.base + 3) >>> 2;
-      r.blockIdArm.fill(0, arm0, Math.min(arm1, r.blockIdArm.length));
-      const t0 = (a - r.base) >>> 1;
-      const t1 = (b - r.base + 1) >>> 1;
-      r.blockIdThumb.fill(0, t0, Math.min(t1, r.blockIdThumb.length));
+      // An instruction in the middle of a cached block may change. Search
+      // preceding starts too; unrelated data writes must not flush all code.
+      for (const [table, shift] of [[r.blockIdArm, 2], [r.blockIdThumb, 1]] as const) {
+        const first = Math.max(0, a - r.base - MAX_INSNS * 4) >>> shift;
+        const last = Math.min(table.length, Math.ceil((b - r.base) / (1 << shift)));
+        for (let index = first; index < last; index++) {
+          const id = table[index], block = this.pool[id];
+          if (id && block && block.guestPC < end && block.endPC > base) this.drop(id, true);
+        }
+      }
     }
   }
 }

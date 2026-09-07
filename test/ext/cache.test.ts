@@ -28,11 +28,14 @@ describe("4-H code cache / self-modifying code", () => {
     rt.pokeCode(dest, wordsToBytes([armDpImm(OP_ADD, 0, 0, 0, 1), armBx(14)]));
     rt.runGuest(dest);
     const armId = rt.cache.lookupId(dest, 0);
+    const armBlock = rt.cache.pool[armId];
     rt.pokeCode(dest, halfsToBytes([thumbMovImm(0, 9), thumbBx(14)]));
     expect(rt.runGuest(dest, { thumb: 1 }).r0).toBe(9);
     const thumbId = rt.cache.lookupId(dest, 1);
     expect(thumbId).toBeGreaterThan(0);
-    expect(thumbId).not.toBe(armId);
+    expect(rt.cache.lookupId(dest, 0)).toBe(0);
+    expect(rt.cache.pool[thumbId]).not.toBe(armBlock);
+    expect(rt.cache.pool[thumbId]!.thumb).toBe(1);
   });
 
   it("fixture: module unload invalidates old blocks without a global wipe", () => {
