@@ -1,0 +1,46 @@
+{
+  "hosts": [
+    "wap.skmeg.com",
+    "rop.skymobiapp.com",
+    "spd.skymobiapp.com",
+    "freeads.51mrp.com",
+    "proxy.51mrp.com",
+    "proxy2.51mrp.com",
+    "help.proxy.51mrp.com"
+  ],
+  "ips": [
+    "211.155.236.18"
+  ],
+  "routes": [],
+  "packages": {
+    "501502": "app240400/CpuRuns_v2.mrp",
+    "830000": "app240400/RX_v4450.mrp",
+    "30040": "app240400/SaiApp_v1104.mrp",
+    "400101": "gwy/directpay.mrp",
+    "203103": "dsm_gm.mrp",
+    "800001": "plugin240400/cookie.mrp",
+    "4294967040": "plugins/advbar.mrp",
+    "480021": "plugins/brwcore.mrp",
+    "480026": "plugins/brwgui.mrp",
+    "480023": "plugins/brwmain.mrp",
+    "480027": "plugins/brwshell.mrp",
+    "490004": "plugins/cloudstorage.mrp",
+    "490164": "plugins/comment.mrp",
+    "480004": "plugins/embrw.mrp",
+    "490284": "plugins/flaengine.mrp",
+    "490327": "plugins/freecurr.mrp",
+    "490276": "plugins/netcfg.mrp",
+    "480010": "plugins/netpay.mrp",
+    "480019": "plugins/ongame.mrp",
+    "480013": "plugins/passpt.mrp",
+    "480292": "plugins/player.mrp",
+    "480003": "plugins/smsend.mrp",
+    "490146": "plugins/wbrwassist.mrp",
+    "490145": "plugins/wbrwcore.mrp",
+    "490141": "plugins/wbrwmain.mrp",
+    "490144": "plugins/wbrwshell.mrp",
+    "490140": "plugins/wembrw.mrp",
+    "490044": "plugins/xrecom.mrp",
+    "1": "system/___sftmp.mrp"
+  }
+}

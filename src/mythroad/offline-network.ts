@@ -1,3 +1,5 @@
+import { DEFAULT_NETWORK_RULES, hostname, ipv4, ipString, parseNetworkRules, type NetworkRules } from "./network-rules.ts";
+import { md5Bytes } from "./guest-md5.ts";
 import { MR_FAILED, MR_SUCCESS } from "./constants.ts";
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
@@ -28,7 +30,7 @@ function records(bytes: Uint8Array): Map<number, Uint8Array> | null {
   return result;
 }
 
-type Socket = { connected: boolean; request: Uint8Array; response: Uint8Array | null; position: number; failed: boolean };
+type Socket = { ip: number; port: number; connected: boolean; request: Uint8Array; response: Uint8Array | null; position: number; failed: boolean };
 
 /** In-memory adapter for the reference project's legacy service fixture.
  * No DNS, fetch, host socket, SMS, account or payment operation is performed.
@@ -38,17 +40,31 @@ export class OfflineNetwork {
   private nextHandle = 1;
   private sockets = new Map<number, Socket>();
   readonly requests: { host: string; path: string; stage: string }[] = [];
-  resolve(host: string): number { return host.toLowerCase() === "rop.skymobiapp.com" ? SERVICE_IP : MR_FAILED; }
+  readonly interceptions: { host: string; ip: string; port: number; path: string; result: string; file?: string; appid?: number }[] = [];
+  readonly rules: NetworkRules;
+  private readonly dns = new Map<string, number>();
+  private readonly addresses = new Set<number>([WAP_GATEWAY]);
+  constructor(private readonly options: { rules?: NetworkRules; readFile?: (name: string) => Uint8Array | null } = {}) {
+    this.rules = parseNetworkRules(options.rules ?? DEFAULT_NETWORK_RULES);
+    // Keep the original ROP address stable for old callers/tests.
+    const hosts = [...new Set(["rop.skymobiapp.com", ...this.rules.hosts, ...this.rules.routes.flatMap(r => r.host ? [r.host] : [])])];
+    for (const host of hosts) { const ip = (SERVICE_IP + this.dns.size) >>> 0; this.dns.set(host, ip); this.addresses.add(ip); }
+    for (const ip of [...this.rules.ips, ...this.rules.routes.flatMap(r => r.ip ? [r.ip] : [])]) this.addresses.add(ipv4(ip)!);
+  }
+  resolve(value: string): number {
+    try { const host = hostname(value), ip = ipv4(host); return this.dns.get(host) ?? (ip !== null && this.addresses.has(ip) ? ip : MR_FAILED); }
+    catch { return MR_FAILED; }
+  }
   socket(type: number, protocol: number): number {
     if (type !== 0 || protocol !== 0 || this.sockets.size >= 16) return MR_FAILED;
     const id = this.nextHandle++;
-    this.sockets.set(id, { connected: false, request: new Uint8Array(), response: null, position: 0, failed: false });
+    this.sockets.set(id, { ip: 0, port: 0, connected: false, request: new Uint8Array(), response: null, position: 0, failed: false });
     return id;
   }
   connect(id: number, ip: number, port: number): number {
     const s = this.sockets.get(id);
-    if (!s || ![SERVICE_IP, WAP_GATEWAY].includes(ip >>> 0) || port !== 80) return MR_FAILED;
-    s.connected = true;
+    if (!s || !this.addresses.has(ip >>> 0) || !Number.isInteger(port) || ![80, 6009, ...this.rules.routes.flatMap(r => r.port ? [r.port] : [])].includes(port)) return MR_FAILED;
+    s.ip = ip >>> 0; s.port = port; s.connected = true;
     return MR_SUCCESS;
   }
   close(id: number): number { return this.sockets.delete(id) ? MR_SUCCESS : MR_FAILED; }
@@ -74,9 +90,10 @@ export class OfflineNetwork {
     const text = decoder.decode(s.request), boundary = text.indexOf("\r\n\r\n");
     if (boundary < 0) { if (s.request.length > 16 * 1024) s.failed = true; return; }
     // Headers are ASCII, so their string/byte offsets must agree.
-    if (s.request.subarray(0, boundary + 4).some(b => b > 127)) { s.failed = true; return; }
+    if (boundary > 16 * 1024 || s.request.subarray(0, boundary + 4).some(b => b > 127)) { s.failed = true; return; }
     const lines = text.slice(0, boundary).split("\r\n");
-    const [method, path] = lines.shift()!.split(" ");
+    const [method, target, version] = lines.shift()!.split(" ");
+    if (!["GET", "POST"].includes(method) || !/^HTTP\/1\.[01]$/.test(version ?? "")) { s.failed = true; return; }
     const headers = new Map<string, string>();
     for (const line of lines) {
       const colon = line.indexOf(":");
@@ -85,14 +102,54 @@ export class OfflineNetwork {
       if (headers.has(name)) { s.failed = true; return; }
       headers.set(name, line.slice(colon + 1).trim());
     }
-    const host = (headers.get("x-online-host") ?? headers.get("host") ?? "").toLowerCase();
+    let host: string, path: string, requestPort: number;
+    try {
+      const authority = headers.get("x-online-host") ?? headers.get("host") ?? ipString(s.ip);
+      const url = new URL(target.startsWith("http://") ? target : `http://${authority}${target}`);
+      if ((!target.startsWith("/") && !target.startsWith("http://")) || url.username || url.password || url.hash) throw Error("invalid target");
+      host = hostname(url.hostname); path = url.pathname + url.search; requestPort = Number(url.port || s.port);
+    } catch { s.failed = true; return; }
     const size = headers.get("content-length") ?? "0";
-    if (!["rop.skymobiapp.com", "rop.skymobiapp.com:80"].includes(host) || method !== "POST" ||
-        !/^\d+$/.test(size) || Number(size) > LIMIT || headers.has("transfer-encoding")) { s.failed = true; return; }
+    if (!/^\d+$/.test(size) || Number(size) > LIMIT || headers.has("transfer-encoding")) { s.failed = true; return; }
     const end = boundary + 4 + Number(size);
     if (s.request.length < end) return;
     if (s.request.length !== end) { s.failed = true; return; }
     const body = s.request.subarray(boundary + 4, end);
+    const allowedHost = this.dns.has(host) || this.rules.ips.includes(host);
+    const directIp = ipString(s.ip);
+    // A configured IP can intercept a request independently of its Host header.
+    if (!allowedHost && !this.rules.ips.includes(directIp) && !this.rules.routes.some(r => r.ip === directIp)) { s.failed = true; return; }
+    const note = (result: string, file?: string, appid?: number) => {
+      if (this.interceptions.length === 128) this.interceptions.shift();
+      this.interceptions.push({ host, ip: directIp, port: requestPort, path: path.split("?")[0], result, file, appid });
+    };
+    const route = this.rules.routes.find(r => (!r.host || r.host === host) && (!r.ip || r.ip === directIp) && (!r.port || r.port === requestPort) && (!r.method || r.method === method) && r.path === path);
+    if (route) {
+      const bytes = this.options.readFile?.(route.file);
+      if (!bytes) { note("missing-file", route.file); s.response = http(404, new Uint8Array()); return; }
+      note("local-file", route.file);
+      s.response = http(200, bytes, "application/octet-stream"); return;
+    }
+    // Direct file URLs can resolve to the selected game's preloaded resource
+    // directory. URL traversal and ambiguous query-driven endpoints need an
+    // explicit rule; no host filesystem path is ever evaluated here.
+    if (method === "GET" && !path.includes("?")) {
+      let name = "";
+      try { name = decodeURIComponent(path).replace(/^\/(?:mythroad(?:_res)?\/)?/, ""); } catch { /* unmatched */ }
+      if (name && !name.includes("\\") && !name.split("/").some(p => !p || p === "." || p === "..")) {
+        const bytes = this.options.readFile?.(name);
+        if (bytes) { note("local-resource", name); s.response = http(200, bytes, "application/octet-stream"); return; }
+      }
+    }
+    if (host === "spd.skymobiapp.com" && path === "/simpleDownload" && method === "POST") {
+      const fields = records(body), appid = field32(fields, 0x29ce), product = field32(fields, 0x2775);
+      if (appid === null || product === null) { note("invalid-download"); s.failed = true; return; }
+      const file = this.rules.packages[String(appid)], bytes = file ? this.options.readFile?.(file) : null;
+      if (!bytes) { note("missing-package", file, appid); s.response = http(404, new Uint8Array()); return; }
+      note("local-package", file, appid);
+      s.response = http(200, simpleDownload(bytes, appid, product)); return;
+    }
+    if (host !== "rop.skymobiapp.com" || method !== "POST") { note("unmatched"); s.failed = true; return; }
     let response: Uint8Array, stage = "";
     if (path === "/payOneAsTlv") {
       const fields = records(body);
@@ -109,8 +166,24 @@ export class OfflineNetwork {
       if (ids.length !== 1 || !/^\d+$/.test(ids[0]) || Number(ids[0]) > 0xffffffff) { s.failed = true; return; }
       stage = "SMS-FIXTURE";
       response = concat(tlv(100, u32(200)), tlv(101, u32(Number(ids[0]))), tlv(200, new Uint8Array([1])));
-    } else { s.failed = true; return; }
+    } else { note("unmatched"); s.failed = true; return; }
+    note("legacy-service");
     if (this.requests.length < 128) this.requests.push({ host, path, stage });
-    s.response = concat(encoder.encode(`HTTP/1.1 200 OK\r\nContent-Type: application/x-tar\r\nContent-Length: ${response.length}\r\nConnection: close\r\n\r\n`), response);
+    s.response = http(200, response);
   }
+}
+
+function http(status: number, body: Uint8Array, contentType = "application/x-tar"): Uint8Array {
+  return concat(encoder.encode(`HTTP/1.1 ${status} ${status === 200 ? "OK" : "Not Found"}\r\nContent-Type: ${contentType}\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n`), body);
+}
+function field32(fields: Map<number, Uint8Array> | null, tag: number): number | null {
+  const b = fields?.get(tag); return b?.length === 4 ? new DataView(b.buffer, b.byteOffset, 4).getUint32(0) : null;
+}
+/** Native reference fixture: complete package plus size, MD5 and request IDs. */
+function simpleDownload(bytes: Uint8Array, appid: number, product: number): Uint8Array {
+  const metadata = concat(tlv(0x2c7, u32(1)), tlv(0x2be, u32(appid)), tlv(0x2bf, u32(0)),
+    tlv(0x2c0, new Uint8Array()), tlv(0x2c1, new Uint8Array()), tlv(0x2c2, new Uint8Array(2)),
+    tlv(0x2c3, u32(0)), tlv(0x2c4, u32(bytes.length)), tlv(0x2c5, md5Bytes(bytes)), tlv(0x2c6, u32(0)));
+  return concat(tlv(0x64, u32(200)), tlv(0x65, u32(product)), tlv(0x6d, encoder.encode("00000000000000000001")),
+    tlv(0x2bc, new Uint8Array([0,1])), tlv(0x2bd, metadata), tlv(0x2c3, u32(0)), tlv(0x2d1, bytes));
 }

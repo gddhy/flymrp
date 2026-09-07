@@ -1,4 +1,4 @@
-import type { GuestMemory } from "../hot/memory.ts";
+import { GuestMemory } from "../hot/memory.ts";
 
 // rxgj md5.h: count[2], abcd[4], buf[64]. Keep the entire 88-byte context
 // in guest memory so copying a context (or interleaving two) works naturally.
@@ -54,4 +54,13 @@ export function guestMd5Finish(mem: GuestMemory, p: number, digest: number): num
   const result = new Uint8Array(mem.slice(p + 8, 16));
   mem.load(digest, result);
   return 0;
+}
+
+/** Reuse the guest MD5 implementation for native download metadata. */
+export function md5Bytes(bytes: Uint8Array): Uint8Array {
+  const mem = new GuestMemory(0, 128);
+  guestMd5Init(mem, 4);
+  append(mem, 4, bytes.length, i => bytes[i]);
+  guestMd5Finish(mem, 4, 96);
+  return new Uint8Array(mem.slice(96, 16));
 }

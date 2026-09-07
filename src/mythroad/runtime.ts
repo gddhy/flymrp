@@ -1,3 +1,5 @@
+import type { EditState } from "./native-editor.ts";
+import type { NetworkRules } from "./network-rules.ts";
 import { ExtFault, type ExtCallResult } from "../abi/fault.ts";
 import { DEFAULT_INSN_BUDGET, ExtRuntime, MAX_INSN_BUDGET } from "../abi/runtime.ts";
 import { LuaRuntimeError, UnknownAbiError } from "../err/errors.ts";
@@ -41,6 +43,8 @@ import { MythroadVfs } from "./vfs.ts";
 
 export type MythroadRuntimeOptions = {
   profile?: Partial<DeviceProfile>;
+  networkRules?: NetworkRules;
+  onEditChange?: (state: EditState | null) => void;
   /** Bundled handset files, copied into each runtime’s virtual filesystem. */
   systemFiles?: Readonly<Record<string, Uint8Array>>;
   graphics?: GraphicsBackend;
@@ -71,6 +75,8 @@ export type MythroadRuntimeOptions = {
 export class MythroadRuntime {
   lua = new LuaVM();
   readonly vfs = new MythroadVfs();
+  private readonly networkRules?: NetworkRules;
+  private readonly onEditChange?: (state: EditState | null) => void;
   private readonly systemFiles: Readonly<Record<string, Uint8Array>>;
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
@@ -144,6 +150,8 @@ export class MythroadRuntime {
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
     this.systemFiles = opts.systemFiles ?? {};
+    this.networkRules = opts.networkRules;
+    this.onEditChange = opts.onEditChange;
     this.entry = opts.entry ?? "_dsm";
     this.param = opts.param ?? "";
     this.onExtCall = opts.onExtCall ?? null;
@@ -237,6 +245,7 @@ export class MythroadRuntime {
   dispatchEvent(ev: RuntimeEvent): number {
     this.lastDispatch = ev.kind;
     if (ev.kind === EV_TIMER) return this.dispatchTimer();
+    if (ev.kind === EV_KEY && (ev.type === 0 || ev.type === 1) && this.mrTable?.editor.key(ev.type, ev.p1)) return MR_SUCCESS;
     return this.dispatchMrEvent(ev.type, ev.p1, ev.p2);
   }
 
@@ -329,6 +338,10 @@ export class MythroadRuntime {
     };
     rt.onGuestExit = exitGuest;
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
+      networkRules: this.networkRules,
+      onEditChange: this.onEditChange,
+      onEditComplete: accepted => this.queueEvent(EV_SYSTEM, 6, accepted ? 0 : 1, 0),
+      getDownloadFile: name => this.systemFiles[name] ?? null,
       getClock: () => this.clock,
       onSleep: (ms) => { this.clock += ms; },
       onExit: exitGuest,

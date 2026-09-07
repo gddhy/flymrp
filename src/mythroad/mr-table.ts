@@ -1,3 +1,5 @@
+import { NativeEditor, type EditState } from "./native-editor.ts";
+import type { NetworkRules } from "./network-rules.ts";
 import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex, tableSlotAddr } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { UnknownAbiError, MrpFormatError } from "../err/errors.ts";
@@ -143,7 +145,8 @@ export class MrTableBridge {
   private diskInfoAddr = 0;
   private randSeed: number | null = null;
   networkMode: string | null = null;
-  readonly offlineNetwork = new OfflineNetwork();
+  readonly offlineNetwork: OfflineNetwork;
+  readonly editor: NativeEditor;
   readonly missingComponents = new Set<string>();
   private readonly media = new MediaDevices({
     alloc: size => this.ext.alloc(size),
@@ -171,6 +174,10 @@ export class MrTableBridge {
     readonly vfs: MythroadVfs,
     readonly owner: string,
     readonly hooks: {
+      networkRules?: NetworkRules;
+      onEditChange?: (state: EditState | null) => void;
+      onEditComplete?: (accepted: boolean) => void;
+      getDownloadFile?: (name: string) => Uint8Array | null;
       onUnknownSlot?: (n: number) => void;
       onAlloc?: (rec: AllocRecord) => void;
       onRead?: (rec: ReadFileRecord) => void;
@@ -190,6 +197,8 @@ export class MrTableBridge {
       getMrState?: () => number;
     } = {},
   ) {
+    this.editor = new NativeEditor(ext.mem, size => ext.alloc(size), hooks.onEditChange, hooks.onEditComplete);
+    this.offlineNetwork = new OfflineNetwork({ rules: hooks.networkRules, readFile: name => hooks.getDownloadFile?.(name) ?? this.appFs.file(name) });
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null, this.appFs);
   }
 
@@ -365,6 +374,9 @@ export class MrTableBridge {
     this.ext.registerHandler(31, (_cpu, _mem, args) => this.timerStart(args[0]! >>> 0));
     this.ext.registerHandler(32, (_cpu, _mem, _args) => this.timerStop());
     this.ext.registerHandler(80, (_cpu, mem, args) => this.getScreenInfo(mem, args[0]! >>> 0));
+    this.ext.registerHandler(75, (_cpu, _mem, [title, text, type, size]) => this.editor.create(title, text, type, size));
+    this.ext.registerHandler(76, (_cpu, _mem, [handle]) => this.editor.release(handle));
+    this.ext.registerHandler(77, (_cpu, _mem, [handle]) => this.editor.getText(handle));
     this.ext.registerHandler(78, (_cpu, _mem, _args) => this.winCreate());
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
     this.ext.registerHandler(57, (_cpu, mem, args) => this.playSound(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
