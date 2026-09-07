@@ -97,6 +97,7 @@ export class MythroadRuntime {
   gcCalls = 0;
   gcThreshold = 0;
   sleeps: number[] = [];
+  readonly logs: string[] = [];
   exited = false;
   lastDispatch = 0;
   steps = 0;
@@ -317,6 +318,14 @@ export class MythroadRuntime {
     const owner = this.packName || "ext";
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       getClock: () => this.clock,
+      onSleep: (ms) => { this.clock += ms; },
+      onExit: () => {
+        this.state = MR_STATE_STOP;
+        this.exited = true;
+        this.timers.stop();
+        this.events.clear();
+        throw new LuaRuntimeError("Exiting...");
+      },
       getTimer: () => this.timers,
       getMrState: () => this.state,
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
@@ -375,7 +384,7 @@ export class MythroadRuntime {
     if (!this.canRun()) return MR_IGNORE;
     if (this.ext) {
       const out = this.ext.arm_ext_call(2, new Uint8Array(0));
-      if (out.kind !== "return") throw new ExtFault(out.kind, 0, "timer EXT");
+      if (out.kind !== "return") throw new ExtFault(out.kind, out.pc ?? 0, `timer EXT${out.detail ? `: ${out.detail}` : ""}`);
     }
     const name = this.timers.callback;
     if (!this.lua.callGlobal(name)) {
@@ -392,7 +401,7 @@ export class MythroadRuntime {
     }
     if (this.ext) {
       const out = this.ext.arm_ext_call(1, packEvent(type, p1, p2));
-      if (out.kind !== "return") throw new ExtFault(out.kind, 0, "event EXT");
+      if (out.kind !== "return") throw new ExtFault(out.kind, out.pc ?? 0, `event EXT${out.detail ? `: ${out.detail}` : ""}`);
       return MR_SUCCESS;
     }
     return MR_IGNORE;

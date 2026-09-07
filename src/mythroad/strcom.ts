@@ -87,7 +87,7 @@ export function createStrCom(ctx: {
         try {
           const loaded = rt.load(bytes, { loadCode: extra });
           if (loaded.kind !== "return") {
-            throw new ExtFault(loaded.kind, 0, `_strCom(${code}) load kind=${loaded.kind}`);
+            throw new ExtFault(loaded.kind, loaded.pc ?? 0, `_strCom(${code}) load${loaded.detail ? `: ${loaded.detail}` : ""}`);
           }
           L.pushInteger(loaded.ret | 0);
           return 1;
@@ -103,7 +103,7 @@ export function createStrCom(ctx: {
         try {
           const out = rt.arm_ext_call(extra, input);
           if (out.kind !== "return") {
-            throw new ExtFault(out.kind, 0, `arm_ext_call kind=${out.kind}`);
+            throw new ExtFault(out.kind, out.pc ?? 0, `arm_ext_call${out.detail ? `: ${out.detail}` : ""}`);
           }
           L.pushString(out.output);
           L.pushInteger(out.r0 | 0);

@@ -1,6 +1,6 @@
 import { LuaRuntimeError, NativeAbiError, VfsError } from "../err/errors.ts";
 import { LuaState } from "../lua/state.ts";
-import { TAG_NUMBER, TAG_TABLE, type NativeFunction } from "../lua/types.ts";
+import { TAG_NUMBER, TAG_TABLE, TAG_STRING, TAG_NIL, type NativeFunction } from "../lua/types.ts";
 import {
   BITMAPMAX,
   BM_COPY,
@@ -22,7 +22,8 @@ import {
   TILEMAX,
 } from "./constants.ts";
 import { persistRoot, unpersistRoot } from "./persist.ts";
-import { gb16Glyph } from "./font.ts";
+import { gb16Glyph, gbkBytesToUcs2 } from "./font.ts";
+import { binToBytes } from "../mrp/archive.ts";
 import { makeRgb565 } from "./graphics.ts";
 import { lcgNext } from "./profile.ts";
 import type { MythroadRuntime } from "./runtime.ts";
@@ -33,6 +34,45 @@ export function installNatives(rt: MythroadRuntime): void {
 
   reg("_strCom", rt.strCom);
   reg("TestCom1", rt.strCom);
+  reg("print", (Ls) => {
+    const parts: string[] = [];
+    for (let i = Ls.base; i < Ls.top; i++) {
+      parts.push(Ls.tags[i] === TAG_STRING ? Ls.strings[Ls.nums[i]] : Ls.tags[i] === TAG_NUMBER ? String(Ls.nums[i]) : Ls.tags[i] === TAG_NIL ? "nil" : `[type ${Ls.tags[i]}]`);
+    }
+    rt.logs.push(parts.join("\t"));
+    if (rt.logs.length > 256) rt.logs.shift();
+    return 0;
+  });
+  reg("_error", (Ls) => { throw new LuaRuntimeError(Ls.checkString(1).s); });
+  reg("dofile", (Ls) => {
+    const name = Ls.checkString(1).s;
+    const bytes = rt.vfs.readFile(name);
+    if (!bytes) throw new LuaRuntimeError(`cannot read ${name}`);
+    const top = Ls.top;
+    rt.lua.runBytes(bytes);
+    return Ls.top - top;
+  });
+  reg("_textWidth", (Ls) => {
+    const unicode = Ls.optNumber(2, 0) !== 0;
+    const slot = Ls.checkArg(1);
+    let chars: number[];
+    if (Ls.tags[slot] === TAG_STRING) {
+      const bytes = binToBytes(Ls.checkString(1).s);
+      chars = unicode ? Array.from({ length: Math.floor(bytes.length / 2) }, (_, i) => (bytes[i * 2] << 8) | bytes[i * 2 + 1]) : gbkBytesToUcs2(bytes);
+    } else {
+      const ch = Ls.optNumber(1, 0) & 0xffff;
+      chars = unicode || ch < 128 ? [ch] : gbkBytesToUcs2(new Uint8Array([ch >>> 8, ch & 255]));
+    }
+    let width = 0, height = 0;
+    for (const ch of chars) {
+      if (!ch) break;
+      const glyph = gb16Glyph(ch);
+      width = (width + glyph.width) & 0xffff;
+      height = Math.max(height, glyph.height);
+    }
+    Ls.pushInteger(width); Ls.pushInteger(height);
+    return 2;
+  });
 
   const com = makeCom(rt);
   reg("_com", com);

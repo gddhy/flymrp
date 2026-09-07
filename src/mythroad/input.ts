@@ -14,6 +14,11 @@ import { EventError } from "../err/errors.ts";
 import { EV_KEY, EventQueue } from "./events.ts";
 
 const ALIAS: Record<string, number> = {
+  ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [String(i), i])),
+  STAR: 10,
+  POUND: 11,
+  "*": 10,
+  "#": 11,
   UP: MR_KEY_UP,
   DOWN: MR_KEY_DOWN,
   LEFT: MR_KEY_LEFT,

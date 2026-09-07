@@ -7,6 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:games": "tsx tools/real/batch-test.ts",
+    "build": "vite build --config web/vite.config.ts",
     "bench": "tsx bench/run.ts",
     "inspect": "tsx tools/real/inspect.ts",
     "start": "vite --config web/vite.config.ts --host 127.0.0.1 --open",

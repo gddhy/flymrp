@@ -49,6 +49,13 @@ export class AppFileSystem {
     return node?.kind === "file" ? node.bytes : null;
   }
 
+  remove(name: string): number {
+    const key = this.normalize(name);
+    if (this.nodes.get(key)?.kind !== "file") return MR_FAILED;
+    this.nodes.delete(key);
+    return MR_SUCCESS;
+  }
+
   /**
    * CREATE/RECREATE: parent dirs are created in-memory.
    * Existing dir at `name` cannot become a file.

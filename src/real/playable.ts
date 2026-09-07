@@ -6,9 +6,11 @@ import { MythroadRuntime } from "../mythroad/index.ts";
  * of treating a raw frame count as the only success condition.
  */
 export const GSSJXZ_FP = {
-  soundDialog: 798243022,
+  // Screen globals 92/93 now let the guest clear its splash/title before text.
+  // The former fingerprints included stale background pixels in these scenes.
+  soundDialog: 64289835,
   title: 2567031015,
-  intro: 2367559949,
+  intro: 66393696,
   gameplay: 2054893696,
 } as const;
 

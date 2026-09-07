@@ -138,7 +138,7 @@ export const REAL_MRP_BASELINE = {
 } as const;
 
 /** strcom throws this after arm_ext_call(0) returns kind=abi-fault (budget). */
-export const ARM_INSN_BUDGET_THROWN = "EXT fault abi-fault at 0x0 (arm_ext_call kind=abi-fault)";
+export const ARM_INSN_BUDGET_THROWN = "EXT fault abi-fault at 0x1ea1ee8 (arm_ext_call: budget exceeded)";
 /** Historical 5-C.10Q/R stop. table[30] is now REAL_EXECUTED. */
 export const UNKNOWN_SLOT_30_THROWN = "UNKNOWN_REQUIRED_SLOT = 30";
 /** Historical stop after getCharBitmap/plat/printf. table[42] is now REAL_EXECUTED. */

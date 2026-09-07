@@ -1,250 +1,190 @@
 import { binToBytes } from "../src/mrp/index.ts";
-import {
-  Canvas2DBackend,
-  gb16Uc2Loaded,
-  loadGb16Uc2,
-  MythroadRuntime,
-  type Canvas2DContextLike,
-} from "../src/mythroad/index.ts";
+import { Canvas2DBackend, gb16Uc2Loaded, loadGb16Uc2, MythroadRuntime, type Canvas2DContextLike } from "../src/mythroad/index.ts";
+import { MR_MOUSE_DOWN, MR_MOUSE_UP, MR_MOUSE_MOVE } from "../src/mythroad/constants.ts";
+import { inferScreenSize } from "../src/mythroad/device-size.ts";
+import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
+import { DOM_KEY, HeldKeys } from "./controls.ts";
 
-const SCREEN_W = 240;
-const SCREEN_H = 320;
-const MAX_STEPS_PER_FRAME = 16;
-
-const DOM_KEY: Record<string, string> = {
-  ArrowUp: "UP",
-  ArrowDown: "DOWN",
-  ArrowLeft: "LEFT",
-  ArrowRight: "RIGHT",
-  KeyW: "UP",
-  KeyS: "DOWN",
-  KeyA: "LEFT",
-  KeyD: "RIGHT",
-  Enter: "FIRE",
-  Space: "FIRE",
-  KeyJ: "FIRE",
-  ShiftLeft: "SOFTLEFT",
-  KeyQ: "SOFTLEFT",
-  Digit1: "SOFTLEFT",
-  Escape: "SOFTRIGHT",
-  Backspace: "SOFTRIGHT",
-  KeyE: "SOFTRIGHT",
-  Digit3: "SOFTRIGHT",
-};
-
-type Session = {
-  rt: MythroadRuntime;
-  gfx: Canvas2DBackend;
-  raf: number;
-  last: number;
-  held: Set<string>;
-  title: string;
-};
-
-const canvas = document.querySelector("#screen") as HTMLCanvasElement;
-const fileInput = document.querySelector("#file") as HTMLInputElement;
-const stopBtn = document.querySelector("#stop") as HTMLButtonElement;
-const statusEl = document.querySelector("#status") as HTMLElement;
+const canvas = document.querySelector<HTMLCanvasElement>("#screen")!;
+const fileInput = document.querySelector<HTMLInputElement>("#file")!;
+const stopBtn = document.querySelector<HTMLButtonElement>("#stop")!;
+const resolution = document.querySelector<HTMLSelectElement>("#resolution")!;
+const statusEl = document.querySelector<HTMLElement>("#status")!;
 const rawCtx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 if (!rawCtx) throw new Error("Canvas2D unavailable");
 const ctx: Canvas2DContextLike = rawCtx;
 const audio = new BrowserAudio();
-
+type Session = { rt: MythroadRuntime; gfx: Canvas2DBackend; raf: number; last: number; title: string; nextHud: number };
 let session: Session | null = null;
-let statusText = "";
-let statusErr = false;
+let generation = 0;
+let fontPromise: Promise<void> | null = null;
+let touch: number | null = null;
+const held = new HeldKeys(key => session?.rt.input.press(key), key => session?.rt.input.release(key));
 
 function setStatus(text: string, err = false): void {
-  statusText = text;
-  statusErr = err;
   statusEl.textContent = text;
   statusEl.classList.toggle("err", err);
 }
-
-function checksum(pixels: Uint16Array): number {
-  let s = 0;
-  for (const p of pixels) s = (s + p) >>> 0;
-  return s;
-}
-
-/** MRP header strings are GBK bytes stored as binary JS strings. */
-function gbkLabel(bin: string): string {
-  if (!bin) return "";
-  try {
-    return new TextDecoder("gbk").decode(binToBytes(bin));
-  } catch {
-    return bin;
-  }
-}
-
-/** Official boot paints 「请稍候」 first; the sound dialog needs ~22 timer ticks. */
-function pumpBoot(rt: MythroadRuntime, frames = 32): void {
-  for (let i = 0; i < frames; i++) {
-    rt.advance(80);
-    rt.step();
-    if (rt.unknownRequiredSlot !== null) return;
-  }
-}
-
-function present(gfx: Canvas2DBackend): void {
-  gfx.flush(0, 0, SCREEN_W, SCREEN_H, 0);
-}
-
-function hud(s: Session): string {
-  const slot = s.rt.unknownRequiredSlot;
-  const snd = audio.lastType === null ? "off" : `t${audio.lastType}/${audio.lastLen}`;
-  const err = audio.lastError ? ` audio:${audio.lastError}` : "";
-  return `${s.title}  chk=${checksum(s.rt.screen.pixels)}  snd=${snd}${err}${slot === null ? "" : `  SLOT=${slot}`}`;
-}
-
 function stop(keepStatus = false): void {
-  if (session) {
-    cancelAnimationFrame(session.raf);
-    for (const key of session.held) session.rt.input.release(key);
-    session = null;
-  }
+  generation++;
+  held.clear();
+  touch = null;
+  if (session) cancelAnimationFrame(session.raf);
+  session = null;
   audio.stopAll();
   stopBtn.disabled = true;
-  if (!keepStatus) setStatus("已停止。再选一个 .mrp 即可加载。");
+  if (!keepStatus) setStatus("已停止。选择游戏即可重新加载。");
 }
-
+function present(s: Pick<Session, "rt" | "gfx">): void { s.gfx.flush(0, 0, s.rt.screenW, s.rt.screenH, 0); }
+function fail(e: unknown, rt?: MythroadRuntime): void {
+  const exited = rt?.exited;
+  stop(true);
+  setStatus(exited ? "游戏已退出，可重新加载。" : `运行失败：${e instanceof Error ? e.message : String(e)}`, !exited);
+}
 function frame(now: number): void {
   const s = session;
   if (!s) return;
   try {
-    present(s.gfx);
-    const dt = Math.max(0, Math.min(100, now - s.last));
+    s.rt.advance(Math.max(0, Math.min(100, now - s.last)));
     s.last = now;
-    if (dt > 0) s.rt.advance(dt);
-    let n = 0;
-    while (n < MAX_STEPS_PER_FRAME && s.rt.step()) n++;
-    present(s.gfx);
-    if (s.rt.unknownRequiredSlot !== null) {
-      const slot = s.rt.unknownRequiredSlot;
-      stop(true);
-      setStatus(`UNKNOWN_REQUIRED_SLOT = ${slot}`, true);
-      return;
+    for (let i = 0; i < 16 && s.rt.step(); i++);
+    present(s);
+    if (s.rt.exited) { stop(true); setStatus("游戏已退出，可重新加载。"); return; }
+    if (now >= s.nextHud) {
+      setStatus(`${s.title} · ${s.rt.screenW}×${s.rt.screenH} · 运行中${audio.lastError ? ` · 声音：${audio.lastError}` : ""}`);
+      s.nextHud = now + 500;
     }
-    if (!statusErr) setStatus(hud(s));
     s.raf = requestAnimationFrame(frame);
-  } catch (e) {
-    try {
-      if (session) present(session.gfx);
-    } catch {
-      /* last frame may already be on canvas */
-    }
-    stop(true);
-    setStatus(e instanceof Error ? e.message : String(e), true);
-  }
+  } catch (e) { present(s); fail(e, s.rt); }
 }
-
-async function ensureGb16(): Promise<void> {
+async function ensureFont(): Promise<void> {
   if (gb16Uc2Loaded()) return;
-  const res = await fetch("/system/gb16.uc2");
-  if (!res.ok) throw new Error("缺少 assets/system/gb16.uc2，无法渲染中文点阵");
-  loadGb16Uc2(new Uint8Array(await res.arrayBuffer()));
+  fontPromise ??= (async () => {
+    const res = await fetch("/system/gb16.uc2");
+    if (!res.ok) throw new Error("缺少 assets/system/gb16.uc2 中文字库");
+    loadGb16Uc2(new Uint8Array(await res.arrayBuffer()));
+  })().catch(e => { fontPromise = null; throw e; });
+  await fontPromise;
 }
-
-async function startFromFile(file: File): Promise<void> {
-  stop();
-  audio.resume();
-  setStatus(`正在读取 ${file.name}…`);
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  setStatus("正在加载字库…");
-  await ensureGb16();
-  setStatus("正在启动（首次可能卡几秒）…");
-  await new Promise<void>((resolve) => setTimeout(resolve, 40));
-
-  let rt!: MythroadRuntime;
-  const gfx = new Canvas2DBackend(ctx, () => rt.screen);
-  rt = new MythroadRuntime({
-    graphics: gfx,
-    abiMode: "strict",
-    onPlaySound: (type, data, loop) => audio.play(type, data, loop),
-    onStopSound: (type) => audio.stop(type),
-  });
-  const archive = rt.loadMrp(bytes);
-  try {
-    rt.start("start.mr");
-    pumpBoot(rt);
-  } finally {
-    present(gfx);
-  }
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-  const title = gbkLabel(archive.header.appname) || archive.header.filename || file.name;
-  session = { rt, gfx, raf: 0, last: performance.now(), held: new Set(), title };
+async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
+  stop(true);
+  const token = generation;
+  const profile = resolution.value === "auto" ? inferScreenSize(name) : inferScreenSize(resolution.value);
   stopBtn.disabled = false;
-  canvas.focus();
-  setStatus(hud(session));
-  session.raf = requestAnimationFrame(frame);
-}
-
-function press(alias: string): void {
-  if (!session || session.held.has(alias)) return;
   audio.resume();
-  session.held.add(alias);
-  if (alias === "SOFTRIGHT" || alias === "SOFTLEFT") {
-    setStatus("正在处理按键（解压资源时会卡几秒）…");
-  }
-  session.rt.input.press(alias);
+  setStatus(`正在读取 ${name.split("/").at(-1)}…`);
+  let rt: MythroadRuntime | undefined;
+  try {
+    const [buffer] = await Promise.all([read(), ensureFont()]);
+    if (token !== generation) return;
+    setStatus("正在启动游戏，请稍候…");
+    await new Promise<void>(resolve => setTimeout(resolve, 40));
+    if (token !== generation) return;
+    canvas.width = profile.width;
+    canvas.height = profile.height;
+    canvas.style.setProperty("--screen-ratio", `${profile.width} / ${profile.height}`);
+    const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
+    rt = new MythroadRuntime({ profile, graphics: gfx, abiMode: "strict",
+      onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
+    const archive = rt.loadMrp(new Uint8Array(buffer));
+    try {
+      rt.start();
+      // Yield between boot ticks so stop/reload stays responsive during animations.
+      for (let i = 0; i < 32; i++) {
+        rt.advance(80);
+        for (let j = 0; j < 16 && rt.step(); j++);
+        if (i % 4 === 0) {
+          present({ rt, gfx });
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          if (token !== generation) return;
+        }
+      }
+    } finally { if (token === generation) present({ rt, gfx }); }
+    if (token !== generation) return;
+    const title = archive.header.appname ? new TextDecoder("gbk").decode(binToBytes(archive.header.appname)) : name.split("/").at(-1)!;
+    session = { rt, gfx, raf: 0, last: performance.now(), nextHud: 0, title };
+    canvas.focus();
+    session.raf = requestAnimationFrame(frame);
+  } catch (e) { if (token === generation) fail(e, rt); }
 }
-
-function release(alias: string): void {
-  if (!session || !session.held.has(alias)) return;
-  session.held.delete(alias);
-  session.rt.input.release(alias);
-}
-
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
-  if (!file) return;
-  audio.resume();
-  void startFromFile(file).catch((e) => {
-    stop(true);
-    setStatus(e instanceof Error ? e.message : String(e), true);
-  });
+  fileInput.value = ""; // Same game can be selected again after failure or exit.
+  if (file) void start(file.name, () => file.arrayBuffer());
 });
-
-stopBtn.addEventListener("click", () => {
-  stop();
-  fileInput.value = "";
-});
-
-window.addEventListener("keydown", (ev) => {
-  const alias = DOM_KEY[ev.code];
-  if (!alias || !session) return;
-  ev.preventDefault();
-  if (ev.repeat) return;
-  press(alias);
-});
-
-window.addEventListener("keyup", (ev) => {
-  const alias = DOM_KEY[ev.code];
+stopBtn.addEventListener("click", () => stop());
+window.addEventListener("keydown", ev => {
+  if (!session || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea"))) return;
+  const alias = ev.key === "*" ? "STAR" : ev.key === "#" ? "POUND" : DOM_KEY[ev.code];
   if (!alias) return;
   ev.preventDefault();
-  release(alias);
+  audio.resume();
+  held.press(`keyboard:${ev.code}`, alias);
 });
-
-window.addEventListener("blur", () => {
-  if (!session) return;
-  for (const key of [...session.held]) release(key);
-});
-
-for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
-  const alias = btn.dataset.key;
-  if (!alias) continue;
-  const down = (ev: Event) => {
-    ev.preventDefault();
-    press(alias);
-  };
-  const up = (ev: Event) => {
-    ev.preventDefault();
-    release(alias);
-  };
-  btn.addEventListener("pointerdown", down);
-  btn.addEventListener("pointerup", up);
-  btn.addEventListener("pointerleave", up);
-  btn.addEventListener("pointercancel", up);
+window.addEventListener("keyup", ev => held.release(`keyboard:${ev.code}`));
+function releaseAll(): void {
+  held.clear();
+  if (touch !== null && session) session.rt.queueEvent(EV_KEY, MR_MOUSE_UP, 0, 0);
+  touch = null;
 }
+window.addEventListener("blur", releaseAll);
+document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
+for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
+  btn.addEventListener("pointerdown", ev => {
+    ev.preventDefault();
+    if (!session) return;
+    btn.setPointerCapture(ev.pointerId);
+    audio.resume();
+    held.press(`pointer:${ev.pointerId}`, btn.dataset.key!);
+  });
+  const release = (ev: PointerEvent) => held.release(`pointer:${ev.pointerId}`);
+  btn.addEventListener("pointerup", release);
+  btn.addEventListener("pointercancel", release);
+  btn.addEventListener("lostpointercapture", release);
+}
+function touchEvent(ev: PointerEvent, type: number): void {
+  if (!session) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((ev.clientX - rect.left) * canvas.width / rect.width)));
+  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((ev.clientY - rect.top) * canvas.height / rect.height)));
+  session.rt.queueEvent(EV_KEY, type, x, y);
+}
+canvas.addEventListener("pointerdown", ev => {
+  if (!session || touch !== null) return;
+  ev.preventDefault(); canvas.focus(); canvas.setPointerCapture(ev.pointerId);
+  touch = ev.pointerId; touchEvent(ev, MR_MOUSE_DOWN);
+});
+canvas.addEventListener("pointermove", ev => { if (ev.pointerId === touch) touchEvent(ev, MR_MOUSE_MOVE); });
+for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const) canvas.addEventListener(type, ev => {
+  if (ev.pointerId === touch) { touchEvent(ev, MR_MOUSE_UP); touch = null; }
+});
+
+const gameSelect = document.querySelector<HTMLSelectElement>("#games")!;
+const search = document.querySelector<HTMLInputElement>("#search")!;
+const loadGame = document.querySelector<HTMLButtonElement>("#load-game")!;
+type Game = { id: number; name: string };
+let games: Game[] = [];
+function renderLibrary(): void {
+  const term = search.value.trim().toLowerCase();
+  const matches = games.filter(game => game.name.toLowerCase().includes(term));
+  gameSelect.replaceChildren(...matches.slice(0, 100).map(game => new Option(game.name, String(game.id))));
+  document.querySelector("#library-count")!.textContent = `${matches.length} 款${matches.length > 100 ? "，显示前 100 款" : ""}`;
+  loadGame.disabled = !matches.length;
+}
+search.addEventListener("input", renderLibrary);
+loadGame.addEventListener("click", () => {
+  const game = games.find(g => String(g.id) === gameSelect.value);
+  if (!game) return;
+  void start(game.name, async () => {
+    const response = await fetch(`/__games/${game.id}`);
+    if (!response.ok) throw new Error("无法读取本地游戏");
+    return response.arrayBuffer();
+  });
+});
+void fetch("/__games").then(r => r.ok ? r.json() : []).then((data: Game[]) => {
+  games = data;
+  if (!games.length) return;
+  document.querySelector<HTMLElement>("#library")!.hidden = false;
+  renderLibrary();
+}).catch(() => { /* Local file upload remains available without the dev library. */ });

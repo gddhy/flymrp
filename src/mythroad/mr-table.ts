@@ -1,7 +1,9 @@
-import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex } from "../abi/layout.ts";
+import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex, tableSlotAddr } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
-import { NativeAbiError, UnknownAbiError } from "../err/errors.ts";
+import { UnknownAbiError, MrpFormatError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
+import { guestMd5Init, guestMd5Append, guestMd5Finish } from "./guest-md5.ts";
+import { MRPArchive } from "../mrp/index.ts";
 import { AppFileSystem } from "./app-fs.ts";
 import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
 import { MythroadTimer } from "./timer.ts";
@@ -97,7 +99,7 @@ export type ReadFileRecord = {
 
 /**
  * Mythroad `mr_table[0]` / `[14]` / `[125]` / `[130]` (case 7) / `[38]` (code 0x4c6 only) /
- * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` literal + `%d` only) /
+ * `[33]` (`mr_getTime`) / `[17]` (`sprintf_` guest integer/string formats) /
  * `[40]`/`[44]`/`[45]`/`[41]` current-pack read-only file alias /
  * `[3]` `memcpy2` / `[10]` `strcmp2` / `[9]` `memcmp2` /
  * `[1]` `mr_free` (registry-only; no origin_mem reuse) /
@@ -113,6 +115,7 @@ export class MrTableBridge {
   unknownRequiredSlot: number | null = null;
   /** rxgj `char_bitmap_addr`: one 32-byte EXT bump slot, reused. */
   charBitmapAddr = 0;
+  private lastExtRead: Uint8Array | null = null;
   /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
   switchPathAddr = 0;
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
@@ -136,6 +139,8 @@ export class MrTableBridge {
       onAlloc?: (rec: AllocRecord) => void;
       onRead?: (rec: ReadFileRecord) => void;
       getClock?: () => number;
+      onSleep?: (ms: number) => void;
+      onExit?: () => void;
       getPack?: () => PackFileSource | null;
       getProfile?: () => DeviceProfile;
       getScreen?: () => ScreenBuffer;
@@ -153,20 +158,82 @@ export class MrTableBridge {
   }
 
   install(): void {
+    // mythroad.c publishes addresses of these globals, not function pointers.
+    // Games read them directly to size their clear/background operations.
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    for (const [slot, value] of [[92, screen.width], [93, screen.height], [94, 16]]) {
+      this.ext.mem.write32(this.ext.mem.read32(tableSlotAddr(slot)), value);
+    }
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
     this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
+    this.ext.registerHandler(2, (_cpu, mem, args) => {
+      const [p, oldLen, newLen] = args;
+      if (!p) return this.malloc(newLen);
+      if (!newLen) { this.free(p, oldLen); return 0; }
+      const next = this.malloc(newLen);
+      if (next) {
+        memmove2(mem, next, p, Math.min(oldLen, newLen));
+        this.free(p, oldLen);
+      }
+      return next;
+    });
     this.ext.registerHandler(3, (_cpu, mem, args) => memcpy2(mem, args[0]!, args[1]!, args[2]!));
+    this.ext.registerHandler(4, (_cpu, mem, args) => memmove2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(5, (_cpu, mem, args) => strcpy2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(6, (_cpu, mem, args) => strncpy2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(7, (_cpu, mem, args) => strcat2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(15, (_cpu, mem, args) => strlen2(mem, args[0]!));
+    this.ext.registerHandler(16, (_cpu, mem, args) => {
+      const haystack = args[0] >>> 0, needle = args[1] >>> 0;
+      if (!mem.read8(needle)) return haystack;
+      for (let p = haystack; mem.read8(p); p++) {
+        let i = 0;
+        while (mem.read8(needle + i) && mem.read8(p + i) === mem.read8(needle + i)) i++;
+        if (!mem.read8(needle + i)) return p;
+      }
+      return 0;
+    });
     this.ext.registerHandler(18, (_cpu, mem, args) => atoi2(mem, args[0]!));
     this.ext.registerHandler(9, (_cpu, mem, args) => memcmp2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(125, (_cpu, mem, args) => this.readFile(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! | 0));
     this.ext.registerHandler(130, (_cpu, _mem, args) => this.testCom(args));
+    this.ext.registerHandler(131, (_cpu, _mem, args) => {
+      if (args[1] === 9) {
+        const address = args[2] >>> 0;
+        const length = args[3] >>> 0;
+        const image = this.lastExtRead;
+        // rxgj aex_t131 private-loader staging: preserve its record/P header,
+        // restore the immutable EXT tail when its staging body is still blank.
+        if (image && image.length === length && length > 16 && address &&
+            this.ext.mem.read32(address) && this.ext.mem.read32(address + 4) &&
+            this.ext.mem.read32(address + 8) === 0 && this.ext.mem.read32(address + 12) === 0) {
+          this.ext.mem.load(address + 8, image.subarray(8));
+          this.ext.owners.stage(address, length);
+          this.ext.addCodeRegion(address, length);
+        }
+        this.ext.cache.invalidate(address, length);
+        return MR_SUCCESS;
+      }
+      throw new UnknownAbiError(`unsupported TestCom1 case ${args[1]}`, { family: "_mr_TestCom1", code: args[1], caller: "ext" });
+    });
     this.ext.registerHandler(38, (_cpu, mem, args) => this.platEx(mem, args));
+    this.ext.registerHandler(34, (_cpu, mem, args) => {
+      const p = args[0] >>> 0;
+      if (!p) return MR_FAILED;
+      const d = (this.hooks.getProfile?.() ?? defaultProfile()).datetime;
+      mem.write16(p, d.year);
+      [d.month, d.day, d.hour, d.minute, d.second].forEach((n, i) => mem.write8(p + 2 + i, n));
+      return MR_SUCCESS;
+    });
+    this.ext.registerHandler(36, (_cpu, _mem, args) => {
+      const ms = args[0] >>> 0;
+      if (this.hooks.onSleep) this.hooks.onSleep(ms);
+      else this.clock += ms;
+      return MR_SUCCESS;
+    });
+    this.ext.registerHandler(54, () => { this.hooks.onExit?.(); return MR_SUCCESS; });
     this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
@@ -174,10 +241,14 @@ export class MrTableBridge {
     this.ext.registerHandler(43, (_cpu, mem, args) => this.files.write(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(44, (_cpu, mem, args) => this.files.read(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
+    this.ext.registerHandler(46, (_cpu, mem, args) => this.files.getLen(readGuestCString(mem, args[0]! >>> 0)));
+    this.ext.registerHandler(47, (_cpu, mem, args) => this.files.remove(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(30, (_cpu, mem, args) =>
       this.getCharBitmap(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! >>> 0),
     );
     this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
+    // rxgj aex_t082: closing an already inactive network succeeds.
+    this.ext.registerHandler(82, () => MR_SUCCESS);
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
@@ -199,6 +270,9 @@ export class MrTableBridge {
     this.ext.registerHandler(58, (_cpu, _mem, args) => this.stopSound(args[0]! | 0));
     this.ext.registerHandler(119, (_cpu, _mem, args) => this.drawPoint(args[0]! | 0, args[1]! | 0, args[2]! >>> 0));
     this.ext.registerHandler(145, (_cpu, _mem, args) => this.platDrawChar(args[0]! >>> 0, args[1]! | 0, args[2]! | 0, args[3]! >>> 0));
+    this.ext.registerHandler(113, (_cpu, mem, args) => guestMd5Init(mem, args[0]));
+    this.ext.registerHandler(114, (_cpu, mem, args) => guestMd5Append(mem, args[0], args[1], args[2]));
+    this.ext.registerHandler(115, (_cpu, mem, args) => guestMd5Finish(mem, args[0], args[1]));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
     this.ext.table.dispatch = (cpu, mem, pc) => {
@@ -256,11 +330,10 @@ export class MrTableBridge {
    *
    * `int sprintf_(char *buffer, const char *format, ...)`.
    *
-   * Only the observed guest sprintf subset consisting of
-   * literal bytes and `%d` is currently implemented.
+   * Supports literals, signed/unsigned decimal, hex, strings, chars and percent.
    *
    * Guest-aware: R0=buffer, R1=format, first vararg=R2 (`format_arm` first_arg=2).
-   * `%d` is guest ARM int32. Other specifiers throw UnknownAbiError.
+   * `%d` is guest ARM int32. Unsupported conversions throw UnknownAbiError.
    * Does not construct a host va_list.
    *
    * Return is bytes written excluding the trailing NUL (mpaland `sprintf_`).
@@ -290,7 +363,7 @@ export class MrTableBridge {
     const output = args[3]! >>> 0;
     const outputLen = args[4]! >>> 0;
     const cb = args[5]! >>> 0;
-    if (code === MR_PLATEX_CODE_4C6) {
+    if (code === MR_PLATEX_CODE_4C6 || code === 1223) {
       void input;
       void inputLen;
       void output;
@@ -299,6 +372,16 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === MR_SWITCHPATH) return this.switchPath(mem, input, inputLen, output, outputLen);
+    if (code === 1014) {
+      const screen = this.hooks.getScreen?.() ?? this.screen;
+      const size = (inputLen | 0) > 0 ? inputLen : screen.width * screen.height * 4;
+      const p = this.malloc(size);
+      if (!p) return MR_FAILED;
+      if (output) mem.write32(output, p);
+      if (outputLen) mem.write32(outputLen, size);
+      return MR_SUCCESS;
+    }
+    if (code === 1015) return this.free(input, inputLen);
     const message = `unsupported mr_platEx code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_platEx", code, message });
     throw new UnknownAbiError(message, {
@@ -785,6 +868,8 @@ export class MrTableBridge {
     void param;
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;
     if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;
+    // rxgj dsm.c: SMS-centre query is asynchronous (MR_WAITING); no SMS is sent.
+    if ((code >>> 0) === 1106) return 2;
     const message = `unsupported mr_plat code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_plat", code, message });
     throw new UnknownAbiError(message, {
@@ -955,7 +1040,7 @@ export class MrTableBridge {
   malloc(size: number): number {
     const want = size >>> 0;
     if (want === 0) return 0;
-    const aligned = (want + 7) & ~7;
+    const aligned = Math.ceil(want / 8) * 8;
     if ((this.ext.heapTop >>> 0) + aligned > EXT_STACK_ADDR) return 0;
     const guestAddr = this.ext.alloc(want) >>> 0;
     const rec: AllocRecord = { size: want, alignedSize: aligned, guestAddr, owner: this.owner, live: true };
@@ -973,24 +1058,19 @@ export class MrTableBridge {
    * This validates and retires flymrp bump allocations but does not
    * reproduce rxgj origin_mem free-list reuse/coalescing.
    *
-   * Exact live match: `guestAddr === p` and `size === len`. Then mark
+   * Exact live pointer match: `guestAddr === p`. Then mark
    * not live. Does not zero, poison, write `{next,len}`, reuse the
    * address, or move the bump pointer.
    *
-   * Known live pointer + wrong len is a flymrp strict trap
-   * (`NativeAbiError`), not simulated free-list corruption.
+   * Like rxgj aex_mem.c's bump recycler, the allocation registry owns the
+   * size; a guest length hint must not reject an otherwise owned block.
    */
   free(p: number, len: number): number {
     const ptr = p >>> 0;
-    const n = len >>> 0;
+    void len;
     if (ptr === 0) return MR_SUCCESS;
     const rec = this.allocs.find((a) => a.live && a.guestAddr === ptr);
     if (!rec) return MR_SUCCESS;
-    if (rec.size !== n) {
-      throw new NativeAbiError(
-        `mr_free length mismatch: ptr=0x${ptr.toString(16)} len=${n} allocated=${rec.size}`,
-      );
-    }
     rec.live = false;
     return MR_SUCCESS;
   }
@@ -1004,6 +1084,33 @@ export class MrTableBridge {
     if (!name) {
       this.noteRead({ name: "", lookfor, guestAddr: 0, length: 0 });
       return 0;
+    }
+    // Wrappers build a sequential RAM MRP, publish it through globals 104/105,
+    // and temporarily set pack_filename="$" before reading its nested EXT.
+    const packName = mem.read32(tableSlotAddr(100));
+    if (mem.read8(packName) === 0x24) {
+      const p = mem.read32(mem.read32(tableSlotAddr(104)));
+      const length = mem.read32(mem.read32(tableSlotAddr(105)));
+      if (!p || !length || length > 32 * 1024 * 1024 || ![0, 1, 2].includes(lookfor)) return 0;
+      let archive: MRPArchive;
+      try { archive = MRPArchive.parse(new Uint8Array(mem.slice(p, length))); }
+      catch (e) { if (e instanceof MrpFormatError) return 0; throw e; }
+      const entry = archive.entries.find(e => e.name === name);
+      if (!entry) return 0;
+      if (lookfor === 1) return 1;
+      if (lookfor === 2 || !entry.compressed) {
+        if (lenAddr) mem.write32(lenAddr, entry.storedLength);
+        const address = p + entry.offset;
+        this.noteRead({ name, lookfor, guestAddr: address, length: entry.storedLength });
+        return address;
+      }
+      const data = archive.readFile(name);
+      const address = this.malloc(data.length);
+      if (!address) return 0;
+      mem.load(address, data);
+      if (lenAddr) mem.write32(lenAddr, data.length);
+      this.noteRead({ name, lookfor, guestAddr: address, length: data.length });
+      return address;
     }
     if (lookfor === 1) {
       const ok = this.vfs.exists(name) ? 1 : 0;
@@ -1031,16 +1138,31 @@ export class MrTableBridge {
   }
 
   private noteRead(rec: ReadFileRecord): void {
+    if (rec.lookfor === 0 && rec.guestAddr && rec.length >= 8) {
+      const bytes = this.ext.mem.slice(rec.guestAddr, rec.length);
+      if (String.fromCharCode(...bytes.subarray(0, 8)) === "MRPGCMAP") this.lastExtRead = new Uint8Array(bytes);
+    }
     this.reads.push(rec);
     this.hooks.onRead?.(rec);
   }
 }
 
 /**
- * rxgj `string.c` `memcpy2`. Forward `read8` then `write8` per byte.
- * Overlap is guest-visible self-overwrite, not memmove / TypedArray.set.
- * `count === 0` returns dest without accessing either pointer.
+ * rxgj `string.c` table[4] memmove2: copy backwards for overlapping dst > src.
  */
+export function memmove2(mem: GuestMemory, dest: number, src: number, count: number): number {
+  const dst = dest >>> 0;
+  const from = src >>> 0;
+  const n = count >>> 0;
+  if (dst === from) return dst;
+  if (dst > from && dst - from < n) {
+    for (let i = n; i > 0; i--) mem.write8((dst + i - 1) >>> 0, mem.read8((from + i - 1) >>> 0));
+  } else {
+    memcpy2(mem, dst, from, n);
+  }
+  return dst;
+}
+
 export function memcpy2(mem: GuestMemory, dest: number, src: number, count: number): number {
   const dst = dest >>> 0;
   const from = src >>> 0;

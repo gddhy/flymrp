@@ -2,7 +2,29 @@
 
 Browser-native Mythroad MRP runtime.
 
-当前：guest inflate 完成；`arm_ext_call(0)` **NORMAL RETURN**；Lua **resumes**。Stage 5-C **COMPLETE**。Stage 5-D **STARTED**（event/frames/input 尚未闭环）。见 `docs/autonomous-progress.md`。  
+当前支持浏览器本地上传、按键与触屏输入、自动/手动分辨率，以及可选的本地游戏目录搜索。已修复屏幕尺寸全局变量导致的清屏残留，并支持封装游戏使用的内存 MRP 和 EXT 加载。兼容性仍在完善，不能保证所有 MRP 正常运行。
+
+```bash
+npm install
+npm start
+# 同时启用本地游戏库（仅开发服务器读取此目录，不复制游戏到仓库）
+MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
+```
+
+打开终端显示的本地地址。方向键 / WASD 移动，Enter / 空格确认，Q / E 为左右软键；数字 0–9、*、# 对应原手机键盘。分辨率选择在下次加载时生效。普通上传模式下游戏在浏览器中运行；开发游戏库按需从本机服务器读取。
+
+```bash
+npm test
+npm run typecheck
+npm run build
+npm run test:games -- '/path/to/mrp/collection' 40 /tmp/mrp-results.json
+```
+
+2026-09-07 完成两组各 40 个文件的抽测，覆盖 79 个不同路径、77 种文件内容。17 次输入冒烟通过，11 次游戏退出，4 次停在静态画面，48 次读取或运行报错。冒烟通过表示短流程内没有异常且按键期间画面有变化，**不等于游戏通关或完整可玩**。网页实玩步骤、限制和原始结果见 [本次兼容性记录](docs/compatibility/2026-09-07.md)。
+
+## 历史开发记录
+
+Stage 5-C 收尾记录：guest inflate 完成；`arm_ext_call(0)` **NORMAL RETURN**；Lua **resumes**。Stage 5-C **COMPLETE**。Stage 5-D **STARTED**（event/frames/input 尚未闭环）。见 `docs/autonomous-progress.md`。
 Stage 5-C.10R：生产 watchdog 下 guest inflate 完整完成；输出 SHA-256 与 reference gunzip 一致。当时停在 `table[30]`。见 `docs/stage5c10r-progress.md`。  
 Stage 5-C.10Q：guest inflate 在 ARM/Thumb 内完成（1,404,897 insn）。可配置 ARM watchdog 默认 2e6 / 上限 20e6。当时生产停在 `table[30]`。见 `docs/stage5c10q-progress.md`。  
 Stage 5-C.10P：实现 `table[9]` `memcmp2`（unsigned char，精确 `*su1-*su2`，early exit）。当时 LIVE gzip magic `1F 8B` equal，生产停在 ARM insn budget。见 `docs/stage5c10p-progress.md`。  
@@ -33,7 +55,7 @@ Stage 5-C：Mythroad 兼容层。见 `docs/stage5c-progress.md`。
 Stage 5-B：Mythroad Core Runtime。见 `docs/stage5b-progress.md`。  
 Stage 5-A：MRP + Lua VM，见 `docs/stage5a-progress.md`。  
 Stage 4：EXT ABI，见 `docs/stage4-progress.md`。  
-**Stage 5-D：NOT STARTED。**
+后续可玩性回归见 `test/real/playable-gate.test.ts`。
 
 ```bash
 npm test

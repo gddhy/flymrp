@@ -55,6 +55,8 @@ export type LoadOptions = {
 };
 
 export type LoadResult = {
+  pc?: number;
+  detail?: string;
   mapped: MappedExt;
   ret: number;
   kind: ExtStopKind;
@@ -186,7 +188,7 @@ export class ExtRuntime {
       r0: opts.loadCode ?? 0,
     });
     this.ensureKnownRw();
-    return { mapped, ret: result.r0, kind: result.kind };
+    return { mapped, ret: result.r0, kind: result.kind, ...(result.kind !== ExtStopKind.Return ? { pc: result.pc, detail: result.detail } : {}) };
   }
 
   ensureKnownRw(len = 256): void {
@@ -231,6 +233,7 @@ export class ExtRuntime {
     if (!p || !helper) {
       const failed: ExtCallResult = {
         kind: ExtStopKind.AbiFault,
+        detail: "no registered module helper",
         ret: MR_FAILED,
         r0: MR_FAILED,
         outputAddr: 0,
@@ -357,9 +360,10 @@ export class ExtRuntime {
     }
   }
 
-  private finish(kind: ExtStopKind, _detail?: string): ExtCallResult {
+  private finish(kind: ExtStopKind, detail?: string): ExtCallResult {
     return {
       kind,
+      ...(kind !== ExtStopKind.Return ? { pc: this.cpu.r[15] >>> 0, detail } : {}),
       ret: this.cpu.r[0] >>> 0,
       r0: this.cpu.r[0] >>> 0,
       outputAddr: 0,

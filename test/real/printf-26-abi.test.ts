@@ -80,7 +80,7 @@ describe("table[26] mr_printf ABI", () => {
   it("unknown specifier is UnknownAbiError, not silent drop", () => {
     const { ext } = wire();
     const fmt = ext.alloc(8);
-    writeCString(ext, fmt, "%x");
+    writeCString(ext, fmt, "%f");
     expect(() => call26(ext, fmt, 1)).toThrow(UnknownAbiError);
   });
 });

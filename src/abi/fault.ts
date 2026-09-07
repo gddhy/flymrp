@@ -35,6 +35,9 @@ export class ExtFault extends Error {
 
 export type ExtCallResult = {
   kind: ExtStopKind;
+  /** Retain the guest failure location/cause for browser and batch diagnostics. */
+  pc?: number;
+  detail?: string;
   ret: number;
   r0: number;
   outputAddr: number;

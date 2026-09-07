@@ -33,6 +33,8 @@ describe("5-C.10Q forensic ARM insn watchdog", () => {
     rt.insnBudget = 64;
     const out = rt.runGuest(dest, { lr: EXT_STOP_ADDR });
     expect(out.kind).toBe(ExtStopKind.AbiFault);
+    expect(out.pc).toBe(dest);
+    expect(out.detail).toBe("budget exceeded");
     expect(rt.cpu.insnCount).toBe(64);
     expect(DEFAULT_INSN_BUDGET).toBe(8_000_000);
   });

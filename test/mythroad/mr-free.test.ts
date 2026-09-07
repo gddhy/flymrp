@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { EXT_CODE_ADDR, EXT_STOP_ADDR, tableSlotAddr } from "../../src/abi/layout.ts";
 import { ExtRuntime } from "../../src/abi/runtime.ts";
 import { ExtStopKind } from "../../src/abi/fault.ts";
-import { NativeAbiError } from "../../src/err/errors.ts";
 import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
 import { MrTableBridge } from "../../src/mythroad/mr-table.ts";
 import { MythroadVfs } from "../../src/mythroad/vfs.ts";
@@ -57,14 +56,14 @@ describe("5-C.10O table[1] registry-only mr_free", () => {
     expect(b.allocs.filter((a) => a.guestAddr === keep)).toHaveLength(1);
   });
 
-  it("known pointer + wrong len is a strict NativeAbiError, not success", () => {
+  it("uses the owned bump allocation size even when the guest length hint differs", () => {
     const { b } = wire();
-    const p = b.malloc(132);
-    expect(() => b.free(p, 128)).toThrow(NativeAbiError);
-    expect(() => b.free(p, 136)).toThrow(/mr_free length mismatch/);
-    expect(b.liveAllocs()).toHaveLength(1);
-    expect(b.allocs[0]!.live).toBe(true);
-    expect(b.free(p, 132)).toBe(MR_SUCCESS);
+    const p = b.malloc(56);
+    const keep = b.malloc(16);
+    expect(b.free(p, 24)).toBe(MR_SUCCESS);
+    expect(b.liveAllocs().map(a => a.guestAddr)).toEqual([keep]);
+    expect(b.free(p, 56)).toBe(MR_SUCCESS);
+    expect(b.liveAllocs().map(a => a.guestAddr)).toEqual([keep]);
   });
 
   it("free A does not affect B; next bump malloc does not reuse A", () => {

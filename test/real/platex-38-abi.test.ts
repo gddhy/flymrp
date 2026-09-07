@@ -156,7 +156,7 @@ describe("5-C.10C table[38] mr_platEx code 0x4c6 ABI", () => {
 
   it("unknown platEx code is UnknownAbiError, not default MR_SUCCESS", () => {
     const { ext } = wire();
-    for (const code of [0, 1, 0x4c7, 1222 + 1]) {
+    for (const code of [0, 1, 0x4c8, 9999]) {
       try {
         call38(ext, code, 0, 0, 0, 0, 0);
         throw new Error(`code ${code} should throw`);

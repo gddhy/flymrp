@@ -70,6 +70,18 @@ export class CurrentPackFileBackend {
     return this.handles.get(f | 0) ?? null;
   }
 
+  getLen(filename: string): number {
+    const pack = this.getPack();
+    if (pack && filename === pack.name) return pack.bytes.length;
+    return this.appFs?.file(filename)?.length ?? MR_FAILED;
+  }
+
+  remove(filename: string): number {
+    // The uploaded container is read-only; only the guest's EFS can be changed.
+    if (filename === this.getPack()?.name) return MR_FAILED;
+    return this.appFs?.remove(filename) ?? MR_FAILED;
+  }
+
   /**
    * `int32 mr_open(const char *filename, uint32 mode)`.
    * Success = positive handle. Pack alias is RDONLY only.

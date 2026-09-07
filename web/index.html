@@ -16,6 +16,7 @@
         --pad: #2a3140;
       }
       * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
       html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; }
       body { display: flex; flex-direction: column; align-items: center; padding: 20px 16px 32px; }
       h1 { margin: 0 0 6px; font-size: 20px; font-weight: 650; }
@@ -26,6 +27,10 @@
         appearance: none; border: 1px solid var(--line); background: var(--pad); color: var(--text);
         border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit;
       }
+      [data-key] { touch-action: none; user-select: none; }
+      select, input[type="search"] { padding: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; max-width: 80vw; }
+      .library { max-width: 42rem; width: 100%; }
+      .library select { width: 100%; }
       button:hover, .key:hover { border-color: var(--accent); }
       button:disabled { opacity: 0.45; cursor: default; }
       .phone {
@@ -33,7 +38,7 @@
         padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
       }
       canvas {
-        width: 480px; height: 640px; max-width: calc(100vw - 48px); max-height: 70vh;
+        width: auto; height: min(400px, 45vh); max-width: calc(100vw - 64px); aspect-ratio: var(--screen-ratio, 3 / 4); touch-action: none;
         image-rendering: pixelated; background: #000; border-radius: 4px;
       }
       .status { color: var(--muted); min-height: 1.4em; text-align: center; max-width: 28rem; word-break: break-word; }
@@ -47,10 +52,17 @@
   </head>
   <body>
     <h1>flymrp</h1>
-    <p class="sub">在浏览器里加载你自己的 <code>.mrp</code>。这是一条已验证的 Mythroad 运行路径，不是整个平台 100% compatible。</p>
+    <p class="sub">在浏览器里加载你自己的 <code>.mrp</code>。支持键盘、屏幕按键和触屏操作，部分游戏仍有兼容问题。</p>
     <div class="bar">
       <input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" />
+      <label>分辨率 <select id="resolution"><option value="auto">自动 / 240×320</option><option>176x220</option><option>240x320</option><option>240x400</option><option>320x240</option><option>320x480</option><option>480x320</option></select></label>
       <button id="stop" type="button" disabled>停止</button>
+    </div>
+    <div class="bar library" id="library" hidden>
+      <input id="search" type="search" placeholder="搜索本地游戏名称…" aria-label="搜索本地游戏" />
+      <span id="library-count"></span>
+      <select id="games" aria-label="本地游戏列表"></select>
+      <button id="load-game" type="button">加载所选游戏</button>
     </div>
     <div class="phone">
       <canvas id="screen" width="240" height="320" tabindex="0"></canvas>
@@ -68,11 +80,17 @@
         <button type="button" data-key="DOWN">下</button>
         <button type="button" data-key="RIGHT">右</button>
       </div>
+      <div class="pads" aria-label="手机数字键盘">
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+        <button data-key="STAR">*</button><button data-key="0">0</button><button data-key="POUND">#</button>
+      </div>
     </div>
     <p class="help">
       键盘：<kbd>↑↓←→</kbd> / <kbd>WASD</kbd> 方向，<kbd>Enter</kbd> / <kbd>空格</kbd> 确认，
-      <kbd>Q</kbd> 左软键，<kbd>Esc</kbd> 右软键。中文走平台 <code>gb16.uc2</code> 点阵。
-      选「是」才播 MIDI/WAV（方波合成，不是手机原声）。右软键解压时页面会卡几秒。
+      <kbd>Q</kbd> 左软键，<kbd>Esc</kbd> 右软键。数字键 <kbd>0–9</kbd> 对应手机数字键，<kbd>Q / E</kbd> 对应左右软键。
+      选「是」才播 MIDI/WAV（方波合成，不是手机原声）。资源解压时可能需要等待几秒。分辨率在下次加载时生效。
     </p>
     <script type="module" src="./app.ts"></script>
   </body>

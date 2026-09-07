@@ -856,11 +856,13 @@ export class LuaVM {
   }
 
   loadCold(cold: ColdProto): number {
-    this.L.top = 0;
-    this.L.base = 1;
-    this.L.ci.length = 1;
-    this.L.ci[0]!.base = 1;
-    this.L.ci[0]!.calling = false;
+    if (this.L.nCcalls === 0) {
+      this.L.top = 0;
+      this.L.base = 1;
+      this.L.ci.length = 1;
+      this.L.ci[0]!.base = 1;
+      this.L.ci[0]!.calling = false;
+    }
     const p = linkProto(this.L, cold);
     const id = this.L.newLClosure(p, p.nups, this.L.globalsId);
     this.L.grow(1);
