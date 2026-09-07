@@ -1,4 +1,7 @@
-import { loadLocalSystemFiles, systemFileHashes } from "../local-system-files.ts";
+import { MRPArchive } from "../../src/mrp/index.ts";
+import { EV_KEY } from "../../src/mythroad/events.ts";
+import { MR_MOUSE_DOWN, MR_MOUSE_UP } from "../../src/mythroad/constants.ts";
+import { loadGameResourceFiles, loadLocalSystemFiles, systemFileHashes } from "../local-system-files.ts";
 import { SYSTEM_COMPONENTS } from "../../src/mythroad/system-components.ts";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -12,7 +15,7 @@ import { FrameCapture } from "./frame-capture.ts";
 import { inferScreenSize } from "../../src/mythroad/device-size.ts";
 
 type Game = { id: number; path: string; sha256: string; required?: boolean };
-type Action = { key: string; hold?: number; wait?: number };
+type Action = ({ key: string } | { tap: [number, number] }) & { hold?: number; wait?: number };
 type Scenario = { entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
 const manifestPath = resolve("docs/compatibility/collection-100.json");
 const scenarioPath = resolve("docs/compatibility/scenarios.json");
@@ -44,7 +47,8 @@ if(worker) {
   if(hash(bytes)!==game.sha256) throw new Error("game content differs from frozen manifest");
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
-  const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory) };
+  const resourceFiles = await loadGameResourceFiles(process.env.MRP_RESOURCE_DIR ?? join(root, "mythroad_res"), MRPArchive.parse(bytes).header.filename);
+  const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory), ...resourceFiles };
   loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
   const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,graphics:display});
@@ -59,7 +63,7 @@ if(worker) {
     writeFileSync(join(output,`${game.id}-progress.json`),JSON.stringify({phase,ticks,keysTested,checkpoints}));
   };
   const tick=(count:number)=>{for(let i=0;i<count;i++){rt.advance(80);for(let n=0;n<16&&rt.step();n++);if(rt.exited)throw new Error("guest exited");ticks++;if(ticks%5===0)distinct.add(fingerprint());}};
-  const tap=(action:Action)=>{const before=fingerprint();rt.input.press(action.key);tick(action.hold??3);rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}};
+  const tap=(action:Action)=>{const before=fingerprint();if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_DOWN, ...action.tap); else rt.input.press(action.key);tick(action.hold??3);if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_UP, ...action.tap); else rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}};
   const startedAt=Date.now();
   try {
     rt.loadMrp(bytes);phase="start";rt.start();phase="boot";tick(scenario.bootTicks??50);capture("boot");
@@ -77,7 +81,7 @@ if(worker) {
   const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>c.name.startsWith("control")&&scenario.controlSha256!.includes(c.sha256));
   const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
   console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,controlChanges,presentedFrames:display.frames,interactionVerified,distinctFrames:distinct.size,nonBlack,sceneVerified,
-    checkpoints,missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
+    checkpoints,resourceFilesSha256:systemFileHashes(resourceFiles),missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],networkInterceptions:rt.mrTable?.offlineNetwork.interceptions??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
 } else {
   const onlyArg=args.find(a=>a.startsWith("--only="));
   const only=onlyArg?new Set(onlyArg.slice(7).split(",").map(Number)):null;

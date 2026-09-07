@@ -3,19 +3,11 @@
     "entry": [
       {
         "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "FIRE",
-        "wait": 20
-      },
-      {
-        "key": "FIRE",
-        "wait": 20
+        "wait": 160
       },
       {
         "key": "SOFTLEFT",
-        "wait": 20
+        "wait": 30
       },
       {
         "key": "FIRE",
@@ -26,83 +18,87 @@
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "SOFTRIGHT",
+        "wait": 80
+      },
+      {
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
+        "key": "5",
         "wait": 20
       },
       {
-        "key": "FIRE",
-        "wait": 20
-      },
-      {
-        "key": "FIRE",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
-        "wait": 20
-      },
-      {
-        "key": "SOFTLEFT",
+        "key": "5",
         "wait": 20
       }
     ],
-    "tailTicks": 750
+    "tailTicks": 750,
+    "controls": [
+      {
+        "key": "LEFT",
+        "hold": 20,
+        "wait": 10
+      },
+      {
+        "key": "UP",
+        "hold": 20,
+        "wait": 10
+      },
+      {
+        "key": "RIGHT",
+        "hold": 20,
+        "wait": 10
+      },
+      {
+        "key": "DOWN",
+        "hold": 20,
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "hold": 20,
+        "wait": 10
+      }
+    ],
+    "reviewNote": "网页确认：右软键跳过开场后推进对话，可进入村庄自由行走。此流程验证真实场景和方向移动；不等于通关。"
   },
   "103": {
     "entry": [
@@ -365,6 +361,166 @@
       {
         "key": "SOFTLEFT",
         "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       },
       {
         "key": "5",
@@ -743,6 +899,146 @@
       {
         "key": "5",
         "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ],
     "controls": [
@@ -1076,6 +1372,146 @@
       {
         "key": "5",
         "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ],
     "controls": [
@@ -1239,6 +1675,58 @@
       {
         "key": "FIRE",
         "wait": 12
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       },
       {
         "key": "5",
@@ -1607,6 +2095,70 @@
       },
       {
         "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
         "wait": 20
       }
     ]
@@ -2546,6 +3098,58 @@
       {
         "key": "0",
         "wait": 10
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ]
   },
@@ -3330,6 +3934,58 @@
       {
         "key": "0",
         "wait": 10
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ]
   },
@@ -3610,6 +4266,70 @@
       {
         "key": "FIRE",
         "wait": 10
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
       }
     ]
   },
@@ -3946,6 +4666,34 @@
       {
         "key": "FIRE",
         "wait": 10
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ]
   },
@@ -4042,6 +4790,70 @@
       {
         "key": "FIRE",
         "wait": 10
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
       }
     ]
   },
@@ -4842,6 +5654,70 @@
       {
         "key": "FIRE",
         "wait": 12
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ]
   },
@@ -5148,6 +6024,146 @@
       {
         "key": "5",
         "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ],
     "controls": [
@@ -5386,6 +6402,698 @@
       {
         "key": "FIRE",
         "wait": 10
+      }
+    ]
+  },
+  "44": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "63": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "21": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "77": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "61": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "62": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 40
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "94": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 40
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "18": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "5": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 40
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
       }
     ]
   }

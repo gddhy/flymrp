@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { ViteDevServer } from "vite";
-import { loadLocalSystemFiles, systemFileHashes } from "../../tools/local-system-files.ts";
+import { loadGameResourceFiles, loadLocalSystemFiles, systemFileHashes } from "../../tools/local-system-files.ts";
 import { localSystem } from "../../web/local-system.ts";
 const directories: string[] = [];
 afterEach(async () => { for (const dir of directories.splice(0)) await rm(dir, { recursive: true, force: true }); });
@@ -23,6 +23,16 @@ describe("local handset resource directory", () => {
     expect(await loadLocalSystemFiles(join(dir, "missing"))).toEqual({});
     expect(await loadLocalSystemFiles(undefined)).toEqual({});
     expect(systemFileHashes(files)["system/font.bin"]).toHaveLength(64);
+  });
+  it("preloads only the selected pack directory and refuses traversal", async () => {
+    const dir = await fixture();
+    await mkdir(join(dir, "GameA")); await writeFile(join(dir, "GameA/scene.bin"), "scene");
+    await writeFile(join(dir, "GameA/old.sav"), "progress");
+    await writeFile(join(dir, "GameA/GameA.mrp.sid"), "registration");
+    await mkdir(join(dir, "GameB")); await writeFile(join(dir, "GameB/other.bin"), "other");
+    expect(Object.keys(await loadGameResourceFiles(dir, "gamea.mrp"))).toEqual(["GameA/scene.bin"]);
+    expect(await loadGameResourceFiles(dir, "../GameA.mrp")).toEqual({});
+    expect(await loadGameResourceFiles(dir, "missing.mrp")).toEqual({});
   });
   it("serves enumerated hashes and refreshes the resource manifest without accepting filesystem paths", async () => {
     const dir = await fixture();

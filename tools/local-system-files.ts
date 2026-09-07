@@ -23,3 +23,22 @@ export async function loadLocalSystemFiles(directory: string | undefined): Promi
 export function systemFileHashes(files: Readonly<Record<string, Uint8Array>>): Record<string, string> {
   return Object.fromEntries(Object.entries(files).map(([name, bytes]) => [name, createHash("sha256").update(bytes).digest("hex")]));
 }
+
+/** Only preload the selected game's directory, not the entire resource collection. */
+export async function loadGameResourceFiles(directory: string | undefined, packName: string): Promise<Record<string, Uint8Array>> {
+  if (!directory || !/^[a-z0-9_.-]+\.mrp$/i.test(packName)) return {};
+  const stem = packName.slice(0, -4).toLowerCase();
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); }
+  catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return {}; throw e; }
+  const matches = entries.filter(entry => entry.isDirectory() && entry.name.toLowerCase() === stem);
+  if (matches.length !== 1) return {};
+  const name = matches[0].name, files = await loadLocalSystemFiles(join(directory, name));
+  return Object.fromEntries(Object.entries(files).filter(([path]) => isGameResource(path)).map(([path, bytes]) => [`${name}/${path}`, bytes]));
+}
+
+/** Known handset progress/registration files are not downloadable game assets. */
+export function isGameResource(path: string): boolean {
+  const name = path.split("/").at(-1)!;
+  return !/\.(sav|sms|sid)$/i.test(name) && !/^fsarpg\d/i.test(name) && name.toUpperCase() !== "HERO_BAG";
+}
