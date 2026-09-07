@@ -25,9 +25,9 @@ it("initializes, loads, plays and closes a media device with a guest-visible sta
     play: (type, bytes, loop) => played.push([type, [...bytes], loop]), stop: () => {} });
   const p = ext.alloc(32), out = p+16, len = p+20; ext.mem.load(p, [7,8,9]);
   const call = (code: number, input=0, size=0) => media.dispatch(ext.mem,code,input,size,out,len);
-  expect(call(2011)).toBe(0); expect(call(2091)).toBe(2);
-  expect(ext.mem.read32(ext.mem.read32(out))).toBe(2); expect(ext.mem.read32(len)).toBe(4);
+  expect(call(2011)).toBe(0); expect(call(2091)).toBe(1002);
+  expect(ext.mem.read32(ext.mem.read32(out))).toBe(1002); expect(ext.mem.read32(len)).toBe(4);
   expect(call(2041)).toBe(-1); expect(call(2031,p,3)).toBe(0); expect(call(2041)).toBe(0);
-  expect(call(2091)).toBe(4); expect(played).toEqual([[0,[7,8,9],0]]);
-  expect(call(2081)).toBe(0); expect(call(2091)).toBe(1);
+  expect(call(2091)).toBe(1004); expect(played).toEqual([[0,[7,8,9],0]]);
+  expect(call(2081)).toBe(0); expect(call(2091)).toBe(1001);
 });

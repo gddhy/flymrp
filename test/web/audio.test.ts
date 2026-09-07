@@ -22,8 +22,13 @@ describe("browser audio lifecycle", () => {
   });
   it("only plays the newest decode of the same sound type", async () => {
     const audio = new BrowserAudio(); audio.play(MR_SOUND_MP3, new Uint8Array([1]), 0); audio.play(MR_SOUND_MP3, new Uint8Array([2]), 0);
-    pending[1]({} as AudioBuffer); await Promise.resolve(); pending[0]({} as AudioBuffer); await Promise.resolve();
+    pending[1]({duration: 2} as AudioBuffer); await Promise.resolve(); pending[0]({} as AudioBuffer); await Promise.resolve();
     expect(starts).toHaveBeenCalledTimes(1); audio.stopAll();
+  });
+  it("resumes decoded audio at the requested position", async () => {
+    const audio = new BrowserAudio(); audio.play(MR_SOUND_MP3, new Uint8Array([1]), 0, 1250);
+    pending[0]({duration: 2} as AudioBuffer); await Promise.resolve();
+    expect(starts).toHaveBeenCalledWith(0, 1.25); audio.stopAll();
   });
   it("defaults to GM, schedules a note and cancels MIDI timers on stop", () => {
     const audio = new BrowserAudio(); expect(audio.midiPlayer).toBe("tinysynth"); audio.play(MR_SOUND_MIDI, midi, 1);

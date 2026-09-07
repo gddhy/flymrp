@@ -42,10 +42,10 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
   try {
     if (message.type === 'start') {
       loadGb16Uc2(message.files['system/gb16.uc2']);
-      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
+      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, userFiles: message.userFiles, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
         networkRules: DEFAULT_NETWORK_RULES,
         onEditChange: state => send({ type: 'edit', state }),
-        onPlaySound: (format, bytes, loop) => send({ type: 'sound', format, bytes, loop }),
+        onPlaySound: (format, bytes, loop, positionMs) => send({ type: 'sound', format, bytes, loop, positionMs }),
         onStopSound: format => send({ type: 'sound-stop', format }),
       });
       const archive = rt.loadMrp(new Uint8Array(message.bytes));
@@ -58,6 +58,7 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
     if (!rt) return;
     switch (message.type) {
       case 'tick': for (const elapsed of clockSlices(message.milliseconds, message.speed)) step(elapsed); present(); send({ type: 'tick-complete' }); break;
+      case 'sd-file': rt.setUserFile(message.path, message.bytes); break;
       case 'key': if (message.pressed) rt.input.press(message.key); else rt.input.release(message.key); break;
       case 'touch': rt.queueEvent(EV_KEY, message.event, message.x, message.y); break;
       case 'pause': if (message.paused) rt.pause(); else rt.resume(); present(); break;

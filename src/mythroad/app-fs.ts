@@ -19,7 +19,13 @@ export class AppFileSystem {
   normalize(name: string): string {
     // Handset EFS uses FAT-style case-insensitive filenames. Archive resource
     // names remain in the separate, case-sensitive MythroadVfs namespace.
-    return name.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/+$/g, "").toLowerCase();
+    // ABI filenames arrive as byte strings. Decode before folding case or
+    // separators: a GBK trailing byte can itself be ASCII A-Z or backslash.
+    if (/[\x80-\xff]/.test(name) && !/[^\x00-\xff]/.test(name)) {
+      name = new TextDecoder('gbk').decode(Uint8Array.from(name, c => c.charCodeAt(0)));
+    }
+    return name.replace(/\\/g, "/").replace(/\/+/g, "/").toLowerCase()
+      .replace(/^(?:c:)?\/?mythroad(?:\/|$)/, '').replace(/^\.\//, '').replace(/^\/+|\/+$/g, '');
   }
 
   clear(): void {

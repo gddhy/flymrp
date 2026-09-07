@@ -2,3 +2,7 @@
 
 /* Toolbar SVG paths match myjump/javasrc; sound uses the same outline style. */
 .icon-button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.icon-button svg.icon-fullscreen-exit,#mute .sound-off{display:none}#fullscreen[aria-pressed=true] .icon-fullscreen-enter,#mute[aria-pressed=true] .sound-on{display:none}#fullscreen[aria-pressed=true] .icon-fullscreen-exit{display:block}#mute[aria-pressed=true] .sound-off{display:inline}.icon-button[aria-expanded=true]{background:var(--soft);color:var(--accent)}@media(max-width:600px){.icon-button svg{width:21px;height:21px}}
+
+#sd-list{list-style:none;padding:0;max-height:240px;overflow:auto}#sd-list li{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border,#ddd);font-size:12px}#sd-list li span{flex:1;overflow-wrap:anywhere;min-width:0}#sd-list button{padding:5px 8px;flex-shrink:0}#sd-directory{min-width:0;max-width:180px}#sd-preview{width:100%;margin:8px 0}
+
+#sd-panel .upload{color:#fff}#sd-directory{border:1px solid var(--border,#ddd);border-radius:8px;padding:7px;background:var(--panel,#fff);color:inherit}

@@ -50,7 +50,7 @@ export class BrowserAudio {
     if (current) this.play(MR_SOUND_MIDI, current.data, current.loop);
   }
 
-  play(type: number, data: Uint8Array | null, loop: number): void {
+  play(type: number, data: Uint8Array | null, loop: number, positionMs = 0): void {
     this.lastType = type;
     this.lastLen = data?.length ?? 0;
     this.lastError = null;
@@ -68,7 +68,7 @@ export class BrowserAudio {
         else this.playMidi(ctx, type, data, loop !== 0);
       }
       else if (type === MR_SOUND_PCM) this.playPcm(ctx, type, data, loop !== 0);
-      else if (type === MR_SOUND_WAV || type === MR_SOUND_MP3) void this.playDecoded(ctx, type, data, loop !== 0, request);
+      else if (type === MR_SOUND_WAV || type === MR_SOUND_MP3) void this.playDecoded(ctx, type, data, loop !== 0, request, positionMs);
       else this.lastError = `unsupported sound type ${type}`;
     } catch (e) {
       this.lastError = e instanceof Error ? e.message : String(e);
@@ -113,24 +113,25 @@ export class BrowserAudio {
     this.startBuffer(ctx, type, buf, loop);
   }
 
-  private async playDecoded(ctx: AudioContext, type: number, data: Uint8Array, loop: boolean, request: symbol): Promise<void> {
+  private async playDecoded(ctx: AudioContext, type: number, data: Uint8Array, loop: boolean, request: symbol, positionMs = 0): Promise<void> {
     try {
       const copy = new ArrayBuffer(data.length);
       new Uint8Array(copy).set(data);
       const buf = await ctx.decodeAudioData(copy);
       if (this.requests.get(type) !== request) return;
-      this.startBuffer(ctx, type, buf, loop);
+      this.startBuffer(ctx, type, buf, loop, positionMs);
     } catch (e) {
       if (this.requests.get(type) === request) this.lastError = e instanceof Error ? e.message : String(e);
     }
   }
 
-  private startBuffer(ctx: AudioContext, type: number, buf: AudioBuffer, loop: boolean): void {
+  private startBuffer(ctx: AudioContext, type: number, buf: AudioBuffer, loop: boolean, positionMs = 0): void {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = loop;
     src.connect(this.output!);
-    src.start();
+    const offset = Math.max(0, positionMs / 1000);
+    src.start(0, loop && buf.duration ? offset % buf.duration : Math.min(offset, buf.duration));
     this.voices.set(type, {
       stop: () => {
         try {

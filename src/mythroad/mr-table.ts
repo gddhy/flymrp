@@ -159,7 +159,8 @@ export class MrTableBridge {
   private readonly media = new MediaDevices({
     alloc: size => this.ext.alloc(size),
     readFile: name => this.appFs.file(name),
-    play: (type, bytes, loop) => this.hooks.onPlaySound?.(type, bytes, loop),
+    getClock: () => this.getTime(),
+    play: (type, bytes, loop, positionMs) => this.hooks.onPlaySound?.(type, bytes, loop, positionMs),
     stop: type => this.stopSound(type),
   });
   volume = 100;
@@ -204,7 +205,7 @@ export class MrTableBridge {
       onDrawRect?: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => void;
       onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
       onFlush?: (x: number, y: number, w: number, h: number) => void;
-      onPlaySound?: (type: number, data: Uint8Array | null, loop: number) => void;
+      onPlaySound?: (type: number, data: Uint8Array | null, loop: number, positionMs?: number) => void;
       onStopSound?: (type: number) => void;
       onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
       getTimer?: () => MythroadTimer;
@@ -1227,7 +1228,7 @@ export class MrTableBridge {
     if (!search || !buffer || !length || length > 65536) return MR_FAILED;
     const name = search.names[search.index];
     if (name === undefined) { this.ext.mem.write8(buffer, 0); return MR_FAILED; }
-    writeFixedCString(this.ext.mem, buffer, name, length); search.index++;
+    writeFixedCString(this.ext.mem, buffer, String.fromCharCode(...ucs2ToGbk(Array.from(name, c => c.charCodeAt(0)))), length); search.index++;
     return MR_SUCCESS;
   }
 

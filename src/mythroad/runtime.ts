@@ -50,6 +50,8 @@ export type MythroadRuntimeOptions = {
   systemFiles?: Readonly<Record<string, Uint8Array>>;
   /** Offline download sources, separate from installed game files and unpacking markers. */
   resourceFiles?: Readonly<Record<string, Uint8Array>>;
+  /** Explicit user uploads, installed into the writable virtual SD card. */
+  userFiles?: Readonly<Record<string, Uint8Array>>;
   graphics?: GraphicsBackend;
   entry?: string;
   param?: string;
@@ -69,7 +71,7 @@ export type MythroadRuntimeOptions = {
   /** Observes each `arm_ext_call`. Does not change ABI. */
   onExtCall?: (code: number, out: ExtCallResult) => void;
   /** Host audio sink. Node tests omit this; the web player supplies Web Audio. */
-  onPlaySound?: (type: number, data: Uint8Array | null, loop: number) => void;
+  onPlaySound?: (type: number, data: Uint8Array | null, loop: number, positionMs?: number) => void;
   onStopSound?: (type: number) => void;
 };
 
@@ -84,6 +86,7 @@ export class MythroadRuntime {
   private readonly onEditChange?: (state: EditState | null) => void;
   private readonly systemFiles: Readonly<Record<string, Uint8Array>>;
   private readonly resourceFiles = new AppFileSystem();
+  readonly userFiles = new AppFileSystem();
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
   readonly gfx: GraphicsBackend;
@@ -130,7 +133,7 @@ export class MythroadRuntime {
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
-  readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number) => void) | null;
+  readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number, positionMs?: number) => void) | null;
   readonly onStopSound: ((type: number) => void) | null;
   soundOn = false;
 
@@ -158,7 +161,9 @@ export class MythroadRuntime {
     this.screenH = this.profile.height;
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
+    this.vfs.readExternal = name => this.mrTable?.appFs.file(name) ?? this.userFiles.file(name);
     this.systemFiles = opts.systemFiles ?? {};
+    for (const [name, bytes] of Object.entries(opts.userFiles ?? {})) this.setUserFile(name, bytes);
     for (const [name, bytes] of Object.entries(opts.resourceFiles ?? {})) this.resourceFiles.replace(name, bytes);
     this.networkRules = opts.networkRules;
     this.onEditChange = opts.onEditChange;
@@ -333,6 +338,14 @@ export class MythroadRuntime {
     return MR_SUCCESS;
   }
 
+  setUserFile(name: string, bytes: Uint8Array | null): void {
+    if (bytes === null) { this.userFiles.remove(name); this.mrTable?.appFs.remove(name); }
+    else {
+      this.userFiles.createFile(name, true); this.userFiles.replace(name, bytes.slice());
+      this.mrTable?.appFs.createFile(name, true); this.mrTable?.appFs.replace(name, bytes.slice());
+    }
+  }
+
   bindExt(rt: ExtRuntime | null): void {
     if (!rt) {
       this.ext = null;
@@ -367,7 +380,7 @@ export class MythroadRuntime {
       onDrawRect: (x, y, w, h, r, g, b) => this.gfx.drawRect(x, y, w, h, r, g, b),
       onDrawText: (text, x, y, r, g, b, unicode, font) => this.gfx.drawText(text, x, y, r, g, b, unicode, font),
       onFlush: (x, y, w, h) => this.present(x, y, w, h),
-      onPlaySound: (type, data, loop) => this.onPlaySound?.(type, data, loop),
+      onPlaySound: (type, data, loop, positionMs) => this.onPlaySound?.(type, data, loop, positionMs),
       onStopSound: (type) => this.onStopSound?.(type),
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
@@ -402,6 +415,9 @@ export class MythroadRuntime {
       },
     });
     for (const [name, bytes] of Object.entries(this.systemFiles)) bridge.appFs.replace(name, bytes.slice());
+    for (const [name, node] of this.userFiles.nodes) if (node.kind === "file") {
+      bridge.appFs.createFile(name, true); bridge.appFs.replace(name, node.bytes.slice());
+    }
     bridge.install();
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;

@@ -1,3 +1,5 @@
+import { setupSdPanel } from './sd-panel.ts';
+import { listSdFiles } from './sd-card.ts';
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
 import { MRPArchive } from "../src/mrp/index.ts";
 import { PlayerClient } from "./player-client.ts";
@@ -41,6 +43,7 @@ midiPlayer.addEventListener("change", () => {
 type Session = { rt: PlayerClient; raf: number; last: number; title: string; nextHud: number };
 let session: Session | null = null;
 let loadingRuntime: PlayerClient | null = null;
+setupSdPanel((path, bytes) => (session?.rt ?? loadingRuntime)?.setUserFile(path, bytes));
 let generation = 0;
 let fontPromise: Promise<void> | null = null;
 const systemFiles: Record<string, Uint8Array> = {};
@@ -170,10 +173,12 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
       editorText.inputMode = state.type === 1 ? "numeric" : "text";
       editorText.maxLength = state.maxLength; editorText.value = state.text;
       if (!editorDialog.open) editorDialog.showModal(); editorText.focus();
-    }, sound: (type, data, loop) => audio.play(type, data, loop), soundStop: type => audio.stop(type),
+    }, sound: (type, data, loop, positionMs) => audio.play(type, data, loop, positionMs), soundStop: type => audio.stop(type),
       error: error => { if (token === generation) fail(error, rt); } });
     loadingRuntime = rt;
-    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, resources, profile });
+    const userFiles = Object.fromEntries((await listSdFiles().catch(() => [])).map(file => [file.path, file.bytes]));
+    if (token !== generation) return;
+    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, resources, userFiles, profile });
     if (token !== generation) return;
     loadingRuntime = null;
     const title = guestTitle || name.split('/').at(-1)!;

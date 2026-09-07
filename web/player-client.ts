@@ -16,7 +16,7 @@ export class PlayerClient {
   readonly input = { press: (key: string) => this.send({ type: 'key', key, pressed: true }), release: (key: string) => this.send({ type: 'key', key, pressed: false }) };
   constructor(canvas: HTMLCanvasElement, hooks: {
     edit: (state: EditState | null) => void;
-    sound: (format: number, bytes: Uint8Array | null, loop: number) => void;
+    sound: (format: number, bytes: Uint8Array | null, loop: number, positionMs?: number) => void;
     soundStop: (format: number) => void;
     error: (error: Error) => void;
   }) {
@@ -37,7 +37,7 @@ export class PlayerClient {
         case 'ready': this.readyResolve?.(data.title); this.readyResolve = null; this.readyReject = null; break;
         case 'tick-complete': this.busy = false; break;
         case 'edit': hooks.edit(data.state); break;
-        case 'sound': hooks.sound(data.format, data.bytes, data.loop); break;
+        case 'sound': hooks.sound(data.format, data.bytes, data.loop, data.positionMs); break;
         case 'sound-stop': hooks.soundStop(data.format); break;
         case 'error': this.exited = data.exited; this.failed(new Error(data.message), hooks.error); break;
       }
@@ -59,6 +59,7 @@ export class PlayerClient {
     this.busy = true; this.send({ type: 'tick', milliseconds, speed });
   }
   queueEvent(_kind: number, event: number, x: number, y: number): void { this.send({ type: 'touch', event, x, y }); }
+  setUserFile(path: string, bytes: Uint8Array | null): void { this.send({ type: 'sd-file', path, bytes }); }
   pause(): void { this.send({ type: 'pause', paused: true }); }
   resume(): void { this.send({ type: 'pause', paused: false }); }
   finishEdit(text: string, accepted: boolean): void { this.send({ type: 'edit', text, accepted }); }

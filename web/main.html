@@ -25,6 +25,12 @@
     <label class="setting">键盘位置 <select id="keypad-side"><option value="normal">方向键在左</option><option value="reverse">方向键在右</option></select></label>
     <label class="setting">屏幕分辨率 <select id="resolution"><option value="auto">自动识别</option><option>176x220</option><option>240x320</option><option>240x400</option><option>320x240</option><option>320x480</option><option>480x320</option></select></label>
     <p class="hint">分辨率在下次加载时生效；缩放会限制在窗口范围内。加速效果取决于设备性能。</p>
+    <details id="sd-panel"><summary>虚拟 SD 卡</summary>
+      <p class="hint">根目录对应手机的 mythroad。上传 MP3、存档或数据文件，应用即可读取。文件仅保存在此浏览器，同名文件会覆盖。</p>
+      <label class="setting">目标目录 <input id="sd-directory" value="music" placeholder="留空为根目录" aria-label="SD 卡目标目录" /></label>
+      <label class="upload" for="sd-files">添加文件<input id="sd-files" type="file" multiple /></label>
+      <p id="sd-status" class="hint" role="status"></p><audio id="sd-preview" controls hidden></audio><ul id="sd-list"></ul>
+    </details>
     <button id="theme">切换深浅主题</button>
     <details><summary>键盘与操作说明</summary><p>方向键 / WASD 移动，Enter / 空格 / J 确认，Q / E 为左右软键。数字键对应手机键盘，部分游戏使用 5 确认。旋转后方向键与画面方向一致。</p><p>FPS 表示游戏实际提交画面的频率，静止画面可能显示 0。游戏兼容性仍在完善。</p></details>
   </aside>

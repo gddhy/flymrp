@@ -20,6 +20,7 @@ const MAX_FD = 32;
  */
 export class MythroadVfs {
   archive: MRPArchive | null = null;
+  readExternal?: (name: string) => Uint8Array | null;
   readonly ramNames: (string | null)[] = [];
   readonly ramData: (Uint8Array | null)[] = [];
   readonly fdOpen = new Uint8Array(MAX_FD + 1);
@@ -37,13 +38,13 @@ export class MythroadVfs {
 
   exists(name: string): boolean {
     if (this.ramIndex(name) >= 0) return true;
-    return this.archive?.hasFile(name) ?? false;
+    return (this.archive?.hasFile(name) ?? false) || this.readExternal?.(name) != null;
   }
 
   size(name: string): number {
     const ri = this.ramIndex(name);
     if (ri >= 0) return this.ramData[ri]!.length;
-    if (!this.archive?.hasFile(name)) return MR_FAILED;
+    if (!this.archive?.hasFile(name)) return this.readExternal?.(name)?.length ?? MR_FAILED;
     return this.archive.readFile(name).length;
   }
 
@@ -55,7 +56,7 @@ export class MythroadVfs {
     this.reads++;
     const ri = this.ramIndex(name);
     if (ri >= 0) return this.ramData[ri]!;
-    if (!this.archive?.hasFile(name)) return null;
+    if (!this.archive?.hasFile(name)) return this.readExternal?.(name) ?? null;
     return this.archive.readFile(name);
   }
 
@@ -175,7 +176,7 @@ export class MythroadVfs {
   private fileBytes(name: string, ri: number): Uint8Array {
     if (ri >= 0) return this.ramData[ri]!;
     if (this.archive?.hasFile(name)) return this.archive.readFile(name);
-    return new Uint8Array(0);
+    return this.readExternal?.(name) ?? new Uint8Array(0);
   }
 
   private allocFd(): number {
