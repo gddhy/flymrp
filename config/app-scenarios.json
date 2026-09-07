@@ -26,5 +26,16 @@
       }
     ],
     "reviewNote": "原文件启动错误 1016/1018 已修复；目前显示程序自带的 51 应用超市升级提示，不能标记桌面正常可用。"
+  },
+  "2": {
+    "bootTicks": 50,
+    "entry": [],
+    "controls": [
+      { "key": "FIRE", "hold": 3, "wait": 20 },
+      { "key": "SOFTLEFT", "hold": 3, "wait": 20 },
+      { "key": "UP", "hold": 3, "wait": 20 },
+      { "key": "DOWN", "hold": 3, "wait": 20 }
+    ],
+    "reviewNote": "mr_plat(1020) 背光查询、mr_platEx(3001) 图片信息和 mr_platEx(3002) JPEG/RGB565 解码已实现；该应用默认画面为静态图片，需人工确认交互场景。"
   }
 }

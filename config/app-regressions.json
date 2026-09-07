@@ -6,6 +6,12 @@
       "title": "51桌面",
       "sha256": "07e4e9de0e0ee1dbf00efc3f2b31d19d8a4b407e455be6ffcb0abefc495a9532",
       "initialError": "unsupported mr_plat code 1016"
+    },
+    {
+      "path": "240×320游戏大全/大屏棋牌休闲/免费-仿安卓版给力猫_大屏棋牌休闲.mrp",
+      "title": "给力猫",
+      "sha256": "c32478a2d5cca20c90e512ab652459383dc457c8b60050d6d9a0c0927fb770fc",
+      "initialError": "unsupported mr_plat code 1020"
     }
   ]
 }
