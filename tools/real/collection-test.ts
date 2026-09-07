@@ -1,3 +1,4 @@
+import { loadLocalSystemFiles, systemFileHashes } from "../local-system-files.ts";
 import { SYSTEM_COMPONENTS } from "../../src/mythroad/system-components.ts";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -21,6 +22,7 @@ const scenarios: Record<string, Scenario> = existsSync(scenarioPath) ? JSON.pars
 const hash = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const args = process.argv.slice(2), worker = args[0] === "--worker";
 const root = resolve(worker ? args[2] : args[0] ?? process.env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结");
+const localSystemDirectory = process.env.MRP_SYSTEM_DIR ?? join(root, "mythroad");
 const output = resolve(worker ? args[3] : args[1] ?? "artifacts/collection-current");
 mkdirSync(output,{recursive:true});
 
@@ -42,7 +44,8 @@ if(worker) {
   if(hash(bytes)!==game.sha256) throw new Error("game content differs from frozen manifest");
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
-  const systemFiles = Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)]));
+  const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory) };
+  loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
   const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,graphics:display});
   let phase="load",ticks=0,inputChanges=0,controlChanges=0,keysTested=0,error:string|null=null;
@@ -83,7 +86,7 @@ if(worker) {
   const revision=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim();
   const diff=execFileSync("git",["diff"],{encoding:"utf8"});
   const meta={revision,workingDiffSha256:hash(diff),manifestSha256:hash(readFileSync(manifestPath)),scenarioSha256:existsSync(scenarioPath)?hash(readFileSync(scenarioPath)):null,
-    systemFilesSha256:Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,hash(readFileSync(`assets/${name}`))])),
+    systemFilesSha256:systemFileHashes({ ...Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(localSystemDirectory) }),
     startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
   const results: any[]=[];
   const save=()=>writeFileSync(join(output,"results.json"),JSON.stringify({...meta,complete:results.length===games.length,

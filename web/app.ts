@@ -87,6 +87,31 @@ async function ensureFont(): Promise<void> {
   })().catch(e => { fontPromise = null; throw e; });
   await fontPromise;
 }
+const localBlobCache = new Map<string, Uint8Array>();
+async function loadLocalSystem(): Promise<Record<string, Uint8Array>> {
+  const res = await fetch("/__system");
+  // Static hosting has no optional local directory endpoint.
+  if (res.status === 404 || (res.ok && !res.headers.get("content-type")?.includes("application/json"))) return {};
+  if (!res.ok) throw new Error("无法读取本地 mythroad 资源目录");
+  const manifest: { name: string; sha256: string; size: number }[] = await res.json();
+  const files: Record<string, Uint8Array> = {};
+  await Promise.all(manifest.map(async item => {
+    let bytes = localBlobCache.get(item.sha256);
+    if (!bytes) {
+      const response = await fetch(`/__system/${item.sha256}`);
+      if (!response.ok) throw new Error(`无法读取本地组件 ${item.name}`);
+      const buffer = await response.arrayBuffer();
+      bytes = new Uint8Array(buffer);
+      const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))].map(b => b.toString(16).padStart(2, "0")).join("");
+      if (bytes.length !== item.size || digest !== item.sha256) throw new Error(`本地组件已改变：${item.name}，请重新加载`);
+      localBlobCache.set(item.sha256, bytes);
+    }
+    files[item.name] = bytes;
+  }));
+  const active = new Set(manifest.map(item => item.sha256));
+  for (const hash of localBlobCache.keys()) if (!active.has(hash)) localBlobCache.delete(hash);
+  return files;
+}
 async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
   stop(true);
   lastGame = { name, read };
@@ -109,7 +134,10 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.height = profile.height;
     canvas.style.setProperty("--screen-ratio", `${profile.width} / ${profile.height}`);
     const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
-    rt = new MythroadRuntime({ systemFiles, profile, graphics: gfx, abiMode: "strict",
+    const localFiles = await loadLocalSystem();
+    if (token !== generation) return;
+    loadGb16Uc2(localFiles["system/gb16.uc2"] ?? systemFiles["system/gb16.uc2"]);
+    rt = new MythroadRuntime({ systemFiles: { ...systemFiles, ...localFiles }, profile, graphics: gfx, abiMode: "strict",
       onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
     const archive = rt.loadMrp(new Uint8Array(buffer));
     rt.start();
