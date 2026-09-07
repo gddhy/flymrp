@@ -3,7 +3,7 @@ import { MythroadRuntime } from '../../src/mythroad/runtime.ts';
 import { ExtRuntime } from '../../src/abi/runtime.ts';
 import { buildMrp } from '../../src/mrp/index.ts';
 
-it('lets an app unpack its version before filling missing download resources', () => {
+it('keeps download caches out of installation checks and deferred game unpacking', () => {
   const shared=new Uint8Array([1]), stale=new Uint8Array([9]), missing=new Uint8Array([3]);
   const rt=new MythroadRuntime({systemFiles:{'plugins/shared.mrp':shared},resourceFiles:{'game/map.txt':stale,'game/extra.bin':missing}});
   rt.loadMrp(buildMrp([{name:'start.mr',data:new Uint8Array([0])}]));
@@ -19,13 +19,17 @@ it('lets an app unpack its version before filling missing download resources', (
   });
   rt.start();
   expect(rt.mrTable!.appFs.file('game/map.txt')).toEqual(new Uint8Array([2]));
-  expect(rt.mrTable!.appFs.file('game/extra.bin')).toEqual(missing);
-  rt.mrTable!.appFs.file('game/extra.bin')![0]=4;
+  expect(rt.mrTable!.appFs.file('game/extra.bin')).toBeNull();
+  expect(rt.mrTable!.hooks.getDownloadFile?.('game/extra.bin')).toEqual(missing);
+  // Timer-driven unpacking can still create its own version after start().
+  rt.mrTable!.appFs.replace('game/extra.bin',new Uint8Array([4]));
+  expect(rt.mrTable!.hooks.getDownloadFile?.('game/extra.bin')).toEqual(new Uint8Array([4]));
   expect(missing[0]).toBe(3);
 });
 
-it('fills supplements when an EXT is loaded after the initial script', () => {
+it('makes offline downloads available to an EXT loaded after the initial script', () => {
   const rt=new MythroadRuntime({resourceFiles:{'game/data.bin':new Uint8Array([7])}});
   rt.bindExt(new ExtRuntime());
-  expect(rt.mrTable!.appFs.file('game/data.bin')).toEqual(new Uint8Array([7]));
+  expect(rt.mrTable!.appFs.file('game/data.bin')).toBeNull();
+  expect(rt.mrTable!.hooks.getDownloadFile?.('GAME\\DATA.BIN')).toEqual(new Uint8Array([7]));
 });
