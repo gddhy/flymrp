@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Plugin } from "vite";
 import { publishGames } from "../tools/static-files.ts";
+import classics from "../config/classic-games.json";
 
 export function gameBuild(directory: string | undefined): Plugin {
   let output = "";
@@ -10,10 +11,11 @@ export function gameBuild(directory: string | undefined): Plugin {
     configResolved(config) { output = resolve(config.root, config.build.outDir, "games"); },
     async closeBundle() {
       if (!directory) return;
-      const { games, copied, skipped } = await publishGames(directory, output);
+      if (classics.games.length !== 100) throw new Error("精选游戏清单必须恰好包含 100 个游戏。");
+      const { games, copied, skipped, removed } = await publishGames(directory, output, classics.games);
       await mkdir(output, { recursive: true });
       await writeFile(join(output, "index.json"), JSON.stringify(games));
-      console.log(`MRP 游戏库：${games.length} 个，复制 ${copied}，未变化跳过 ${skipped}。`);
+      console.log(`MRP 精选游戏库：${games.length} 个，复制 ${copied}，未变化跳过 ${skipped}，清理旧文件 ${removed}。`);
     },
   };
 }

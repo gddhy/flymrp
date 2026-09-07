@@ -22,11 +22,11 @@
     <aside id="game-drawer" class="drawer" aria-label="选择游戏">
       <div class="drawer-heading"><div><span class="eyebrow">随时，玩一会儿</span><h1>游戏库</h1></div><span class="format-tag">MRP</span></div>
       <label class="upload" for="file"><span>＋</span> 打开 MRP 文件<input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" /></label>
-      <p class="drawer-hint">文件在本机运行，随时重温掌上游戏。</p>
+      <p class="drawer-hint">更多游戏可打开本地 MRP 文件，文件无需上传服务器。</p>
       <div class="library" id="library" hidden>
-        <input id="search" type="search" placeholder="搜索本地游戏…" aria-label="搜索本地游戏" />
-        <div class="library-meta"><span>本地收藏</span><span id="library-count"></span><button id="refresh-library" type="button" aria-label="刷新本地游戏库">刷新</button></div>
-        <select id="games" size="12" aria-label="本地游戏列表"></select>
+        <input id="search" type="search" placeholder="搜索游戏或类型…" aria-label="搜索精选游戏" />
+        <div class="library-meta"><span>经典精选</span><span id="library-count"></span><button id="refresh-library" type="button" aria-label="刷新精选游戏库">刷新</button></div>
+        <select id="games" size="12" aria-label="精选游戏列表"></select>
         <button id="load-game" class="primary" type="button">开始游戏 <span>↗</span></button>
       </div>
       <label class="setting">MIDI 播放器 <select id="midi-player"><option value="tinysynth">TinySynth · GM（推荐）</option><option value="simple">轻量方波</option></select></label>

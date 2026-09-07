@@ -4,12 +4,12 @@ Browser-native Mythroad MRP runtime.
 
 本项目原创代码采用 **GNU Affero General Public License v3.0（AGPL-3.0-only）**，完整协议见 [LICENSE](LICENSE)。第三方依赖、字库、插件和游戏文件保留各自的权利与许可，不因本项目的协议声明而改为 AGPL；组件来源见 [assets/README.md](assets/README.md)。
 
-当前支持浏览器本地上传、按键与触屏输入、自动/手动分辨率，以及可选的本地游戏目录搜索。已修复屏幕尺寸全局变量导致的清屏残留，并支持封装游戏使用的内存 MRP 和 EXT 加载。兼容性仍在完善，不能保证所有 MRP 正常运行。
+当前内置经典精选 100 个游戏文件，支持按名称或类型搜索，也可直接打开玩家本地的 MRP 文件。支持按键与触屏输入、自动/手动分辨率。已修复屏幕尺寸全局变量导致的清屏残留，并支持封装游戏使用的内存 MRP 和 EXT 加载。兼容性仍在完善，不能保证所有 MRP 正常运行。
 
 ```bash
 npm install
 npm start
-# 同时启用本地游戏库（开发服务器按需读取；构建时复制到 dist，不加入 Git）
+# 从本机游戏目录读取精选清单（开发时按需读取，构建时仅复制精选文件）
 MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
 ```
 
@@ -23,7 +23,17 @@ MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
 MRP_GAME_DIR='/path/to/mrp-games' MRP_RESOURCE_DIR='/path/to/mythroad_res' ./build.sh
 ```
 
-脚本安装锁定的依赖、检查 TypeScript 并生成根目录 `dist/`。默认资源目录为 `/Users/zixing/Downloads/mrp游戏大集结/mythroad_res`，其中的非隐藏常规文件会复制到 `dist/mythroad_res/`。将整个 `dist/` 上传到静态托管即可，支持部署到子目录；不需要 Node 服务。生产网页可直接搜索、选择打包的游戏，也保留“打开 MRP 文件”。默认递归收集 `/Users/zixing/Downloads/mrp游戏大集结/` 下的所有 MRP 到 `dist/games/`，保留相对目录和同名文件，并生成 `games/index.json`。重复构建按内容 SHA-256 比较，未变化的游戏和资源跳过复制，新增或修改的文件才更新；`dist/` 不再在构建前整目录清空。缺少游戏或资源目录会明确中止构建，避免发布缺失资源的产物。
+脚本安装锁定的依赖、检查 TypeScript 并生成根目录 `dist/`。精选清单固定在 [config/classic-games.json](config/classic-games.json)，包含益智休闲、街机动作、飞行射击、棋牌运动、角色策略等类型，以及指定的变形金刚、神兽传说 3、干柴烈火美女剑、神剑破千军和两份仙剑尘缘录版本。两份仙剑尘缘录内容相同，按用户指定的文件分别保留；清单共 100 个文件，不代表 100 个全部通过可玩性验证。原有 104 文件兼容性回归清单保持独立。
+
+默认从 `/Users/zixing/Downloads/mrp游戏大集结` 中读取精选文件，只将它们复制到 `dist/games/`，并生成带显示名称、类型和内容哈希的 `games/index.json`。构建会检查文件是否存在、内容是否匹配清单，缺失或不匹配时中止。开发服务器启用游戏目录后也只展示精选清单中存在的游戏。
+
+重复构建按 SHA-256 跳过未变化的游戏和资源。`dist/games/` 是构建专用目录，每次成功复制精选游戏后，会清理不在清单中的旧文件，避免此前 11,790 个游戏留在发布包里；原始下载目录不会删除或修改。请勿把个人文件放入 `dist/games/`。
+
+默认将 `/Users/zixing/Downloads/mrp游戏大集结/mythroad_res` 的非隐藏常规文件增量复制到 `dist/mythroad_res/`。保留完整资源包，供精选游戏和玩家本地打开的游戏按需读取；这些资源中的 MRP 组件不加入精选游戏列表。当前精选游戏文件约 30.8 MB，完整资源约 391.3 MB。每次构建最后会校验实际游戏数量、哈希以及整个 `dist/` 的大小，超过 900 MB 会报错，为 GitHub Pages 的 1 GB 站点上限留出余量。
+
+将整个 `dist/` 作为 GitHub Pages 的发布产物或上传其他静态托管即可，支持 `/flymrp/` 等子目录，不需要 Node 服务。GitHub Actions 无法读取你电脑上的 `/Users/...` 目录；当前流程应先在本机执行 `./build.sh` 生成完整产物，再发布产物，不能仅把源码推到 Pages 就自动获得游戏文件。
+
+玩家通过“打开 MRP 文件”选择任意本地游戏即可运行，不受精选清单限制。该文件只在浏览器中读取，不上传到服务器；兼容性和缺少资源仍可能影响运行。
 
 MIDI 默认使用 TinySynth GM，支持多种乐器、打击乐和 MIDI 控制器，无需在线下载音色库。也可选择“轻量方波”，切换时当前 MIDI 从头播放，选择保存在当前浏览器。TinySynth 使用 Apache-2.0 许可，随构建保留在 `licenses/`。网络拦截在后台运行，不向玩家展示调试配置。
 

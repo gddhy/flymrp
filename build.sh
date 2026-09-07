@@ -15,4 +15,4 @@ export MRP_RESOURCE_DIR
 npm ci --no-audit --no-fund
 npm run typecheck
 npm run build
-echo '构建完成：dist/（含游戏库与 mythroad_res，未变化文件已跳过）。将整个目录部署到静态网站即可。'
+echo '构建完成：dist/（精选 100 个游戏与 mythroad_res，未变化文件已跳过）。将整个目录部署到 GitHub Pages 等静态网站即可。'

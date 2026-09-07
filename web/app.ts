@@ -298,13 +298,13 @@ for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const
 const gameSelect = document.querySelector<HTMLSelectElement>("#games")!;
 const search = document.querySelector<HTMLInputElement>("#search")!;
 const loadGame = document.querySelector<HTMLButtonElement>("#load-game")!;
-type Game = { id: number; name: string; sha256?: string };
+type Game = { id: number; name: string; sha256?: string; title?: string; category?: string };
 let games: Game[] = [];
 function renderLibrary(): void {
   const term = search.value.trim().toLowerCase();
-  const matches = games.filter(game => game.name.toLowerCase().includes(term));
+  const matches = games.filter(game => `${game.title ?? ""} ${game.category ?? ""} ${game.name}`.toLowerCase().includes(term));
   gameSelect.replaceChildren(...matches.slice(0, 100).map(game => {
-    const option = new Option(game.name.split("/").at(-1)!.replace(/\.mrp$/i, ""), String(game.id));
+    const option = new Option(game.title ?? game.name.split("/").at(-1)!.replace(/\.mrp$/i, ""), String(game.id));
     option.title = game.name;
     return option;
   }));
@@ -318,7 +318,7 @@ loadGame.addEventListener("click", () => {
   if (!game) return;
   void start(game.name, async () => {
     const response = await fetch(import.meta.env.PROD ? assetUrl(`games/${game.name.split("/").map(encodeURIComponent).join("/")}${game.sha256 ? `?v=${encodeURIComponent(game.sha256)}` : ""}`) : `/__games/${game.id}`);
-    if (!response.ok) throw new Error("无法读取本地游戏");
+    if (!response.ok) throw new Error("无法读取游戏文件");
     return response.arrayBuffer();
   });
 });
@@ -327,7 +327,7 @@ async function reloadLibrary(): Promise<void> {
   refreshLibrary.disabled = true;
   try {
     const response = await fetch(import.meta.env.PROD ? assetUrl("games/index.json") : "/__games", { cache: "no-cache" });
-    if (!response.ok) throw new Error("无法刷新本地游戏库");
+    if (!response.ok) throw new Error("无法刷新精选游戏库");
     const selectedName = games.find(game => String(game.id) === gameSelect.value)?.name;
     games = await response.json();
     document.querySelector<HTMLElement>("#library")!.hidden = !games.length;
