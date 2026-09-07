@@ -1,0 +1,715 @@
+{
+  "source": "用户提供的 mrp游戏大集结/mythroad 目录",
+  "files": [
+    {
+      "path": "app240400/0/fpd.sav",
+      "size": 40,
+      "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+    },
+    {
+      "path": "app240400/100/fpd.sav",
+      "size": 40,
+      "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+    },
+    {
+      "path": "app240400/200/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/205/config.sav",
+      "size": 205,
+      "sha256": "cc26b69ee5f63b4a28cf8b8b4e805faa6217742e961e3e44289f6a008168835e"
+    },
+    {
+      "path": "app240400/205/dl.dlm",
+      "size": 515,
+      "sha256": "d25a33906d71167f6b0de5184a7ec7cdebab1e988a93cea5a838fb2c1f414645"
+    },
+    {
+      "path": "app240400/205/fpd.sav",
+      "size": 40,
+      "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+    },
+    {
+      "path": "app240400/205/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/217/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/219/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/221/config.sav",
+      "size": 205,
+      "sha256": "cc26b69ee5f63b4a28cf8b8b4e805faa6217742e961e3e44289f6a008168835e"
+    },
+    {
+      "path": "app240400/221/fpd.sav",
+      "size": 40,
+      "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+    },
+    {
+      "path": "app240400/221/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/239/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/247/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/248/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/249/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/304/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/306/local.seg",
+      "size": 744,
+      "sha256": "5a9529c3c3ff7cdc7332eab7c59f2396c1d714796adef4b57d1eb6f1e17ea3b8"
+    },
+    {
+      "path": "app240400/CpuRuns_v2.mrp",
+      "size": 53454,
+      "sha256": "71ce3c63dba12af338f0d444bccf84d7dec4819fc3899bed2ebf193608be3a87"
+    },
+    {
+      "path": "app240400/RX_v4450.mrp",
+      "size": 311705,
+      "sha256": "fac44cfd9f24a7f9580c928e3270cc74a56ef93c942593dafd90cd2db497041b"
+    },
+    {
+      "path": "app240400/SaiApp_v1104.mrp",
+      "size": 112509,
+      "sha256": "13a559b23f1237e69e4c9f5673c1dde61d596fe8a1aad31f7da0ed55860209de"
+    },
+    {
+      "path": "app240400/ad/monitor.sav",
+      "size": 4,
+      "sha256": "67abdd721024f0ff4e0b3f4c2fc13bc5bad42d0b7851d456d88d203d15aaa450"
+    },
+    {
+      "path": "app240400/cfg/localdir.sav",
+      "size": 912,
+      "sha256": "7095b2d1b4c11b36a0d69d75291724dbacf4a1e4666dbcc4c59ac46cd969e3d6"
+    },
+    {
+      "path": "app240400/cfg/location.sav",
+      "size": 192,
+      "sha256": "7b28a42af75afb289938f809ba3119a86891dc0dbe5e73e179cd09e0e631cc11"
+    },
+    {
+      "path": "app240400/cfg/payroot.itm",
+      "size": 50,
+      "sha256": "66dd319d4fe834cd81ceff92e8309129e47d7f06d87f9aa959113c0214396dad"
+    },
+    {
+      "path": "app240400/gwy.mrp",
+      "size": 56345,
+      "sha256": "b14af30084dbe62879304f429eb989a9a9d6d703d8bb996e659963876fbe993f"
+    },
+    {
+      "path": "app240400/sgm/rollmsg.dat",
+      "size": 8,
+      "sha256": "c1584c693bf57bdf62db554272785774d4045ee6590bfb0b96590014935388cf"
+    },
+    {
+      "path": "dsm_gm.mrp",
+      "size": 314340,
+      "sha256": "1f5521066b861d5bc1a749465b3b105fa7f747c4f6049aa9e203b22dcd7b9298"
+    },
+    {
+      "path": "gwy/cardcharge.mrp",
+      "size": 7241,
+      "sha256": "57805f07edbe10ee6e4ce86cb6787de2eb1ce3928523e00816b8b5f64f61e773"
+    },
+    {
+      "path": "gwy/directpay.mrp",
+      "size": 24982,
+      "sha256": "771a8aabf4ae6b883c3e82c40a6f94b49d8a90b9bbb450a27794e84eb6e2c590"
+    },
+    {
+      "path": "gwy/dload.mrp",
+      "size": 10797,
+      "sha256": "d7847c6eac6e486db427f534ed4a4f11850a2eaa2a03fc235fed1be3c8b82fdf"
+    },
+    {
+      "path": "gwy/font.mrp",
+      "size": 115937,
+      "sha256": "2d55879781068e484b80a38b8bf7d43a5cb5bf1c88056cc57d49a5f0258c19ef"
+    },
+    {
+      "path": "gwy/gamelist.mrp",
+      "size": 72620,
+      "sha256": "4b24babfc82be19015fdf5eb9e2468c7ea030130f61f617a8644ab1e7bf7d956"
+    },
+    {
+      "path": "gwy/gifs/ban_ng_hxsg1024.gif",
+      "size": 5632,
+      "sha256": "77be17af6a1cfbeafe05c74c81a0e45f7451706bbfcd8c56590907a7d2a103a2"
+    },
+    {
+      "path": "gwy/gifs/gg_dj_jpdj.gif",
+      "size": 2204,
+      "sha256": "9bb7f448abc28a589e640fc115999b06ba087918903788939f6b1723889c429d"
+    },
+    {
+      "path": "gwy/gifs/gg_mpsc1.gif",
+      "size": 1653,
+      "sha256": "62d1d351c5cb72d935432683e6baba28439fdad4a1d06574bff9788ce2a72896"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_ajol5.gif",
+      "size": 2466,
+      "sha256": "a2a3e4f561ac89996e8d7853bd910d59922fc0fecd9559c0d8d9bfc4d51da902"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_csj1.gif",
+      "size": 2586,
+      "sha256": "4b36aa2fd88e955c0029d2647ceaaee9dcc80154712f5af0e9d0cce2885aeb74"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_ddz01.gif",
+      "size": 2405,
+      "sha256": "930c1585d895898e65ca3a784f7b2534593cc86bdaffac857575f6d7adace8ca"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_flsg.gif",
+      "size": 2537,
+      "sha256": "c23d5f5d9e1a494f3063ec663efd02eb2e049d1a4712fca1c647c7099ce70796"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_gdyy01.gif",
+      "size": 2181,
+      "sha256": "8bb613073b9e34db8cffe690104ac68f9d7a602b8fe062840625d224b0a930fb"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_kdxy.gif",
+      "size": 2483,
+      "sha256": "84ee2f66f554916dd1386db1350f489d535704ad804132ebdc68566527826ff0"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_mpkj01.gif",
+      "size": 2443,
+      "sha256": "4ef45afcfdc66547193974f64253d3eaf5db58d9978135fb7087c89e02262941"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_sgmc3.gif",
+      "size": 2483,
+      "sha256": "2ed5b08c2497d0c3acb6c3d304a11d8cc2e3fb413b412dd9754b722c2fa7920a"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_sgqxz1.gif",
+      "size": 2589,
+      "sha256": "96cd87b641525aefa6dc9dc5324d9c30d444ec81f08c66907983127621c9dd92"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_sgzc3.gif",
+      "size": 2596,
+      "sha256": "a3555a47627248e78fbcaa830b3386dfe3b3f9178785373e5e55122269121d97"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_ssjx3.gif",
+      "size": 2254,
+      "sha256": "05bc32ddf8d327974103436c543d89d0a35174a7a3ecce68b69e4b35fa8fd2fb"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_sxz.gif",
+      "size": 2649,
+      "sha256": "523a2390bb3d3945c5f6c74513c8a7fcbcf6bcdf50469e198499b10185d0c1cf"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_tlbb12.gif",
+      "size": 3026,
+      "sha256": "78473e4fabfb404579199b38af1cb1da4de6efe104d1bba1f29915830a00aab8"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_tyol2.gif",
+      "size": 2595,
+      "sha256": "ccba82d7d157b8faf4747e0584530a6f79bd09699adc8b8090045ee9053dfc88"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_xaxc.gif",
+      "size": 2480,
+      "sha256": "7244d44328d4f0b1667a4ab573dba66b9050f90a33739515fd645aa0c3ac2ed6"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_xjwq.gif",
+      "size": 2545,
+      "sha256": "7d1a5c78a36b04e7efbedb5709ea02558e0a647db517bcefd3438e1d6694fc6a"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_xpsx01.gif",
+      "size": 2305,
+      "sha256": "8e24706c9a669c9fcf68cc89ea35e87b4f9f6ee8b82b6c124228829704e09aac"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_xyj1.gif",
+      "size": 2391,
+      "sha256": "3b0de4ad104cdf38bdd8b9cbdd549246013315e7d30a4e6297b0e26cf7e027fa"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_yhzx01.gif",
+      "size": 2105,
+      "sha256": "02dd627e81828093801dc979f0cb5c5d08a0cd4c858483bf93d3f510b9f334c3"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_yxlm.gif",
+      "size": 2274,
+      "sha256": "d094bf1df37bc76e9febbe8d96615fbb7d2d7239487c0914d03c61d98a96e92f"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_zd.gif",
+      "size": 3313,
+      "sha256": "7f5494251f6e41ecdebfac12e5ebdbfd5e5e1a310e40634e2bc1a8afa0d96e78"
+    },
+    {
+      "path": "gwy/gifs/gg_ng_zsol04.gif",
+      "size": 3076,
+      "sha256": "8a93f84d9e7ce1e42a445563807018d3672dd7dd2432a9888a1e4fb5b5893371"
+    },
+    {
+      "path": "gwy/gifs/gg_xblt.gif",
+      "size": 1557,
+      "sha256": "2e693b93f510564e5082b082d6602281da7e05c1b381f32fdd01cee83e78725a"
+    },
+    {
+      "path": "gwy/gifs/gifdesc.info",
+      "size": 270,
+      "sha256": "a84525762755e7cce64b90d0967753949e19a62e8ffa4bd1674a452f9efda552"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx1",
+      "size": 17,
+      "sha256": "9536acb298eb0f2953d01fdad8fd7f147858d34f7003c852a6b829cb1d389af5"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx13",
+      "size": 17,
+      "sha256": "eac49f8a28d5be1dec929f43efa1fc435264fe77fbdef15ef57481d22ba6fa0b"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx21",
+      "size": 19,
+      "sha256": "7fadc524c5d55fd03a7a3fd251c613a63a00f76a02b20e5af87be781c63facfb"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx22",
+      "size": 16,
+      "sha256": "e74fce5580818b0ada5ffd8ef45a2968781e026c6e67ba364698b067cf4463ff"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx23",
+      "size": 34,
+      "sha256": "e441f03babb209231fc635e2cdacc835c696f25c2bdfaf843a07264d707bfb4e"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx29",
+      "size": 38,
+      "sha256": "9c70166f24c3887bef3b62c1e655ac91b29074349d002a9c114432f1cb810085"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx34",
+      "size": 17,
+      "sha256": "a032b60c93342907a706eccd1f2dcf0f3b50c077e1be020228aa80662cd0be0a"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx40",
+      "size": 18,
+      "sha256": "e27fbb69cf2e4ad9d8b41867e8febc757b524888c77d207b1d4d66484c298875"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx41",
+      "size": 15,
+      "sha256": "0ed96ac19935fbc38a7027aa4e9a172767b1132d555992028fb2776f9afd7c06"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx42",
+      "size": 18,
+      "sha256": "f944a0a0aacba23075fcdc53ed6a71b5a8e0a0922fcc39846167935020d4ca49"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx5",
+      "size": 22,
+      "sha256": "d274c68724c16245aa7826cdf1653c8f09f43c98efa18245f88d573f88a525af"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx53",
+      "size": 16,
+      "sha256": "f85fd1f44bc86d6d7fb1145683353b45a76197a054836abcf8eef382f59413ab"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx55",
+      "size": 18,
+      "sha256": "10512e36e574758309085587897e74347e335afc9b22f4b6499571e113045360"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx61",
+      "size": 17,
+      "sha256": "2e067a02cf55d2472e27e3189b57697dc40aee34f65888af39135d3d342e2671"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx7",
+      "size": 19,
+      "sha256": "63b368d819b3d9284a8df227dfd1495cc6f7d1d54e01be2a01cd0c4f537147db"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx71",
+      "size": 18,
+      "sha256": "a5fbcdf2ff7de3052d265e750183aa98ea7145003895f4d4d2e0e285586abe66"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx72",
+      "size": 18,
+      "sha256": "71f7cf81eeb836b543868740e4dcc8eff816e415fbe062b03cd8dd5cb3eec8cc"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx82",
+      "size": 17,
+      "sha256": "ae959a7f58ed156746180045780742788d3b6cf7a23ac2e139256d04a06e4bea"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx84",
+      "size": 37,
+      "sha256": "144bd519de5b4f2a751801d4af39084993607b7de99089bc612d451c77e11eb4"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx87",
+      "size": 34,
+      "sha256": "7fa3a29c468781bd32016abf2b4dfa7ea1741ebde7f2dc4280ef4d619bb37fe2"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx93",
+      "size": 17,
+      "sha256": "d4afa0a1674409793736e314f2b3bcd59d86fe6343c593d4672d367b30c7e830"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx96",
+      "size": 19,
+      "sha256": "fa24afc0c560b1ba23f8381c906049b037c5160a2db351983dcada731c60f2e7"
+    },
+    {
+      "path": "gwy/gifs/gifinfo.idx99",
+      "size": 14,
+      "sha256": "b1f9fd439220cc95b443f1877224ab3ea3a357f2c29c863bf9142a22310d2c61"
+    },
+    {
+      "path": "gwy/gifs/wyzq_xajh.gif",
+      "size": 1050,
+      "sha256": "c53385a835aa34a9d7fa641ea26e6cd18b3385db9ce564d9363f61d5222221e7"
+    },
+    {
+      "path": "gwy/gui.mrp",
+      "size": 32052,
+      "sha256": "508a4867815dc7e00aa3dfc95fe41e691ae348e21a8cc02d18a7000d30dbc207"
+    },
+    {
+      "path": "gwy/hotchat.mrp",
+      "size": 30766,
+      "sha256": "8b221c5bf0e8613457fbb16ae09e7a79e2753aeb912e360c36da1ce178663b4b"
+    },
+    {
+      "path": "gwy/hxsg_cfg.bin",
+      "size": 27185,
+      "sha256": "d455a3a725d56376adda3579992c03b779f89bd407bb29463a73ca80411e63c1"
+    },
+    {
+      "path": "gwy/pmsg.mrp",
+      "size": 15242,
+      "sha256": "dc678b3641ac4399ed83cebc6d8ee70bc4f16f796f738d2914d70fc16a93089a"
+    },
+    {
+      "path": "gwy/reglogin.mrp",
+      "size": 30992,
+      "sha256": "70da238867c82023a516f26f539b4a36ebf885ba1449866ca6c82853202ced82"
+    },
+    {
+      "path": "gwy/resmng.mrp",
+      "size": 14610,
+      "sha256": "9d036ac6c696442c4508d7076b671d94fa96868bd4df9593e33b515b34fbc060"
+    },
+    {
+      "path": "gwy/rollscr.mrp",
+      "size": 23519,
+      "sha256": "2b61ab8f6cc52ba885204b38a37fb7e26f05308ce37337272c797d0011fcb709"
+    },
+    {
+      "path": "gwy/sound/msg.mid",
+      "size": 109,
+      "sha256": "4bd584ed65f38fd15fd9c127d582dcb857e443e55ca4b1a32d0f6e5a0bab226a"
+    },
+    {
+      "path": "gwy/svrctrl.mrp",
+      "size": 11740,
+      "sha256": "211230b19ce05d028aeb81353165c32285a19f9f395988a84f14dc0270d1683c"
+    },
+    {
+      "path": "gwy/vdload.mrp",
+      "size": 11586,
+      "sha256": "5089b4f9f5d90b0edd90d9fe8b8b59ba07e28c1c78b00518e9803abdf2942961"
+    },
+    {
+      "path": "gwy.mrp",
+      "size": 56345,
+      "sha256": "b14af30084dbe62879304f429eb989a9a9d6d703d8bb996e659963876fbe993f"
+    },
+    {
+      "path": "menu.dat",
+      "size": 24,
+      "sha256": "31102d73244e5df36565446b0b0e7342c0599d062c09c5e996935163d058369a"
+    },
+    {
+      "path": "plugin240400/cookie.mrp",
+      "size": 298307,
+      "sha256": "25f2f967da4f4ce000dff98e9d44102928f181bb7a3bcaee203012e421d07f15"
+    },
+    {
+      "path": "plugins/advbar.mrp",
+      "size": 41994,
+      "sha256": "902f604ab9db00f762f6548b19e03b60d8b83aa2b3bc4e5b7b7e3e71a00891b4"
+    },
+    {
+      "path": "plugins/brwcore.mrp",
+      "size": 99357,
+      "sha256": "5f312bce40cad9570a9e49f5d6c6e96561251b7470391a6fe292c5eabfa426c4"
+    },
+    {
+      "path": "plugins/brwgui.mrp",
+      "size": 15264,
+      "sha256": "2a8d5f001278db35e2cd6f40425cf8a0057a33d108c9f0fe14aa0e4553792686"
+    },
+    {
+      "path": "plugins/brwmain.mrp",
+      "size": 16806,
+      "sha256": "7ec0ecda025f1d9bd6dfd9916b12fb1ca16dcfa21a59176d18448f2ee9be2425"
+    },
+    {
+      "path": "plugins/brwshell.mrp",
+      "size": 39981,
+      "sha256": "1ca0da9b25a47b21ae0eb4600a5300b40e034f987378d39ddaf843991f55311d"
+    },
+    {
+      "path": "plugins/cloudstorage.mrp",
+      "size": 10201,
+      "sha256": "ec1e09b830d387c473d723804c58cbca312048fc000c4d5bea470155ab84fba8"
+    },
+    {
+      "path": "plugins/comment.mrp",
+      "size": 30722,
+      "sha256": "84013e5e8a9bc9bf81854a327a8fbefbe729db0ebdcb78d2047471ed22d2ffcf"
+    },
+    {
+      "path": "plugins/embrw.mrp",
+      "size": 21538,
+      "sha256": "e2d1387205b12de6dd321f767486b0e6478ce82a305d224e88ede19c03a86241"
+    },
+    {
+      "path": "plugins/flaengine.mrp",
+      "size": 103214,
+      "sha256": "e8cf02e024c451368f8d2dd8af868a287b4e2aa5f278c231a749c2f1920e5d0d"
+    },
+    {
+      "path": "plugins/freecurr.mrp",
+      "size": 37037,
+      "sha256": "0d3254e1aa5d2a96f40bc8777b1e8e70a370b01b76311b4296a5556df6026346"
+    },
+    {
+      "path": "plugins/netcfg.mrp",
+      "size": 15999,
+      "sha256": "be92dff1b25f046749ec4968254468adbf398faa1f27b18ad6629b27ebba3c85"
+    },
+    {
+      "path": "plugins/netpay.mrp",
+      "size": 130221,
+      "sha256": "6f6d7f07d9751860bd77f76e4b844bf60332e6a36af1966ccb86eecdff3cfd4c"
+    },
+    {
+      "path": "plugins/ongame.mrp",
+      "size": 66683,
+      "sha256": "13185d3a33ff69734830265b25a3b3f8818f676f39f8ae4145d56a1998334c9c"
+    },
+    {
+      "path": "plugins/passport.mrp",
+      "size": 56475,
+      "sha256": "1d89ede966343bd808069e5cd2716c5ab33816679f730a438500963555d4dcc5"
+    },
+    {
+      "path": "plugins/passpt.mrp",
+      "size": 61401,
+      "sha256": "1bca2613d6f2b64f3a199783b513001753153a78b65b8325b67dc56adf0677fb"
+    },
+    {
+      "path": "plugins/player.mrp",
+      "size": 6316,
+      "sha256": "1f936ffa603c4da86a7bf555a05c249ef6c34155afa3a19ff952e2482b6bc1ff"
+    },
+    {
+      "path": "plugins/smsend.mrp",
+      "size": 32618,
+      "sha256": "850aafce207a2f5cbd8b440639c0ea8df68c6f57c8e933af1dba1f4a84fdea5c"
+    },
+    {
+      "path": "plugins/wbrwassist.mrp",
+      "size": 16894,
+      "sha256": "7ae5430281ec5d145f9f9f56be8a0ebc30fba0093a3e6c65b80da7e263eae70d"
+    },
+    {
+      "path": "plugins/wbrwcore.mrp",
+      "size": 117736,
+      "sha256": "c2212ce5d958fd43f2876ddc111a9287b66663ab3bb59a3c32490f5382e58185"
+    },
+    {
+      "path": "plugins/wbrwmain.mrp",
+      "size": 63620,
+      "sha256": "50af9e6e5b8e70a443eeaceb645b79a45bbd1e429cf40c0ff5458101643b7888"
+    },
+    {
+      "path": "plugins/wbrwshell.mrp",
+      "size": 81274,
+      "sha256": "9f7782b93624c85fc483071877c7a0f72852c863eb3e6f39fa053d6611cb3d20"
+    },
+    {
+      "path": "plugins/wembrw.mrp",
+      "size": 20005,
+      "sha256": "bae041742cbc081b2862b39508bf09bb0db2bf0b1c9b34e84c13b151e2f1d67c"
+    },
+    {
+      "path": "plugins/xrecom.mrp",
+      "size": 15007,
+      "sha256": "33036e1ac9df054b3b5d39ff1b6af5766d46fc41a6cfe468aa9eda114923a378"
+    },
+    {
+      "path": "system/1008.uni",
+      "size": 34272,
+      "sha256": "5e3515001810f6e25363a9152b4d449877aa24b38c17a9358b178af94c36e5e6"
+    },
+    {
+      "path": "system/___sftmp.mrp",
+      "size": 111904,
+      "sha256": "0af958f7e12c0fde6d2f14692238b662ad0b27e2bd11dbf9c283fda8e0c822c3"
+    },
+    {
+      "path": "system/font16.unf",
+      "size": 888516,
+      "sha256": "4c860840f78d0a003b49a8706e38fa6e7581f85f62d76a32a0837a352b61cf84"
+    },
+    {
+      "path": "system/font16_t.unf",
+      "size": 7108100,
+      "sha256": "8a634038ceb253a35887c99117d78cc7b6bf8784a5d5b685c64362569278b645"
+    },
+    {
+      "path": "system/fonts12.bin",
+      "size": 202529,
+      "sha256": "717d361f5114bb02eef1b1b2027af74ab4dbd8c8632c0324326d3c39079984a9"
+    },
+    {
+      "path": "system/fonts14.bin",
+      "size": 236152,
+      "sha256": "330ed6e0089fa1432c41df8832304aacbaa986fa8b7b80b162eac754aeb8e99d"
+    },
+    {
+      "path": "system/fonts16.bin",
+      "size": 269888,
+      "sha256": "e1357b837238ab8612c9f4b9a96b5b86187844cb0da183313ede1bc6b2c5d5f8"
+    },
+    {
+      "path": "system/fullSrc.sys",
+      "size": 4,
+      "sha256": "ba8c9eac092a503e4fb70771c34a00c5bb651043de24db4d3525ebbb3ee7ff08"
+    },
+    {
+      "path": "system/gb12.bin",
+      "size": 202416,
+      "sha256": "4ce246305464f82e98ffef2ff9f4bd39638bd89d02174bb397c04e0615c0a09b"
+    },
+    {
+      "path": "system/gb12.uc2",
+      "size": 1179630,
+      "sha256": "f8e9a443e28eecce3a99f0ebf26a197b1ef5e65bab5406054ff7e985d48274b3"
+    },
+    {
+      "path": "system/gb12_uc2.adl",
+      "size": 8,
+      "sha256": "3149a176488216bda8e4656c918962584c19d29fdde1a9e40c162e0da3a33bce"
+    },
+    {
+      "path": "system/gb12c.uc2",
+      "size": 20160,
+      "sha256": "a4b0b69a1b5c83f57d6b531b915bc2902c7a2dfa54bd6f4097897a82b34f6a1c"
+    },
+    {
+      "path": "system/gb12v2.adl",
+      "size": 8,
+      "sha256": "05ff9a62aeea4d5c8a2a0c3d2a45fa086c478e2f9628f1bbe1cdb75f3a9b61ee"
+    },
+    {
+      "path": "system/gb12v2.uc2",
+      "size": 1179630,
+      "sha256": "728e3c78b4a7ebd11c3cdcec671a4c0c70d2cb03fe5f919ca0b4379ac74533f9"
+    },
+    {
+      "path": "system/gb16.bin",
+      "size": 269888,
+      "sha256": "e1357b837238ab8612c9f4b9a96b5b86187844cb0da183313ede1bc6b2c5d5f8"
+    },
+    {
+      "path": "system/gb16.uc2",
+      "size": 2097152,
+      "sha256": "6a6d819025765b4b967aa9dd5c7efc5c86b06265b73a14db91869b22bf3d2dd5"
+    },
+    {
+      "path": "system/gb16_mrpoid.uc2",
+      "size": 2097152,
+      "sha256": "127d4b969b2e9385f3611b6eb9f7c1b72191b70dedb7b21cd0417f76ae368308"
+    },
+    {
+      "path": "system/gb16_uc2.adl",
+      "size": 8,
+      "sha256": "3149a176488216bda8e4656c918962584c19d29fdde1a9e40c162e0da3a33bce"
+    },
+    {
+      "path": "system/statis.sys",
+      "size": 54,
+      "sha256": "39f0b99e2a92e20a3dd23fdac9e6701d59fb22704227b40c3018e99badc40c24"
+    },
+    {
+      "path": "system/sysinfo.dat",
+      "size": 75,
+      "sha256": "ac0ad03db355fa3266c4456819fedaba65186bf59a2795725a83a445be857417"
+    },
+    {
+      "path": "time.py.sys",
+      "size": 12,
+      "sha256": "b8a8437e42cf68f3a3ac59475363c6c326b3304b6a437576cd5e9ea22260de6e"
+    },
+    {
+      "path": "usrConfig",
+      "size": 40,
+      "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+    }
+  ]
+}

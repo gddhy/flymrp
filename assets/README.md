@@ -12,3 +12,9 @@
 
 - `system/gb12v2.uc2`、`gb12v2.adl`：来自同一集合的 `相关文件/system/`，供第二版字库加载器直接读取，避免反复提示下载字库。SHA-256 分别为 `728e3c78b4a7ebd11c3cdcec671a4c0c70d2cb03fe5f919ca0b4379ac74533f9` 和 `05ff9a62aeea4d5c8a2a0c3d2a45fa086c478e2f9628f1bbe1cdb75f3a9b61ee`。
 - `plugins/flaengine.mrp`：来自同一集合的 `相关文件/plugins/`，appid 490284、版本 1029，SHA-256 `e8cf02e024c451368f8d2dd8af868a287b4e2aa5f278c231a749c2f1920e5d0d`。供《格子风暴》等游戏加载本地引擎。
+
+## 生产资源包
+
+用户已授权将游戏集合 `mythroad/` 中的有效文件复制进 Git 并用于生产构建。根目录结构直接映射为来宾文件系统路径，完整清单、大小和 SHA-256 见 [mythroad-manifest.json](mythroad-manifest.json)。排除 `.DS_Store` 等隐藏系统文件。
+
+该快照包含 142 个文件，包括 `system/` 字库、`plugins/` 通用插件、`gwy/` 资源和 `app240400/` 已有数据；保留原字节和文件名。Vite 将其复制到生产输出目录，网页按清单加载，无需依赖开发服务器上的用户目录。第三方资源不因项目采用 AGPL-3.0 而被重新许可。

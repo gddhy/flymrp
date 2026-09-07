@@ -1,6 +1,4 @@
-/** Shared browser/collection manifest of the bundled handset environment. */
-export const SYSTEM_COMPONENTS = [
-  "system/gb16.uc2", "system/gb12.uc2", "system/gb12_uc2.adl", "system/gb16_uc2.adl",
-  "system/gb12v2.uc2", "system/gb12v2.adl",
-  "plugins/netpay.mrp", "plugins/flaengine.mrp",
-] as const;
+import manifest from "../../assets/mythroad-manifest.json";
+
+/** Files bundled with both production web builds and collection tests. */
+export const SYSTEM_COMPONENTS: readonly string[] = manifest.files.map(file => file.path);
