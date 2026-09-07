@@ -470,6 +470,7 @@ export function execPacked(
       break;
     }
     case Op.BLX: {
+      const target = readReg(cpu, u.rm, instPC, false);
       cpu.r[14] = ((instPC + size) | (cpu.t ? 1 : 0)) >>> 0;
       if ((w2 & 0xff) === 1) {
         if (cpu.t) {
@@ -480,7 +481,7 @@ export function execPacked(
           writeReg(cpu, 15, ((((instPC + 8) & ~3) + (w1 | 0)) | 1) >>> 0, instPC, true);
         }
       } else {
-        writeReg(cpu, 15, readReg(cpu, u.rm, instPC, false), instPC, true);
+        writeReg(cpu, 15, target, instPC, true);
       }
       break;
     }

@@ -18,6 +18,8 @@ function compare(b: BasicBlock, init: (c: ReturnType<typeof makeCpu>) => void) {
   compileBlock(b)(fast.cpu, b.count, b);
   expect(Array.from(fast.cpu.r)).toEqual(Array.from(ref.cpu.r));
   expect(flags(fast.cpu)).toEqual(flags(ref.cpu));
+  expect(fast.cpu.t).toBe(ref.cpu.t);
+  expect(fast.cpu.branched).toBe(ref.cpu.branched);
   expect(fast.cpu.insnCount).toBe(ref.cpu.insnCount);
   expect(Buffer.compare(fast.mem.ram8, ref.mem.ram8)).toBe(0);
 }
@@ -30,6 +32,26 @@ describe('hot block specialization', () => {
       compare(block(words), ({cpu}) => {
         for (let i = 0; i < 15; i++) cpu.r[i] = i < edges.length ? edges[i] : random();
         cpu.cpsr = (random() & 0xf0000000) | 0x10;
+      });
+    }
+  });
+  it('matches all constant shifts, including #0 special encodings and overlapping registers', () => {
+    for (let shiftType = 0; shiftType < 4; shiftType++) for (let amount = 0; amount < 32; amount++) for (let op = 0; op <= Op.MVN; op++) {
+      compare(block([packW0(op,14,2,1,2,shiftType,1,0),amount,0]), ({cpu}) => {
+        cpu.r[1] = random(); cpu.r[2] = random(); cpu.cpsr = (random() & 0xf0000000) | 0x10;
+      });
+    }
+  });
+  it('preserves branch targets, LR, conditions and ARM/Thumb interworking', () => {
+    for (const thumb of [0,1]) for (const op of [Op.B,Op.BL,Op.BX,Op.BLX]) for (let cond=0;cond<16;cond++) for (const target of [0x2000,0x2001,0x2002,0x2003]) {
+      const b = block([packW0(op,cond,0,0,14,0,0,0),0xffffffd0,0]); b.thumb = thumb;
+      compare(b, ({cpu}) => { cpu.r[14]=target; cpu.cpsr=(random() & 0xf0000000) | 0x10 | (thumb << 5); });
+    }
+  });
+  it('matches register-offset byte and word accesses without dropping memory watches', () => {
+    for(let op=Op.LDR;op<=Op.LDRSH;op++) for(const shift of [0,1,2,31]) {
+      compare(block([packW0(op,14,2,1,3,0,0,25),shift,0]),({cpu,mem})=>{
+        mem.ram8.fill(0x82);cpu.r[1]=0x3000;cpu.r[3]=shift===31?0:3;cpu.r[2]=0x12345678;
       });
     }
   });
@@ -47,6 +69,15 @@ describe('hot block specialization', () => {
     expect(cpu.r[0]).toBe(1); expect(cpu.r[15]).toBe(0x1004); expect(cpu.insnCount).toBe(1);
     cpu.reset(0x1000,0); cpu.r[2] = 0x80000000;
     expect(() => compiled(cpu,2,b)).toThrow('fault'); expect(cpu.r[15]).toBe(0x1004); expect(cpu.insnCount).toBe(1);
+  });
+  it('executes hot back edges without losing budgets or fetch interception', () => {
+    const {cpu,mem}=makeCpu(); const cache=new BlockCache(); cache.addRegion(0,0x10000);cpu.cache=cache;
+    putArm(mem,0x1000,[0xe2800001,0xeafffffd]); // add r0,#1; b 0x1000
+    const b=cache.getOrDecode(cpu); b.compiled=compileBlock(b);b.runs=32;
+    let fetches=0;cpu.onBeforeFetch=()=>{fetches++;return false;};
+    run(cpu,1001);expect(cpu.r[0]).toBe(501);expect(cpu.r[15]).toBe(0x1004);expect(cpu.insnCount).toBe(1001);expect(fetches).toBe(501);
+    cpu.reset(0x1000,0);fetches=0;cpu.onBeforeFetch=c=>{fetches++;if(fetches===3){c.r[15]=0x2000;return true;}return false;};
+    cache.runBlock(cpu,1000);expect(cpu.r[0]).toBe(2);expect(cpu.r[15]).toBe(0x2000);expect(cpu.insnCount).toBe(4);
   });
   it('invalidates a compiled block when a store rewrites its next instruction', () => {
     const {cpu, mem} = makeCpu(); const cache = new BlockCache(); cache.addRegion(0,0x10000); cpu.cache=cache;

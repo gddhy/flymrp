@@ -19,7 +19,7 @@ for (const compiled of [false,true,false,true]) {
     const bridge=rt.mrTable!,format=bridge.sprintf.bind(bridge);
     bridge.sprintf=(mem,args)=>{
       const n=format(mem,args),text=new TextDecoder('gbk').decode(mem.slice(args[0],Math.min(n,400)));
-      const match=/^(综合|累计|运算|排序|内存):\s*(\d+)/.exec(text);
+      const match=/^(综合|累加|运算|排序|内存):\s*(\d+)/.exec(text);
       if(match)scores[match[1]]=Number(match[2]); return n;
     };
   };

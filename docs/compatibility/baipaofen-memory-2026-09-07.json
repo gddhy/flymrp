@@ -1,0 +1,52 @@
+{
+  "node": "v26.7.0",
+  "arch": "arm64",
+  "sha256": "341999f1f51f12266e24181323fdc5871ebe5133d555e38cac8fcf3ab69f3fad",
+  "method": "same-runtime-monotonic-clock-interpreter-versus-compiled-blocks",
+  "runs": [
+    {
+      "compiled": false,
+      "elapsedMs": 7677,
+      "scores": {
+        "综合": 2089,
+        "累加": 1080404,
+        "运算": 26595,
+        "排序": 4716,
+        "内存": 260
+      }
+    },
+    {
+      "compiled": true,
+      "elapsedMs": 7676,
+      "scores": {
+        "综合": 4462,
+        "累加": 1525155,
+        "运算": 53758,
+        "排序": 14906,
+        "内存": 897
+      }
+    },
+    {
+      "compiled": false,
+      "elapsedMs": 7660,
+      "scores": {
+        "综合": 2014,
+        "累加": 1027873,
+        "运算": 24443,
+        "排序": 4786,
+        "内存": 252
+      }
+    },
+    {
+      "compiled": true,
+      "elapsedMs": 7665,
+      "scores": {
+        "综合": 4420,
+        "累加": 1510139,
+        "运算": 53005,
+        "排序": 14773,
+        "内存": 890
+      }
+    }
+  ]
+}

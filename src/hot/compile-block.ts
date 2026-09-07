@@ -33,6 +33,13 @@ export function compileBlock(block: BasicBlock): CompiledBlock {
       else if (kind === 0 && u.shiftType === 0) {
         const shift = w1 & 31; operand = `(r[${u.rm}]<<${shift})>>>0`; carry = `(r[${u.rm}]>>>${32 - shift})&1`;
       }
+      else if (kind === 0) {
+        const shift = w1 & 31, reg = `r[${u.rm}]`;
+        if (u.shiftType === 1) operand = shift ? `${reg}>>>${shift}` : '0';
+        else if (u.shiftType === 2) operand = `(${reg}>>${shift || 31})>>>0`;
+        else operand = shift ? `((${reg}>>>${shift})|(${reg}<<${32-shift}))>>>0` : `((c.c<<31)|(${reg}>>>1))>>>0`;
+        carry = u.shiftType === 3 && shift === 0 ? `${reg}&1` : `(${reg}>>>${shift ? shift-1 : 31})&1`;
+      }
       if (operand !== null) {
         const ops: Record<number, string> = { [Op.AND]:'a&b', [Op.EOR]:'a^b', [Op.ORR]:'a|b', [Op.BIC]:'a&~b',
           [Op.MOV]:'b', [Op.MVN]:'~b', [Op.TST]:'a&b', [Op.TEQ]:'a^b' };
@@ -52,9 +59,10 @@ export function compileBlock(block: BasicBlock): CompiledBlock {
           if (![Op.TST, Op.TEQ, Op.CMP, Op.CMN].includes(u.op)) body += `r[${u.rd}]=v;`;
         }
       }
-    } else if (u.op >= Op.LDR && u.op <= Op.LDRSH && u.rd !== 15 && u.rn !== 15 && !(u.aux & 1)) {
+    } else if (u.op >= Op.LDR && u.op <= Op.LDRSH && u.rd !== 15 && u.rn !== 15 && (!(u.aux & 1) || (u.rm !== 15 && u.shiftType === 0))) {
       const pre = Boolean(u.aux & 8), add = Boolean(u.aux & 16), wb = Boolean(u.aux & 4);
-      body = `a=r[${u.rn}];b=(a${add ? '+' : '-'}${w1 >>> 0})>>>0;v=${pre ? 'b' : 'a'};`;
+      const offset = u.aux & 1 ? `((r[${u.rm}]<<${w1 & 31})>>>0)` : String(w1 >>> 0);
+      body = `a=r[${u.rn}];b=(a${add ? '+' : '-'}${offset})>>>0;v=${pre ? 'b' : 'a'};`;
       const access: Record<number, string> = {
         [Op.LDR]:`r[${u.rd}]=m.read32Armv5(v);`, [Op.STR]:`m.write32(v&~3,r[${u.rd}]);`,
         [Op.LDRB]:`r[${u.rd}]=m.read8(v);`, [Op.STRB]:`m.write8(v,r[${u.rd}]);`,
@@ -64,13 +72,27 @@ export function compileBlock(block: BasicBlock): CompiledBlock {
       body += access[u.op];
       if (wb && !(u.op === Op.LDR && u.rd === u.rn)) body += `r[${u.rn}]=b;`;
     }
+    if (u.op === Op.B || u.op === Op.BL) {
+      const dest = ((pc + (block.thumb ? 4 : 8) + (w1 | 0)) & (block.thumb ? ~1 : ~3)) >>> 0;
+      body = `${u.op === Op.BL ? `r[14]=${next | block.thumb};` : ''}r[15]=${dest};c.branched=1;`;
+    } else if ((u.op === Op.BX || u.op === Op.BLX) && u.rm !== 15 && !(w2 & 1)) {
+      // Read the branch target before replacing LR (BLX LR is legal).
+      body = `v=r[${u.rm}];${u.op === Op.BLX ? `r[14]=${next | block.thumb};` : ''}c.t=v&1;r[15]=(v&(c.t?~1:~3))>>>0;c.branched=1;`;
+    }
     lines.push('if(budget--<=0)return;');
-    if (body !== null) lines.push(`c.branched=0;if(${conditions[u.cond]}){${body}}r[15]=${next};`);
+    if (body !== null) lines.push(`c.branched=0;if(${conditions[u.cond]}){${body}}if(!c.branched)r[15]=${next};`);
     else lines.push(`f(c,${pc},${w0},${w1},${w2});`);
-    lines.push('c.insnCount++;if(c.branched||!block.valid||c.itState)return;');
+    lines.push(`c.insnCount++;if(!block.valid||c.itState)return;
+      if(c.branched){
+        if(budget>0&&r[15]===${block.guestPC}&&c.t===${block.thumb}){
+          if(c.onBeforeFetch&&c.onBeforeFetch(c))return;
+          continue loop;
+        }
+        return;
+      }`);
     pc = next;
   }
   // CSP may disallow dynamic compilation. The cache catches that once and
   // retains the interpreter, so static sites do not need unsafe-eval enabled.
-  return new Function('f', `return function(c,budget,block){${lines.join('\n')}}`)(execPacked) as CompiledBlock;
+  return new Function('f', `return function(c,budget,block){loop:while(true){${lines.join('\n')}return;}}`)(execPacked) as CompiledBlock;
 }
