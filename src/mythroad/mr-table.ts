@@ -3,7 +3,7 @@ import type { NetworkRules } from "./network-rules.ts";
 import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex, tableSlotAddr } from "../abi/layout.ts";
 import type { ExtRuntime } from "../abi/runtime.ts";
 import { UnknownAbiError, MrpFormatError } from "../err/errors.ts";
-import type { GuestMemory } from "../hot/memory.ts";
+import { MemoryFault, type GuestMemory } from "../hot/memory.ts";
 import { guestMd5Init, guestMd5Append, guestMd5Finish } from "./guest-md5.ts";
 import { MRPArchive } from "../mrp/index.ts";
 import { AppFileSystem } from "./app-fs.ts";
@@ -132,6 +132,7 @@ export type ReadFileRecord = {
 export class MrTableBridge {
   private heap: GuestHeap | null = null;
   private screenAddr = 0;
+  private drawTarget: { address: number; screen: ScreenBuffer } | null = null;
   readonly allocs: AllocRecord[] = [];
   readonly reads: ReadFileRecord[] = [];
   readonly files: CurrentPackFileBackend;
@@ -628,6 +629,28 @@ export class MrTableBridge {
     return `c:/${this.workPath}`;
   }
 
+  /** Native drawing follows the guest's mutable mr_screenBuf/width/height globals.
+   * Games temporarily redirect them to build background tiles off screen.
+   * The physical LCD buffer and presentation callback remain independent.
+   */
+  private drawingScreen(): ScreenBuffer {
+    const mem = this.ext.mem;
+    const address = mem.read32(mem.read32(tableSlotAddr(91)));
+    const width = mem.read32(mem.read32(tableSlotAddr(92)));
+    const height = mem.read32(mem.read32(tableSlotAddr(93)));
+    const lcd = this.hooks.getScreen?.() ?? this.screen;
+    if (address === this.screenAddr && width === lcd.width && height === lcd.height) return lcd;
+    const cached = this.drawTarget;
+    if (cached?.address === address && cached.screen.width === width && cached.screen.height === height) return cached.screen;
+    const bytes = width * height * 2;
+    const region = mem.regions.find(r => address >= r.base && address - r.base <= r.size && bytes <= r.size - (address - r.base));
+    if (!region || !width || !height || (address & 1) || !Number.isSafeInteger(bytes)) throw new MemoryFault(address, "framebuffer", bytes);
+    const pixels = new Uint16Array(region.buf, address - region.base, width * height);
+    const screen = new ScreenBuffer(width, height, pixels);
+    this.drawTarget = { address, screen };
+    return screen;
+  }
+
   /**
    * table[122] = `asm_DrawRect` = `DrawRect`.
    * C: `void DrawRect(int16 x, int16 y, int16 w, int16 h, uint8 r, uint8 g, uint8 b)`.
@@ -642,7 +665,7 @@ export class MrTableBridge {
     const r = args[4]! & 0xff;
     const g = args[5]! & 0xff;
     const b = args[6]! & 0xff;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     screen.drawRect(x, y, w, h, r, g, b);
     this.hooks.onDrawRect?.(x, y, w, h, r, g, b);
     return MR_SUCCESS;
@@ -666,7 +689,7 @@ export class MrTableBridge {
     const unicode = args[6]! | 0;
     const font = args[7]! & 0xffff;
     void font;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     const chars = unicode ? readUcs2Be(mem, text) : gbkBytesToUcs2(readGuestBytes(mem, text));
     let preview = "";
     let chx = asI16(x);
@@ -733,7 +756,7 @@ export class MrTableBridge {
     const sy = asI16(mem.read32((stack + 16) >>> 0));
     const mw = asI16(mem.read32((stack + 20) >>> 0));
     if (!p) return MR_SUCCESS;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     screen.drawBitmapRop((i) => mem.read16((p + (i << 1)) >>> 0), x, y, w, h, rop, trans, sx, sy, mw);
     return MR_SUCCESS;
   }
@@ -744,7 +767,7 @@ export class MrTableBridge {
    * uint16 w, uint16 h, mr_transMatrixSt *pTrans, uint16 transcoler)`.
    * AAPCS: r0=src* r1=dst* r2=w r3=h; [sp]=pTrans* [sp+4]=transcolor.
    * Guest descriptors are 12 / 10 bytes (32-bit `p`). `I==0` is a no-op.
-   * Screen-sized dest also writes the host RGB565 cache.
+   * The explicit destination owns its pixels, even when it has LCD dimensions.
    */
   lastDrawBitmapEx: { src: number; dst: number; w: number; h: number; rop: number } | null = null;
   drawBitmapEx(_sp: number, mem: GuestMemory, args: Uint32Array): number {
@@ -775,7 +798,6 @@ export class MrTableBridge {
     if (!srcP || !dstP || !srcW || !srcH || !dstW || !dstH) return MR_SUCCESS;
     if (srcX > srcW || srcY > srcH || w > srcW - srcX || h > srcH - srcY) return MR_SUCCESS;
     const screen = this.hooks.getScreen?.() ?? this.screen;
-    const mirrorScreen = dstW === screen.width && dstH === screen.height;
     try {
       screen.drawBitmapEx(
         (sx, sy) => mem.read16((srcP + ((sy * srcW + sx) << 1)) >>> 0),
@@ -784,7 +806,6 @@ export class MrTableBridge {
         (dx, dy, color) => {
           if (dx < 0 || dy < 0 || dx >= dstW || dy >= dstH) return;
           mem.write16((dstP + ((dy * dstW + dx) << 1)) >>> 0, color);
-          if (mirrorScreen) screen.drawPoint565(dx, dy, color);
         },
         dstW,
         dstH,
@@ -821,7 +842,7 @@ export class MrTableBridge {
     const trans = mem.read32((sp + 4) >>> 0) & 0xffff;
     const colorCheck = mem.read32((sp + 8) >>> 0) & 0xffff;
     if (!p) return 0;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     return screen.bitmapCheck((i) => mem.read16((p + (i << 1)) >>> 0), x, y, w, h, trans, colorCheck);
   }
 
@@ -916,7 +937,7 @@ export class MrTableBridge {
     const y0 = asI16(y);
     const color = native & 0xffff;
     this.lastDrawPoint = { x: x0, y: y0, color };
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     screen.drawPoint565(x0, y0, color);
     return MR_SUCCESS;
   }
@@ -939,7 +960,7 @@ export class MrTableBridge {
     const r5 = (native >>> 11) & 0x1f;
     const g6 = (native >>> 5) & 0x3f;
     const b5 = native & 0x1f;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const screen = this.drawingScreen();
     screen.drawGlyph(
       asI16(x),
       asI16(y),

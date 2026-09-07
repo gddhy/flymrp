@@ -36,8 +36,9 @@ export class ScreenBuffer {
   constructor(
     readonly width: number,
     readonly height: number,
+    pixels?: Uint16Array,
   ) {
-    this.pixels = new Uint16Array(width * height);
+    this.pixels = pixels ?? new Uint16Array(width * height);
   }
 
   /**
