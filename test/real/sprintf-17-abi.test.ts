@@ -63,6 +63,10 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
       ["%d", 0xffffffff, "-1"],
       ["x%d", 42, "x42"],
       ["res_lang%d.rc", 0, "res_lang0.rc"],
+      ["%ld %%", 100, "100 %"],
+      ["%lu", 0xffffffff, "4294967295"],
+      ["%08lx", 0xabc, "00000abc"],
+      ["%ld", 0x80000000, "-2147483648"],
     ];
     for (const [format, arg, want] of cases) {
       writeCString(ext, fmt, format);
@@ -112,7 +116,7 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
     const { ext } = wire();
     const buf = ext.alloc(16);
     const fmt = ext.alloc(16);
-    const bad = ["%f", "%n", "%p", "%ld", "%*d", "%", "%9999d"];
+    const bad = ["%f", "%n", "%p", "%lld", "%ls", "%*d", "%", "%9999d"];
     for (const format of bad) {
       writeCString(ext, fmt, format);
       expect(() => call17(ext, buf, fmt, 0, 0)).toThrow(UnknownAbiError);

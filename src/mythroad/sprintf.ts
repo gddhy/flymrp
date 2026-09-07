@@ -53,10 +53,13 @@ export function guestSprintf(
   };
   for (let i = 0; i < fmt.length;) {
     if (fmt[i] !== "%") { write(fmt[i++]); continue; }
-    const match = /^%([0-]?)(\d{0,4})([diuxXsc%])/.exec(fmt.slice(i));
+    const match = /^%([0-]?)(\d{0,4})(l?)([diuxXsc%])/.exec(fmt.slice(i));
     if (!match) unsupported(fmt.slice(i, i + 2));
     i += match[0].length;
-    const [, flag, widthText, spec] = match;
+    const [, flag, widthText, length, spec] = match;
+    // ARM's ILP32 long occupies one argument word, just like int. Wide
+    // strings/chars and long long use different ABIs and remain explicit errors.
+    if (length && !"diuxX".includes(spec)) unsupported(match[0]);
     const width = Number(widthText || 0);
     if (width > 4096) unsupported("width too large");
     if (spec === "%") { write("%"); continue; }
@@ -122,6 +125,10 @@ export function guestPrintf(
     }
     if (width > 4096) unsupported("width too large");
     if (spec === 0) unsupported("%");
+    if (spec === 0x6c) {
+      spec = mem.read8((fmt + ++i) >>> 0) & 0xff;
+      if (![0x64, 0x69, 0x75, 0x78, 0x58].includes(spec)) unsupported("%l" + String.fromCharCode(spec));
+    }
     let piece = "";
     if (spec === 0x25) {
       piece = "%";
