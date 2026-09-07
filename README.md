@@ -15,6 +15,20 @@ MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
 
 生产构建自带用户提供的 `mythroad/` 资源快照，清单见 [assets/mythroad-manifest.json](assets/mythroad-manifest.json)。
 
+一键静态打包：
+
+```bash
+./build.sh
+# 其他机器可指定资源目录
+MRP_RESOURCE_DIR='/path/to/mythroad_res' ./build.sh
+```
+
+脚本安装锁定的依赖、检查 TypeScript 并生成根目录 `dist/`。默认资源目录为 `/Users/zixing/Downloads/mrp游戏大集结/mythroad_res`，其中的非隐藏常规文件会复制到 `dist/mythroad_res/`。将整个 `dist/` 上传到静态托管即可，支持部署到子目录；不需要 Node 服务。生产网页通过“打开 MRP 文件”加载游戏，不公开本机游戏库。缺少资源目录会明确中止构建，避免发布缺失资源的产物。
+
+MIDI 默认使用 TinySynth GM，支持多种乐器、打击乐和 MIDI 控制器，无需在线下载音色库。也可选择“轻量方波”，切换时当前 MIDI 从头播放，选择保存在当前浏览器。TinySynth 使用 Apache-2.0 许可，随构建保留在 `licenses/`。网络拦截在后台运行，不向玩家展示调试配置。
+
+网页入口已接入 Google tag `AW-18435412874`，开发网页与静态构建均包含该标签；当前配置为基础标签，未额外定义转化事件。
+
 启用本地游戏库时，会自动读取该目录下的 `mythroad/`，把其中的字库、插件和已有下载资源按原相对路径挂载到游戏的内存文件系统。也可用 `MRP_SYSTEM_DIR=/path/to/mythroad` 单独指定。用户目录中的同名资源优先于内置组件；运行中的写入只影响本次会话。切换游戏时会刷新资源清单，批量兼容性测试使用同一目录并记录资源哈希。
 
 打开终端显示的本地地址。方向键 / WASD 移动，Enter / 空格确认，Q / E 为左右软键；数字 0–9、*、# 对应原手机键盘。分辨率选择在下次加载时生效。普通上传模式下游戏在浏览器中运行；开发游戏库按需从本机服务器读取。
@@ -27,6 +41,8 @@ npm run test:games -- '/path/to/mrp/collection' 40 /tmp/mrp-results.json
 ```
 
 2026-09-07 完成两组各 40 个文件的抽测，覆盖 79 个不同路径、77 种文件内容。17 次输入冒烟通过，11 次游戏退出，4 次停在静态画面，48 次读取或运行报错。冒烟通过表示短流程内没有异常且按键期间画面有变化，**不等于游戏通关或完整可玩**。网页实玩步骤、限制和原始结果见 [本次兼容性记录](docs/compatibility/2026-09-07.md)。
+
+网络地址拦截、下载映射与 `mythroad_res` 资源发布方式见 [本地下载与网络拦截](docs/network-interception.md)。
 
 ## 历史开发记录
 

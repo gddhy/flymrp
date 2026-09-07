@@ -1,5 +1,6 @@
+import { DEFAULT_NETWORK_RULES } from "../src/mythroad/network-rules.ts";
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
-import { binToBytes } from "../src/mrp/index.ts";
+import { binToBytes, MRPArchive } from "../src/mrp/index.ts";
 import { Canvas2DBackend, gb16Uc2Loaded, loadGb16Uc2, MythroadRuntime, type Canvas2DContextLike } from "../src/mythroad/index.ts";
 import { MR_MOUSE_DOWN, MR_MOUSE_UP, MR_MOUSE_MOVE } from "../src/mythroad/constants.ts";
 import { inferScreenSize } from "../src/mythroad/device-size.ts";
@@ -7,6 +8,14 @@ import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 
+const networkRules = DEFAULT_NETWORK_RULES;
+const assetUrl = (path: string): string => new URL(path, document.baseURI).href;
+const editorDialog = document.querySelector<HTMLDialogElement>("#guest-editor")!;
+const editorText = document.querySelector<HTMLInputElement>("#guest-editor-text")!;
+let editingRuntime: MythroadRuntime | null = null;
+document.querySelector("#guest-editor-form")!.addEventListener("submit", ev => { ev.preventDefault(); editingRuntime?.mrTable?.editor.finish(editorText.value, true); });
+document.querySelector("#guest-editor-cancel")!.addEventListener("click", () => editingRuntime?.mrTable?.editor.finish(editorText.value, false));
+editorDialog.addEventListener("cancel", ev => { ev.preventDefault(); editingRuntime?.mrTable?.editor.finish(editorText.value, false); });
 const canvas = document.querySelector<HTMLCanvasElement>("#screen")!;
 const fileInput = document.querySelector<HTMLInputElement>("#file")!;
 const stopBtn = document.querySelector<HTMLButtonElement>("#stop")!;
@@ -25,6 +34,13 @@ const rawCtx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 if (!rawCtx) throw new Error("Canvas2D unavailable");
 const ctx: Canvas2DContextLike = rawCtx;
 const audio = new BrowserAudio();
+const midiPlayer = document.querySelector<HTMLSelectElement>("#midi-player")!;
+try { audio.setMidiPlayer(localStorage.getItem("flymrp.midi-player") === "simple" ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
+midiPlayer.value = audio.midiPlayer;
+midiPlayer.addEventListener("change", () => {
+  audio.setMidiPlayer(midiPlayer.value === "simple" ? "simple" : "tinysynth");
+  try { localStorage.setItem("flymrp.midi-player", audio.midiPlayer); } catch { /* storage is optional */ }
+});
 type Session = { rt: MythroadRuntime; gfx: Canvas2DBackend; raf: number; last: number; title: string; nextHud: number };
 let session: Session | null = null;
 let generation = 0;
@@ -39,6 +55,8 @@ function setStatus(text: string, err = false): void {
 }
 function stop(keepStatus = false): void {
   generation++;
+  if (editorDialog.open) editorDialog.close();
+  editingRuntime = null;
   held.clear();
   touch = null;
   if (session) cancelAnimationFrame(session.raf);
@@ -79,7 +97,7 @@ async function ensureFont(): Promise<void> {
   if (gb16Uc2Loaded() && systemFiles["system/gb12.uc2"]) return;
   fontPromise ??= (async () => {
     await Promise.all(SYSTEM_COMPONENTS.map(async name => {
-      const res = await fetch(`/${name}`);
+      const res = await fetch(assetUrl(name));
       if (!res.ok) throw new Error(`缺少运行组件 ${name}`);
       systemFiles[name] = new Uint8Array(await res.arrayBuffer());
     }));
@@ -88,17 +106,29 @@ async function ensureFont(): Promise<void> {
   await fontPromise;
 }
 const localBlobCache = new Map<string, Uint8Array>();
-async function loadLocalSystem(): Promise<Record<string, Uint8Array>> {
-  const res = await fetch("/__system");
+async function loadLocalSystem(packName?: string): Promise<Record<string, Uint8Array>> {
+  const endpoint = packName ? "/__resources" : "/__system";
+  if (import.meta.env.PROD && !packName) return {};
+  const res = import.meta.env.PROD ? new Response(null, { status: 404 }) : await fetch(endpoint + (packName ? `?game=${encodeURIComponent(packName)}` : ""));
   // Static hosting has no optional local directory endpoint.
-  if (res.status === 404 || (res.ok && !res.headers.get("content-type")?.includes("application/json"))) return {};
-  if (!res.ok) throw new Error("无法读取本地 mythroad 资源目录");
-  const manifest: { name: string; sha256: string; size: number }[] = await res.json();
+  let manifest: { name: string; sha256: string; size: number }[];
+  let staticResources = false;
+  if (res.status === 404 || (res.ok && !res.headers.get("content-type")?.includes("application/json"))) {
+    if (!packName) return {};
+    const index = await fetch(assetUrl("mythroad_res/index.json"));
+    if (index.status === 404 || (index.ok && !index.headers.get("content-type")?.includes("application/json"))) return {};
+    if (!index.ok) throw new Error("无法读取游戏资源清单");
+    manifest = (await index.json()).groups[packName.replace(/\.mrp$/i, "").toLowerCase()] ?? [];
+    staticResources = true;
+  } else {
+    if (!res.ok) throw new Error("无法读取本地 mythroad 资源目录");
+    manifest = await res.json();
+  }
   const files: Record<string, Uint8Array> = {};
   await Promise.all(manifest.map(async item => {
     let bytes = localBlobCache.get(item.sha256);
     if (!bytes) {
-      const response = await fetch(`/__system/${item.sha256}`);
+      const response = await fetch(staticResources ? assetUrl(`mythroad_res/${item.name.split("/").map(encodeURIComponent).join("/")}`) : `${endpoint}/${item.sha256}`);
       if (!response.ok) throw new Error(`无法读取本地组件 ${item.name}`);
       const buffer = await response.arrayBuffer();
       bytes = new Uint8Array(buffer);
@@ -108,8 +138,8 @@ async function loadLocalSystem(): Promise<Record<string, Uint8Array>> {
     }
     files[item.name] = bytes;
   }));
-  const active = new Set(manifest.map(item => item.sha256));
-  for (const hash of localBlobCache.keys()) if (!active.has(hash)) localBlobCache.delete(hash);
+  let cachedBytes = [...localBlobCache.values()].reduce((sum, bytes) => sum + bytes.length, 0);
+  for (const [hash, bytes] of localBlobCache) { if (cachedBytes <= 64 * 1024 * 1024) break; localBlobCache.delete(hash); cachedBytes -= bytes.length; }
   return files;
 }
 async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
@@ -134,10 +164,19 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.height = profile.height;
     canvas.style.setProperty("--screen-ratio", `${profile.width} / ${profile.height}`);
     const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
-    const localFiles = await loadLocalSystem();
+    const packName = MRPArchive.parse(new Uint8Array(buffer)).header.filename;
+    const localFiles = { ...await loadLocalSystem(), ...await loadLocalSystem(packName) };
     if (token !== generation) return;
     loadGb16Uc2(localFiles["system/gb16.uc2"] ?? systemFiles["system/gb16.uc2"]);
-    rt = new MythroadRuntime({ systemFiles: { ...systemFiles, ...localFiles }, profile, graphics: gfx, abiMode: "strict",
+    rt = new MythroadRuntime({ networkRules, onEditChange: state => {
+      if (!state) { if (editorDialog.open) editorDialog.close(); editingRuntime = null; canvas.focus(); return; }
+      editingRuntime = rt ?? null;
+      document.querySelector("#guest-editor-title")!.textContent = state.title || "游戏输入";
+      editorText.type = state.type === 2 ? "password" : "text";
+      editorText.inputMode = state.type === 1 ? "numeric" : "text";
+      editorText.maxLength = state.maxLength; editorText.value = state.text;
+      if (!editorDialog.open) editorDialog.showModal(); editorText.focus();
+    }, systemFiles: { ...systemFiles, ...localFiles }, profile, graphics: gfx, abiMode: "strict",
       onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
     const archive = rt.loadMrp(new Uint8Array(buffer));
     rt.start();
@@ -285,6 +324,7 @@ loadGame.addEventListener("click", () => {
 });
 const refreshLibrary = document.querySelector<HTMLButtonElement>("#refresh-library")!;
 async function reloadLibrary(): Promise<void> {
+  if (import.meta.env.PROD) return;
   refreshLibrary.disabled = true;
   try {
     const response = await fetch("/__games");

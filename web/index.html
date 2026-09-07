@@ -17,7 +17,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <a class="brand" href="/" aria-label="flymrp 首页"><span class="brand-icon">f</span>flymrp <span class="brand-note">掌上游戏机</span></a>
+    <a class="brand" href="./" aria-label="flymrp 首页"><span class="brand-icon">f</span>flymrp <span class="brand-note">掌上游戏机</span></a>
     <div class="toolbar-actions">
       <button id="library-toggle" aria-controls="game-drawer" aria-expanded="true">游戏库</button>
       <button id="theme" aria-label="切换深浅主题" title="切换深浅主题">◐</button>
@@ -26,7 +26,7 @@
   </header>
   <main class="workspace">
     <aside id="game-drawer" class="drawer" aria-label="选择游戏">
-      <div class="drawer-heading"><div><span class="eyebrow">YOUR COLLECTION</span><h1>游戏库</h1></div><span class="format-tag">MRP</span></div>
+      <div class="drawer-heading"><div><span class="eyebrow">随时，玩一会儿</span><h1>游戏库</h1></div><span class="format-tag">MRP</span></div>
       <label class="upload" for="file"><span>＋</span> 打开 MRP 文件<input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" /></label>
       <p class="drawer-hint">文件在本机运行，随时重温掌上游戏。</p>
       <div class="library" id="library" hidden>
@@ -35,6 +35,7 @@
         <select id="games" size="12" aria-label="本地游戏列表"></select>
         <button id="load-game" class="primary" type="button">开始游戏 <span>↗</span></button>
       </div>
+      <label class="setting">MIDI 播放器 <select id="midi-player"><option value="tinysynth">TinySynth · GM（推荐）</option><option value="simple">轻量方波</option></select></label>
       <label class="setting">屏幕分辨率 <select id="resolution"><option value="auto">自动识别</option><option>176x220</option><option>240x320</option><option>240x400</option><option>320x240</option><option>320x480</option><option>480x320</option></select></label>
       <p class="drawer-hint">分辨率在下次加载时生效。游戏兼容性仍在完善。</p>
     </aside>
@@ -52,6 +53,13 @@
       <details class="help"><summary>键盘与操作说明</summary><p>方向键 / WASD 移动，Enter / 空格确认，Q / E 为左右软键，Esc 为右软键。数字键对应手机键盘。部分游戏使用数字 5 确认，请按画面提示操作。游戏支持时，也可直接点击画面。</p><p>声音由浏览器合成，部分音色与手机不同。加载和解压可能需要几秒。</p></details>
     </section>
   </main>
+  <dialog id="guest-editor" aria-labelledby="guest-editor-title">
+    <form id="guest-editor-form">
+      <h2 id="guest-editor-title">游戏输入</h2>
+      <label for="guest-editor-text">内容</label><input id="guest-editor-text" autocomplete="off" />
+      <div><button type="submit">确定</button><button type="button" id="guest-editor-cancel">取消</button></div>
+    </form>
+  </dialog>
   <footer class="project-license"><a href="https://github.com/zixing131/flymrp">项目源码</a><span> · </span><a href="https://github.com/zixing131/flymrp/blob/main/LICENSE">AGPL-3.0</a></footer>
   <script type="module" src="./app.ts"></script>
 </body>
