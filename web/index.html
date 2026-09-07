@@ -1,97 +1,49 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>flymrp</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #12141a;
-        --panel: #1c2028;
-        --line: #2c3340;
-        --text: #e8edf5;
-        --muted: #8b95a7;
-        --accent: #6cb6ff;
-        --pad: #2a3140;
-      }
-      * { box-sizing: border-box; }
-      [hidden] { display: none !important; }
-      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; }
-      body { display: flex; flex-direction: column; align-items: center; padding: 20px 16px 32px; }
-      h1 { margin: 0 0 6px; font-size: 20px; font-weight: 650; }
-      .sub { color: var(--muted); margin: 0 0 16px; max-width: 36rem; }
-      .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-bottom: 14px; }
-      .bar input[type="file"] { color: var(--muted); }
-      button, .key {
-        appearance: none; border: 1px solid var(--line); background: var(--pad); color: var(--text);
-        border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit;
-      }
-      [data-key] { touch-action: none; user-select: none; }
-      select, input[type="search"] { padding: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; max-width: 80vw; }
-      .library { max-width: 42rem; width: 100%; }
-      .library select { width: 100%; }
-      button:hover, .key:hover { border-color: var(--accent); }
-      button:disabled { opacity: 0.45; cursor: default; }
-      .phone {
-        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
-        padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px;
-      }
-      canvas {
-        width: auto; height: min(400px, 45vh); max-width: calc(100vw - 64px); aspect-ratio: var(--screen-ratio, 3 / 4); touch-action: none;
-        image-rendering: pixelated; background: #000; border-radius: 4px;
-      }
-      .status { color: var(--muted); min-height: 1.4em; text-align: center; max-width: 28rem; word-break: break-word; }
-      .status.err { color: #ff8b8b; }
-      .pads { display: grid; grid-template-columns: repeat(3, 64px); gap: 6px; justify-content: center; }
-      .soft { display: flex; gap: 8px; width: min(480px, calc(100vw - 48px)); }
-      .soft button { flex: 1; }
-      .help { color: var(--muted); font-size: 12px; max-width: 28rem; text-align: center; }
-      kbd { background: var(--pad); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
-    </style>
-  </head>
-  <body>
-    <h1>flymrp</h1>
-    <p class="sub">在浏览器里加载你自己的 <code>.mrp</code>。支持键盘、屏幕按键和触屏操作，部分游戏仍有兼容问题。</p>
-    <div class="bar">
-      <input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" />
-      <label>分辨率 <select id="resolution"><option value="auto">自动 / 240×320</option><option>176x220</option><option>240x320</option><option>240x400</option><option>320x240</option><option>320x480</option><option>480x320</option></select></label>
-      <button id="stop" type="button" disabled>停止</button>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f6f8" />
+  <title>flymrp · 掌上游戏机</title>
+  <link rel="stylesheet" href="./player.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <a class="brand" href="/" aria-label="flymrp 首页"><span class="brand-icon">f</span>flymrp <span class="brand-note">掌上游戏机</span></a>
+    <div class="toolbar-actions">
+      <button id="library-toggle" aria-controls="game-drawer" aria-expanded="true">游戏库</button>
+      <button id="theme" aria-label="切换深浅主题" title="切换深浅主题">◐</button>
+      <button id="fullscreen" aria-label="全屏" title="全屏">⛶</button>
     </div>
-    <div class="bar library" id="library" hidden>
-      <input id="search" type="search" placeholder="搜索本地游戏名称…" aria-label="搜索本地游戏" />
-      <span id="library-count"></span>
-      <select id="games" aria-label="本地游戏列表"></select>
-      <button id="load-game" type="button">加载所选游戏</button>
-    </div>
-    <div class="phone">
-      <canvas id="screen" width="240" height="320" tabindex="0"></canvas>
-      <div id="status" class="status">选择一个 .mrp 开始</div>
-      <div class="soft">
-        <button type="button" data-key="SOFTLEFT">左软键 / 是</button>
-        <button type="button" data-key="FIRE">确认 / FIRE</button>
-        <button type="button" data-key="SOFTRIGHT">右软键 / 否</button>
+  </header>
+  <main class="workspace">
+    <aside id="game-drawer" class="drawer" aria-label="选择游戏">
+      <div class="drawer-heading"><div><span class="eyebrow">YOUR COLLECTION</span><h1>游戏库</h1></div><span class="format-tag">MRP</span></div>
+      <label class="upload" for="file"><span>＋</span> 打开 MRP 文件<input id="file" type="file" accept=".mrp,.MRP,application/octet-stream" /></label>
+      <p class="drawer-hint">文件在本机运行，随时重温掌上游戏。</p>
+      <div class="library" id="library" hidden>
+        <input id="search" type="search" placeholder="搜索本地游戏…" aria-label="搜索本地游戏" />
+        <div class="library-meta"><span>本地收藏</span><span id="library-count"></span></div>
+        <select id="games" size="12" aria-label="本地游戏列表"></select>
+        <button id="load-game" class="primary" type="button">开始游戏 <span>↗</span></button>
       </div>
-      <div class="pads">
-        <span></span>
-        <button type="button" data-key="UP">上</button>
-        <span></span>
-        <button type="button" data-key="LEFT">左</button>
-        <button type="button" data-key="DOWN">下</button>
-        <button type="button" data-key="RIGHT">右</button>
+      <label class="setting">屏幕分辨率 <select id="resolution"><option value="auto">自动识别</option><option>176x220</option><option>240x320</option><option>240x400</option><option>320x240</option><option>320x480</option><option>480x320</option></select></label>
+      <p class="drawer-hint">分辨率在下次加载时生效。游戏兼容性仍在完善。</p>
+    </aside>
+    <section class="player" aria-label="游戏机">
+      <div class="player-heading"><span id="game-title">准备开始</span><div class="player-actions"><span id="fps">— FPS</span><button id="pause" disabled>暂停</button><button id="restart" disabled>重启</button><button id="stop" disabled>停止</button></div></div>
+      <div class="stage"><div class="screen-shell"><canvas id="screen" width="240" height="320" tabindex="0" aria-label="游戏画面"></canvas><div class="empty-screen" id="empty-screen"><span class="empty-icon">✦</span><strong>把小时候，装进口袋</strong><span>选择收藏，或打开一个 .mrp 文件</span></div></div></div>
+      <div id="status" class="status" role="status">选择一个 .mrp 开始</div>
+      <div class="controller">
+        <div class="soft"><button data-key="SOFTLEFT">左软键 <kbd>Q</kbd></button><button data-key="FIRE" class="confirm">确认 <kbd>↵</kbd></button><button data-key="SOFTRIGHT">右软键 <kbd>E</kbd></button></div>
+        <div class="control-bottom">
+          <div class="dpad" aria-label="方向键"><button class="up" data-key="UP" aria-label="上">↑</button><button class="left" data-key="LEFT" aria-label="左">←</button><span class="dpad-center">•</span><button class="right" data-key="RIGHT" aria-label="右">→</button><button class="down" data-key="DOWN" aria-label="下">↓</button></div>
+          <div class="numbers" aria-label="手机数字键盘"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="STAR">*</button><button data-key="0">0</button><button data-key="POUND">#</button></div>
+        </div>
       </div>
-      <div class="pads" aria-label="手机数字键盘">
-        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
-        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
-        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-        <button data-key="STAR">*</button><button data-key="0">0</button><button data-key="POUND">#</button>
-      </div>
-    </div>
-    <p class="help">
-      键盘：<kbd>↑↓←→</kbd> / <kbd>WASD</kbd> 方向，<kbd>Enter</kbd> / <kbd>空格</kbd> 确认，
-      <kbd>Q</kbd> 左软键，<kbd>Esc</kbd> 右软键。数字键 <kbd>0–9</kbd> 对应手机数字键，<kbd>Q / E</kbd> 对应左右软键。
-      选「是」才播 MIDI/WAV（方波合成，不是手机原声）。资源解压时可能需要等待几秒。分辨率在下次加载时生效。
-    </p>
-    <script type="module" src="./app.ts"></script>
-  </body>
+      <details class="help"><summary>键盘与操作说明</summary><p>方向键 / WASD 移动，Enter / 空格确认，Q / E 为左右软键，Esc 为右软键。数字键对应手机键盘。游戏支持时，也可直接点击画面。</p><p>声音由浏览器合成，部分音色与手机不同。加载和解压可能需要几秒。</p></details>
+    </section>
+  </main>
+  <script type="module" src="./app.ts"></script>
+</body>
 </html>

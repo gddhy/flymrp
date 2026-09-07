@@ -11,6 +11,15 @@ const fileInput = document.querySelector<HTMLInputElement>("#file")!;
 const stopBtn = document.querySelector<HTMLButtonElement>("#stop")!;
 const resolution = document.querySelector<HTMLSelectElement>("#resolution")!;
 const statusEl = document.querySelector<HTMLElement>("#status")!;
+const pauseBtn = document.querySelector<HTMLButtonElement>("#pause")!;
+const restartBtn = document.querySelector<HTMLButtonElement>("#restart")!;
+const titleEl = document.querySelector<HTMLElement>("#game-title")!;
+const fpsEl = document.querySelector<HTMLElement>("#fps")!;
+const emptyScreen = document.querySelector<HTMLElement>("#empty-screen")!;
+let paused = false;
+let frames = 0;
+let fpsStart = 0;
+let lastGame: { name: string; read: () => Promise<ArrayBuffer> } | null = null;
 const rawCtx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 if (!rawCtx) throw new Error("Canvas2D unavailable");
 const ctx: Canvas2DContextLike = rawCtx;
@@ -34,6 +43,10 @@ function stop(keepStatus = false): void {
   session = null;
   audio.stopAll();
   stopBtn.disabled = true;
+  pauseBtn.disabled = true;
+  pauseBtn.textContent = "暂停";
+  paused = false;
+  fpsEl.textContent = "— FPS";
   if (!keepStatus) setStatus("已停止。选择游戏即可重新加载。");
 }
 function present(s: Pick<Session, "rt" | "gfx">): void { s.gfx.flush(0, 0, s.rt.screenW, s.rt.screenH, 0); }
@@ -45,6 +58,7 @@ function fail(e: unknown, rt?: MythroadRuntime): void {
 function frame(now: number): void {
   const s = session;
   if (!s) return;
+  if (paused) { s.last = now; s.raf = requestAnimationFrame(frame); return; }
   try {
     s.rt.advance(Math.max(0, Math.min(100, now - s.last)));
     s.last = now;
@@ -54,7 +68,10 @@ function frame(now: number): void {
     if (now >= s.nextHud) {
       setStatus(`${s.title} · ${s.rt.screenW}×${s.rt.screenH} · 运行中${audio.lastError ? ` · 声音：${audio.lastError}` : ""}`);
       s.nextHud = now + 500;
+      const elapsed = now - fpsStart;
+      if (elapsed >= 500) { fpsEl.textContent = `${Math.round(frames * 1000 / elapsed)} FPS`; frames = 0; fpsStart = now; }
     }
+    frames++;
     s.raf = requestAnimationFrame(frame);
   } catch (e) { present(s); fail(e, s.rt); }
 }
@@ -69,6 +86,10 @@ async function ensureFont(): Promise<void> {
 }
 async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
   stop(true);
+  lastGame = { name, read };
+  restartBtn.disabled = false;
+  titleEl.textContent = name.split("/").at(-1)!.replace(/\.mrp$/i, "");
+  emptyScreen.hidden = true;
   const token = generation;
   const profile = resolution.value === "auto" ? inferScreenSize(name) : inferScreenSize(resolution.value);
   stopBtn.disabled = false;
@@ -104,6 +125,10 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     if (token !== generation) return;
     const title = archive.header.appname ? new TextDecoder("gbk").decode(binToBytes(archive.header.appname)) : name.split("/").at(-1)!;
     session = { rt, gfx, raf: 0, last: performance.now(), nextHud: 0, title };
+    titleEl.textContent = title;
+    pauseBtn.disabled = false;
+    frames = 0; fpsStart = performance.now();
+    if (window.matchMedia("(max-width: 760px)").matches) setDrawer(false);
     canvas.focus();
     session.raf = requestAnimationFrame(frame);
   } catch (e) { if (token === generation) fail(e, rt); }
@@ -114,8 +139,34 @@ fileInput.addEventListener("change", () => {
   if (file) void start(file.name, () => file.arrayBuffer());
 });
 stopBtn.addEventListener("click", () => stop());
+pauseBtn.addEventListener("click", () => {
+  if (!session) return;
+  releaseAll();
+  try {
+    if (paused) session.rt.resume(); else session.rt.pause();
+    paused = !paused;
+    pauseBtn.textContent = paused ? "继续" : "暂停";
+    session.last = performance.now();
+    fpsStart = session.last; frames = 0;
+    setStatus(paused ? "已暂停" : "运行中");
+  } catch (e) { fail(e, session.rt); }
+});
+restartBtn.addEventListener("click", () => { if (lastGame) void start(lastGame.name, lastGame.read); });
+const drawer = document.querySelector<HTMLElement>("#game-drawer")!;
+const libraryToggle = document.querySelector<HTMLButtonElement>("#library-toggle")!;
+function setDrawer(open: boolean): void { drawer.hidden = !open; libraryToggle.setAttribute("aria-expanded", String(open)); }
+libraryToggle.addEventListener("click", () => setDrawer(drawer.hidden));
+document.querySelector("#theme")!.addEventListener("click", () => {
+  document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+});
+document.querySelector("#fullscreen")!.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch { setStatus("此浏览器暂不支持全屏，可收起游戏库扩大画面。"); }
+});
 window.addEventListener("keydown", ev => {
-  if (!session || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea"))) return;
+  if (!session || paused || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
   const alias = ev.key === "*" ? "STAR" : ev.key === "#" ? "POUND" : DOM_KEY[ev.code];
   if (!alias) return;
   ev.preventDefault();
@@ -133,7 +184,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) relea
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
   btn.addEventListener("pointerdown", ev => {
     ev.preventDefault();
-    if (!session) return;
+    if (!session || paused) return;
     btn.setPointerCapture(ev.pointerId);
     audio.resume();
     held.press(`pointer:${ev.pointerId}`, btn.dataset.key!);
@@ -168,7 +219,12 @@ let games: Game[] = [];
 function renderLibrary(): void {
   const term = search.value.trim().toLowerCase();
   const matches = games.filter(game => game.name.toLowerCase().includes(term));
-  gameSelect.replaceChildren(...matches.slice(0, 100).map(game => new Option(game.name, String(game.id))));
+  gameSelect.replaceChildren(...matches.slice(0, 100).map(game => {
+    const option = new Option(game.name.split("/").at(-1)!.replace(/\.mrp$/i, ""), String(game.id));
+    option.title = game.name;
+    return option;
+  }));
+  gameSelect.selectedIndex = matches.length ? 0 : -1;
   document.querySelector("#library-count")!.textContent = `${matches.length} 款${matches.length > 100 ? "，显示前 100 款" : ""}`;
   loadGame.disabled = !matches.length;
 }
