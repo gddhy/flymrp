@@ -16,6 +16,9 @@ type Voice = { stop: () => void };
  */
 export class BrowserAudio {
   private ctx: AudioContext | null = null;
+  private output: GainNode | null = null;
+  private volume = 0.7;
+  private muted = false;
   private voices = new Map<number, Voice>();
   private requests = new Map<number, symbol>();
   private synth: TinySynth | null = null;
@@ -24,6 +27,14 @@ export class BrowserAudio {
   lastType: number | null = null;
   lastLen = 0;
   lastError: string | null = null;
+
+  setVolume(value: number): void { this.volume = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.7; this.applyVolume(); }
+  setMuted(value: boolean): void { this.muted = value; this.applyVolume(); }
+  private applyVolume(): void {
+    const gain = this.muted ? 0 : this.volume;
+    if (this.output) this.output.gain.value = gain;
+    this.synth?.setMasterVol(0.35 * gain);
+  }
 
   resume(): void {
     const ctx = this.ensure();
@@ -85,6 +96,9 @@ export class BrowserAudio {
     if (!this.ctx) {
       const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor();
+      this.output = this.ctx.createGain();
+      this.output.connect(this.ctx.destination);
+      this.applyVolume();
     }
     return this.ctx;
   }
@@ -115,7 +129,7 @@ export class BrowserAudio {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = loop;
-    src.connect(ctx.destination);
+    src.connect(this.output!);
     src.start();
     this.voices.set(type, {
       stop: () => {
@@ -134,7 +148,7 @@ export class BrowserAudio {
     if (!song.events.length) return;
     this.synth ??= new TinySynth({ quality: 1, voices: 64, useReverb: 0 });
     const synth = this.synth, ctx = synth.getAudioContext();
-    synth.reset(); synth.setMasterVol(0.35);
+    synth.reset(); this.applyVolume();
     if (ctx.state === "suspended") void ctx.resume();
     let index = 0, origin = ctx.currentTime + .05;
     const period = Math.max(.25, song.duration);
@@ -161,7 +175,7 @@ export class BrowserAudio {
     }
     const master = ctx.createGain();
     master.gain.value = 0.18;
-    master.connect(ctx.destination);
+    master.connect(this.output!);
     const oscs: OscillatorNode[] = [];
     const startAt = ctx.currentTime + 0.02;
     const lastT = events[events.length - 1]!.t;

@@ -5,11 +5,12 @@ import { BrowserAudio } from "../../web/audio.ts";
 import { MR_SOUND_MIDI, MR_SOUND_MP3 } from "../../src/mythroad/index.ts";
 const midi = new Uint8Array([77,84,104,100,0,0,0,6,0,0,0,1,0,96,77,84,114,107,0,0,0,12,0,144,60,80,96,128,60,0,0,255,47,0]);
 describe("browser audio lifecycle", () => {
-  let pending: ((value: AudioBuffer) => void)[], starts: ReturnType<typeof vi.fn>;
+  let pending: ((value: AudioBuffer) => void)[], starts: ReturnType<typeof vi.fn>, gain: { value: number };
   beforeEach(() => {
-    vi.useFakeTimers(); pending = []; starts = vi.fn();
+    vi.useFakeTimers(); pending = []; starts = vi.fn(); gain = { value: 1 };
     const context = { state: "running", currentTime: 0, destination: {},
       decodeAudioData: () => new Promise<AudioBuffer>(resolve => pending.push(resolve)),
+      createGain: () => ({ gain, connect: vi.fn(), disconnect: vi.fn() }),
       createBufferSource: () => ({ connect: vi.fn(), disconnect: vi.fn(), start: starts, stop: vi.fn() }) };
     synth.getAudioContext.mockReturnValue(context);
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } }, setInterval, clearInterval, setTimeout, clearTimeout });
@@ -29,5 +30,13 @@ describe("browser audio lifecycle", () => {
     expect(synth.send).toHaveBeenCalledWith([144,60,80], .05); audio.stopAll();
     expect(synth.stopMIDI).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
     audio.setMidiPlayer("simple"); expect(vi.getTimerCount()).toBe(0);
+  });
+  it("applies live volume and mute to both sampled audio and MIDI without restarting music", () => {
+    const audio = new BrowserAudio(); audio.play(MR_SOUND_MIDI, midi, 1);
+    audio.setVolume(.4); expect(gain.value).toBe(.4); expect(synth.setMasterVol).toHaveBeenLastCalledWith(.35 * .4);
+    audio.setMuted(true); expect(gain.value).toBe(0); expect(synth.setMasterVol).toHaveBeenLastCalledWith(0);
+    audio.setVolume(.6); expect(gain.value).toBe(0);
+    audio.setMuted(false); expect(gain.value).toBe(.6); expect(synth.setMasterVol).toHaveBeenLastCalledWith(.35 * .6);
+    expect(synth.reset).toHaveBeenCalledTimes(1); audio.stopAll();
   });
 });

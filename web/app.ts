@@ -7,9 +7,11 @@ import { inferScreenSize } from "../src/mythroad/device-size.ts";
 import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
+import { assetUrl, readGame, readLibrary } from "./library.ts";
+import { clockSlices, rotatedDirection, screenPoint } from "./player-options.ts";
 
 const networkRules = DEFAULT_NETWORK_RULES;
-const assetUrl = (path: string): string => new URL(path, document.baseURI).href;
+let rotation = 0, speed = 1;
 const editorDialog = document.querySelector<HTMLDialogElement>("#guest-editor")!;
 const editorText = document.querySelector<HTMLInputElement>("#guest-editor-text")!;
 let editingRuntime: MythroadRuntime | null = null;
@@ -79,17 +81,19 @@ function frame(now: number): void {
   if (!s) return;
   if (paused) { s.last = now; s.raf = requestAnimationFrame(frame); return; }
   try {
-    s.rt.advance(Math.max(0, Math.min(100, now - s.last)));
+    for (const elapsed of clockSlices(now - s.last, speed)) {
+      s.rt.advance(elapsed);
+      for (let i = 0; i < 16 && s.rt.step(); i++);
+      if (s.rt.exited) break;
+    }
     s.last = now;
-    for (let i = 0; i < 16 && s.rt.step(); i++);
     if (s.rt.exited) { stop(true); setStatus("游戏已退出，可重新加载。"); return; }
     if (now >= s.nextHud) {
       setStatus(`${s.title} · ${s.rt.screenW}×${s.rt.screenH} · 运行中${audio.lastError ? ` · 声音：${audio.lastError}` : ""}`);
       s.nextHud = now + 500;
       const elapsed = now - fpsStart;
-      if (elapsed >= 500) { fpsEl.textContent = `${Math.round(frames * 1000 / elapsed)} FPS`; frames = 0; fpsStart = now; }
+      if (elapsed >= 500) { fpsEl.textContent = `${Math.round((s.gfx.frames - frames) * 1000 / elapsed)} FPS`; frames = s.gfx.frames; fpsStart = now; }
     }
-    frames++;
     s.raf = requestAnimationFrame(frame);
   } catch (e) { fail(e, s.rt); }
 }
@@ -162,7 +166,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     if (token !== generation) return;
     canvas.width = profile.width;
     canvas.height = profile.height;
-    canvas.style.setProperty("--screen-ratio", `${profile.width} / ${profile.height}`);
+    fitScreen();
     const gfx = new Canvas2DBackend(ctx, () => rt!.screen);
     const packName = MRPArchive.parse(new Uint8Array(buffer)).header.filename;
     const localFiles = { ...await loadLocalSystem(), ...await loadLocalSystem(packName) };
@@ -196,7 +200,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     session = { rt, gfx, raf: 0, last: performance.now(), nextHud: 0, title };
     titleEl.textContent = title;
     pauseBtn.disabled = false;
-    frames = 0; fpsStart = performance.now();
+    frames = gfx.frames; fpsStart = performance.now();
     if (window.matchMedia("(max-width: 760px)").matches) setDrawer(false);
     canvas.focus();
     session.raf = requestAnimationFrame(frame);
@@ -232,7 +236,7 @@ document.querySelector("#fullscreen")!.addEventListener("click", async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen();
-  } catch { setStatus("此浏览器暂不支持全屏，可收起游戏库扩大画面。"); }
+  } catch { setStatus("此浏览器暂不支持全屏，可隐藏虚拟键盘扩大画面。"); }
 });
 window.addEventListener("keydown", ev => {
   if (!session || paused || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
@@ -240,11 +244,12 @@ window.addEventListener("keydown", ev => {
   if (!alias) return;
   ev.preventDefault();
   audio.resume();
-  held.press(`keyboard:${ev.code}`, alias);
+  held.press(`keyboard:${ev.code}`, rotatedDirection(alias, rotation));
 });
 window.addEventListener("keyup", ev => held.release(`keyboard:${ev.code}`));
 function releaseAll(): void {
   held.clear();
+  document.querySelectorAll("[data-key].held").forEach(button => button.classList.remove("held"));
   if (touch !== null && session) session.rt.queueEvent(EV_KEY, MR_MOUSE_UP, 0, 0);
   touch = null;
 }
@@ -253,15 +258,25 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) relea
 let activationId = 0;
 for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
   let pointerActivated = false;
+  const pointers = new Map<number, { source: string; start: number }>();
   btn.addEventListener("pointerdown", ev => {
     ev.preventDefault();
     if (!session || paused) return;
     btn.setPointerCapture(ev.pointerId);
     audio.resume();
     pointerActivated = true;
-    held.press(`pointer:${ev.pointerId}`, btn.dataset.key!);
+    const source = `pointer:${ev.pointerId}:${++activationId}`;
+    pointers.set(ev.pointerId, { source, start: performance.now() });
+    btn.classList.add("held");
+    held.press(source, rotatedDirection(btn.dataset.key!, rotation));
   });
-  const release = (ev: PointerEvent) => held.release(`pointer:${ev.pointerId}`);
+  const release = (ev: PointerEvent) => {
+    const pointer = pointers.get(ev.pointerId);
+    if (!pointer) return;
+    pointers.delete(ev.pointerId); btn.classList.remove("held");
+    const delay = ev.type === "pointercancel" ? 0 : Math.max(0, 80 - (performance.now() - pointer.start));
+    setTimeout(() => held.release(pointer.source), delay);
+  };
   btn.addEventListener("pointerup", release);
   btn.addEventListener("pointercancel", release);
   btn.addEventListener("pointercancel", () => { pointerActivated = false; });
@@ -274,15 +289,14 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
     if (alreadyHandled || !session || paused) return;
     const source = `activation:${++activationId}`;
     audio.resume();
-    held.press(source, btn.dataset.key!);
+    held.press(source, rotatedDirection(btn.dataset.key!, rotation));
     setTimeout(() => held.release(source), 120);
   });
 }
 function touchEvent(ev: PointerEvent, type: number): void {
   if (!session) return;
   const rect = canvas.getBoundingClientRect();
-  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((ev.clientX - rect.left) * canvas.width / rect.width)));
-  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((ev.clientY - rect.top) * canvas.height / rect.height)));
+  const [x, y] = screenPoint((ev.clientX - rect.left) / rect.width, (ev.clientY - rect.top) / rect.height, canvas.width, canvas.height, rotation);
   session.rt.queueEvent(EV_KEY, type, x, y);
 }
 canvas.addEventListener("pointerdown", ev => {
@@ -295,48 +309,82 @@ for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const
   if (ev.pointerId === touch) { touchEvent(ev, MR_MOUSE_UP); touch = null; }
 });
 
-const gameSelect = document.querySelector<HTMLSelectElement>("#games")!;
-const search = document.querySelector<HTMLInputElement>("#search")!;
-const loadGame = document.querySelector<HTMLButtonElement>("#load-game")!;
-type Game = { id: number; name: string; sha256?: string; title?: string; category?: string };
-let games: Game[] = [];
-function renderLibrary(): void {
-  const term = search.value.trim().toLowerCase();
-  const matches = games.filter(game => `${game.title ?? ""} ${game.category ?? ""} ${game.name}`.toLowerCase().includes(term));
-  gameSelect.replaceChildren(...matches.slice(0, 100).map(game => {
-    const option = new Option(game.title ?? game.name.split("/").at(-1)!.replace(/\.mrp$/i, ""), String(game.id));
-    option.title = game.name;
-    return option;
-  }));
-  gameSelect.selectedIndex = matches.length ? 0 : -1;
-  document.querySelector("#library-count")!.textContent = `${matches.length} 款${matches.length > 100 ? "，显示前 100 款" : ""}`;
-  loadGame.disabled = !matches.length;
+
+const stage = document.querySelector<HTMLElement>('#stage')!;
+const viewport = document.querySelector<HTMLElement>('#screen-viewport')!;
+const shell = document.querySelector<HTMLElement>('#screen-shell')!;
+const keypad = document.querySelector<HTMLElement>('#keypad')!;
+const zoomSelect = document.querySelector<HTMLSelectElement>('#zoom')!;
+const rotationSelect = document.querySelector<HTMLSelectElement>('#rotation')!;
+function fitScreen(): void {
+  if (!stage) return;
+  const swapped = rotation % 2 !== 0;
+  const width = swapped ? canvas.height : canvas.width, height = swapped ? canvas.width : canvas.height;
+  const fit = Math.max(.1, Math.min((stage.clientWidth - 32) / width, (stage.clientHeight - 26) / height));
+  const scale = zoomSelect.value === 'auto' ? fit : Math.min(fit, Number(zoomSelect.value));
+  canvas.style.width = `${canvas.width * scale}px`; canvas.style.height = `${canvas.height * scale}px`;
+  viewport.style.width = `${width * scale + 10}px`; viewport.style.height = `${height * scale + 10}px`;
+  shell.style.transform = `translate(-50%, -50%) rotate(${rotation * 90}deg)`;
 }
-search.addEventListener("input", renderLibrary);
-loadGame.addEventListener("click", () => {
-  const game = games.find(g => String(g.id) === gameSelect.value);
-  if (!game) return;
-  void start(game.name, async () => {
-    const response = await fetch(import.meta.env.PROD ? assetUrl(`games/${game.name.split("/").map(encodeURIComponent).join("/")}${game.sha256 ? `?v=${encodeURIComponent(game.sha256)}` : ""}`) : `/__games/${game.id}`);
-    if (!response.ok) throw new Error("无法读取游戏文件");
-    return response.arrayBuffer();
+function storeSetting(name: string, value: string): void { try { localStorage.setItem(`flymrp.${name}`, value); } catch {} }
+function bindSelect(id: string, apply: (value: string) => void): void {
+  const select = document.querySelector<HTMLSelectElement>(`#${id}`)!;
+  try { const saved = localStorage.getItem(`flymrp.${id}`); if ([...select.options].some(option => option.value === saved)) select.value = saved!; } catch {}
+  apply(select.value);
+  select.addEventListener('change', () => { storeSetting(id, select.value); apply(select.value); canvas.focus(); });
+}
+bindSelect('zoom', fitScreen);
+bindSelect('speed', value => { speed = Number(value); });
+bindSelect('rotation', value => { releaseAll(); rotation = Number(value); fitScreen(); });
+bindSelect('keypad-side', value => keypad.classList.toggle('reverse', value === 'reverse'));
+bindSelect('resolution', () => {});
+function rotate(delta: number): void { rotationSelect.value = String((rotation + delta + 4) % 4); rotationSelect.dispatchEvent(new Event('change')); }
+document.querySelector('#rotate-left')!.addEventListener('click', () => rotate(-1));
+document.querySelector('#rotate-right')!.addEventListener('click', () => rotate(1));
+document.querySelector('#close-settings')!.addEventListener('click', () => setDrawer(false));
+const keyboardButton = document.querySelector<HTMLButtonElement>('#toggle-keypad')!;
+function showKeyboard(show: boolean): void {
+  releaseAll(); keypad.hidden = !show; keyboardButton.setAttribute('aria-pressed', String(show)); keyboardButton.setAttribute('aria-label', show ? '隐藏虚拟键盘' : '显示虚拟键盘'); storeSetting('keypad', String(show)); fitScreen();
+}
+try { showKeyboard(localStorage.getItem('flymrp.keypad') !== 'false'); } catch {}
+keyboardButton.addEventListener('click', () => showKeyboard(keypad.hidden));
+const showFps = document.querySelector<HTMLInputElement>('#show-fps')!;
+try { showFps.checked = localStorage.getItem('flymrp.show-fps') !== 'false'; } catch {}
+fpsEl.hidden = !showFps.checked;
+showFps.addEventListener('change', () => { fpsEl.hidden = !showFps.checked; storeSetting('show-fps', String(showFps.checked)); });
+const volume = document.querySelector<HTMLInputElement>('#volume')!;
+const mute = document.querySelector<HTMLButtonElement>('#mute')!;
+let muted = false;
+try { const saved = localStorage.getItem('flymrp.volume'); if (saved !== null && Number.isFinite(Number(saved))) volume.value = String(Math.min(100, Math.max(0, Number(saved)))); muted = localStorage.getItem('flymrp.muted') === 'true'; } catch {}
+function applyVolume(): void {
+  audio.setVolume(Number(volume.value) / 100); audio.setMuted(muted);
+  document.querySelector('#volume-value')!.textContent = `${volume.value}%`;
+  mute.textContent = muted ? '♪̸' : '♪'; mute.setAttribute('aria-pressed', String(muted)); mute.setAttribute('aria-label', muted ? '开启声音' : '静音');
+  storeSetting('volume', volume.value); storeSetting('muted', String(muted));
+}
+volume.addEventListener('input', () => { applyVolume(); audio.resume(); });
+mute.addEventListener('click', () => { muted = !muted; applyVolume(); if (!muted) audio.resume(); });
+applyVolume();
+try { document.documentElement.dataset.theme = localStorage.getItem('flymrp.theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch {}
+document.querySelector('#theme')!.addEventListener('click', () => storeSetting('theme', document.documentElement.dataset.theme!));
+new ResizeObserver(fitScreen).observe(stage);
+new MutationObserver(fitScreen).observe(canvas, { attributes: true, attributeFilter: ['width', 'height'] });
+document.querySelector('#screenshot')!.addEventListener('click', () => {
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = `${titleEl.textContent || 'flymrp'}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 });
-const refreshLibrary = document.querySelector<HTMLButtonElement>("#refresh-library")!;
-async function reloadLibrary(): Promise<void> {
-  refreshLibrary.disabled = true;
-  try {
-    const response = await fetch(import.meta.env.PROD ? assetUrl("games/index.json") : "/__games", { cache: "no-cache" });
-    if (!response.ok) throw new Error("无法刷新精选游戏库");
-    const selectedName = games.find(game => String(game.id) === gameSelect.value)?.name;
-    games = await response.json();
-    document.querySelector<HTMLElement>("#library")!.hidden = !games.length;
-    renderLibrary();
-    const selected = games.find(game => game.name === selectedName);
-    if (selected && [...gameSelect.options].some(option => option.value === String(selected.id))) gameSelect.value = String(selected.id);
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : String(error), true);
-  } finally { refreshLibrary.disabled = false; }
-}
-refreshLibrary.addEventListener("click", () => { void reloadLibrary(); });
-void reloadLibrary();
+document.querySelector('#back')!.addEventListener('click', () => { stop(); if (window.parent !== window) window.parent.postMessage({ type: 'flymrp:close' }, location.origin); else location.href = assetUrl('./'); });
+window.addEventListener('pagehide', () => stop(true));
+window.addEventListener('message', event => {
+  if (event.origin !== location.origin || event.source !== window.parent || event.source === window) return;
+  if (event.data?.type === 'flymrp:file' && event.data.file instanceof File) { const file = event.data.file; void start(file.name, () => file.arrayBuffer()); }
+});
+if (window.parent !== window) window.parent.postMessage({ type: 'flymrp:ready' }, location.origin);
+const selectedName = new URL(location.href).searchParams.get('game');
+if (selectedName) void (async () => {
+  try { const game = (await readLibrary()).find(game => game.name === selectedName); if (!game) throw new Error('游戏不在精选清单中，请从游戏库选择或打开本地文件。'); await start(game.name, () => readGame(game)); }
+  catch (error) { fail(error); }
+})();
