@@ -59,6 +59,15 @@ export const MR_NET_ID_CDMA = 2;
 export const MR_NET_ID_NONE = 3;
 export const MR_NET_ID_OTHER = 4;
 
+/** rxgj `mrporting.h` `MR_SOUND_TYPE`. First enumerator is 0. PCM is 8 kHz 16-bit. */
+export const MR_SOUND_MIDI = 0;
+export const MR_SOUND_WAV = 1;
+export const MR_SOUND_MP3 = 2;
+export const MR_SOUND_PCM = 3;
+export const MR_SOUND_M4A = 4;
+export const MR_SOUND_AMR = 5;
+export const MR_SOUND_AMR_WB = 6;
+
 export const MR_FLAGS_BI = 1;
 export const MR_FLAGS_AI = 2;
 export const MR_FLAGS_RI = 4;

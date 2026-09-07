@@ -149,13 +149,21 @@ export const IMPLEMENTED_C = [
   "mr_table/32/mr_timerStop",
   // Host ScreenBuffer width/height, bit=16. Not a guest framebuffer pointer.
   "mr_table/80/mr_getScreenInfo",
-  // C _DrawBitmap. Guest RGB565 source. ROP from mr_helper.h enum (COPY=2).
+  // C _DrawBitmap. Guest RGB565 source. ROP from mr_helper.h enum (COPY=2). Cache only; present is table 29.
   "mr_table/120/DrawBitmap",
+  // C _DrawBitmapEx. 8.8 transform. Screen-sized dest also writes host cache.
+  "mr_table/121/DrawBitmapEx",
+  // Collision count. Host cache vs guest sprite.
+  "mr_table/124/BitmapCheck",
+  // UCS-2 byte length until 0x0000.
+  "mr_table/126/wstrlen",
   // Guest RGB565 cache → RGBA ImageData. Not device-LCD pixel-perfect.
   "graphics/canvas2d/rgb565-present",
-  // No PCM/MIDI device. SUCCESS + record. Guest data* is not a host pointer.
+  // SUCCESS + record + optional guest-byte copy for a host sink. Node has no device.
   "mr_table/57/mr_playSound",
   "mr_table/58/mr_stopSound",
+  // C _DrawPoint. Host RGB565 cache. Out of bounds no-op. Return SUCCESS.
+  "mr_table/119/DrawPoint",
   // void platDrawChar; RGB565 color; generated gb16. Not UC2.
   "mr_table/145/mr_platDrawChar",
 ] as const;

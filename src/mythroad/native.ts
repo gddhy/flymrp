@@ -23,6 +23,7 @@ import {
 } from "./constants.ts";
 import { persistRoot, unpersistRoot } from "./persist.ts";
 import { gb16Glyph } from "./font.ts";
+import { makeRgb565 } from "./graphics.ts";
 import { lcgNext } from "./profile.ts";
 import type { MythroadRuntime } from "./runtime.ts";
 
@@ -303,28 +304,28 @@ function makeEff(rt: MythroadRuntime): NativeFunction {
 
 function makeLine(rt: MythroadRuntime): NativeFunction {
   return (L) => {
-    rt.gfx.drawLine(
-      L.optNumber(1, 0) | 0,
-      L.optNumber(2, 0) | 0,
-      L.optNumber(3, 0) | 0,
-      L.optNumber(4, 0) | 0,
-      L.optNumber(5, 0) | 0,
-      L.optNumber(6, 0) | 0,
-      L.optNumber(7, 0) | 0,
-    );
+    const x1 = L.optNumber(1, 0) | 0;
+    const y1 = L.optNumber(2, 0) | 0;
+    const x2 = L.optNumber(3, 0) | 0;
+    const y2 = L.optNumber(4, 0) | 0;
+    const r = L.optNumber(5, 0) | 0;
+    const g = L.optNumber(6, 0) | 0;
+    const b = L.optNumber(7, 0) | 0;
+    rt.screen.drawLine(x1, y1, x2, y2, r, g, b);
+    rt.gfx.drawLine(x1, y1, x2, y2, r, g, b);
     return 0;
   };
 }
 
 function makePoint(rt: MythroadRuntime): NativeFunction {
   return (L) => {
-    rt.gfx.drawPoint(
-      L.optNumber(1, 0) | 0,
-      L.optNumber(2, 0) | 0,
-      L.optNumber(3, 0) | 0,
-      L.optNumber(4, 0) | 0,
-      L.optNumber(5, 0) | 0,
-    );
+    const x = L.optNumber(1, 0) | 0;
+    const y = L.optNumber(2, 0) | 0;
+    const r = L.optNumber(3, 0) | 0;
+    const g = L.optNumber(4, 0) | 0;
+    const b = L.optNumber(5, 0) | 0;
+    rt.screen.drawPoint565(x, y, makeRgb565(r, g, b));
+    rt.gfx.drawPoint(x, y, r, g, b);
     return 0;
   };
 }

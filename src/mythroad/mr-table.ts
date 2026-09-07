@@ -72,6 +72,9 @@ export const DSM_SWITCHPATH_BUF = 266;
 /** rxgj `dsmSwitchPath('Y')` when `dsmWorkPath == "mythroad/"`. */
 export const DSM_SWITCHPATH_Y_DEFAULT = "c:/mythroad/";
 
+/** Cap guest `mr_playSound` copies. Larger streams stay recorded-only. */
+export const PLAYSOUND_COPY_MAX = 8 * 1024 * 1024;
+
 /** Observed LIVE `mr_plat` codes. */
 export const MR_PLAT_GET_HANDSET_LG = MR_GET_HANDSET_LG;
 export const MR_PLAT_CHECK_TOUCH = MR_CHECK_TOUCH;
@@ -139,6 +142,8 @@ export class MrTableBridge {
       onDrawRect?: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => void;
       onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
       onFlush?: (x: number, y: number, w: number, h: number) => void;
+      onPlaySound?: (type: number, data: Uint8Array | null, loop: number) => void;
+      onStopSound?: (type: number) => void;
       onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
       getTimer?: () => MythroadTimer;
       getMrState?: () => number;
@@ -182,13 +187,17 @@ export class MrTableBridge {
     this.ext.registerHandler(123, (_cpu, mem, args) => this.drawText(mem, args));
     this.ext.registerHandler(29, (_cpu, mem, args) => this.drawBitmap(mem, args));
     this.ext.registerHandler(120, (cpu, mem, args) => this.drawBitmapRop(cpu.r[13] >>> 0, mem, args));
+    this.ext.registerHandler(121, (cpu, mem, args) => this.drawBitmapEx(cpu.r[13] >>> 0, mem, args));
+    this.ext.registerHandler(124, (cpu, mem, args) => this.bitmapCheck(cpu.r[13] >>> 0, mem, args));
+    this.ext.registerHandler(126, (_cpu, mem, args) => this.wstrlen(mem, args[0]! >>> 0));
     this.ext.registerHandler(31, (_cpu, _mem, args) => this.timerStart(args[0]! >>> 0));
     this.ext.registerHandler(32, (_cpu, _mem, _args) => this.timerStop());
     this.ext.registerHandler(80, (_cpu, mem, args) => this.getScreenInfo(mem, args[0]! >>> 0));
     this.ext.registerHandler(78, (_cpu, _mem, _args) => this.winCreate());
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
-    this.ext.registerHandler(57, (_cpu, _mem, args) => this.playSound(args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
+    this.ext.registerHandler(57, (_cpu, mem, args) => this.playSound(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
     this.ext.registerHandler(58, (_cpu, _mem, args) => this.stopSound(args[0]! | 0));
+    this.ext.registerHandler(119, (_cpu, _mem, args) => this.drawPoint(args[0]! | 0, args[1]! | 0, args[2]! >>> 0));
     this.ext.registerHandler(145, (_cpu, _mem, args) => this.platDrawChar(args[0]! >>> 0, args[1]! | 0, args[2]! | 0, args[3]! >>> 0));
     if (!this.hooks.onUnknownSlot) return;
     const orig = this.ext.table.dispatch.bind(this.ext.table);
@@ -463,7 +472,8 @@ export class MrTableBridge {
    * C: `void _DrawBitmap(uint16 *p, int16 x, int16 y, uint16 w, uint16 h,
    * uint16 rop, uint16 transcoler, int16 sx, int16 sy, int16 mw)`.
    * AAPCS: r0-r3 = p,x,y,w; [sp+0..+20] = h,rop,trans,sx,sy,mw.
-   * Writes the host RGB565 cache. Guest `p` is never a host pointer.
+   * Writes the host RGB565 cache only. Present is table[29], not this slot.
+   * Guest `p` is never a host pointer.
    */
   drawBitmapRop(sp: number, mem: GuestMemory, args: Uint32Array): number {
     const p = args[0]! >>> 0;
@@ -480,8 +490,114 @@ export class MrTableBridge {
     if (!p) return MR_SUCCESS;
     const screen = this.hooks.getScreen?.() ?? this.screen;
     screen.drawBitmapRop((i) => mem.read16((p + (i << 1)) >>> 0), x, y, w, h, rop, trans, sx, sy, mw);
-    this.hooks.onFlush?.(x, y, w, h);
     return MR_SUCCESS;
+  }
+
+  /**
+   * table[121] = `asm_DrawBitmapEx` = `_DrawBitmapEx`.
+   * C: `void _DrawBitmapEx(mr_bitmapDrawSt *src, mr_bitmapDrawSt *dst,
+   * uint16 w, uint16 h, mr_transMatrixSt *pTrans, uint16 transcoler)`.
+   * AAPCS: r0=src* r1=dst* r2=w r3=h; [sp]=pTrans* [sp+4]=transcolor.
+   * Guest descriptors are 12 / 10 bytes (32-bit `p`). `I==0` is a no-op.
+   * Screen-sized dest also writes the host RGB565 cache.
+   */
+  lastDrawBitmapEx: { src: number; dst: number; w: number; h: number; rop: number } | null = null;
+  drawBitmapEx(_sp: number, mem: GuestMemory, args: Uint32Array): number {
+    const srcDesc = args[0]! >>> 0;
+    const dstDesc = args[1]! >>> 0;
+    const w = args[2]! & 0xffff;
+    const h = args[3]! & 0xffff;
+    const transDesc = args[4]! >>> 0;
+    const trans = args[5]! & 0xffff;
+    this.lastDrawBitmapEx = { src: srcDesc, dst: dstDesc, w, h, rop: 0 };
+    if (!srcDesc || !dstDesc || !transDesc) return MR_SUCCESS;
+    const srcP = mem.read32(srcDesc);
+    const srcW = mem.read16((srcDesc + 4) >>> 0);
+    const srcH = mem.read16((srcDesc + 6) >>> 0);
+    const srcX = mem.read16((srcDesc + 8) >>> 0);
+    const srcY = mem.read16((srcDesc + 10) >>> 0);
+    const dstP = mem.read32(dstDesc);
+    const dstW = mem.read16((dstDesc + 4) >>> 0);
+    const dstH = mem.read16((dstDesc + 6) >>> 0);
+    const dstX = mem.read16((dstDesc + 8) >>> 0);
+    const dstY = mem.read16((dstDesc + 10) >>> 0);
+    const A = asI16(mem.read16(transDesc));
+    const B = asI16(mem.read16((transDesc + 2) >>> 0));
+    const C = asI16(mem.read16((transDesc + 4) >>> 0));
+    const D = asI16(mem.read16((transDesc + 6) >>> 0));
+    const rop = mem.read16((transDesc + 8) >>> 0);
+    this.lastDrawBitmapEx.rop = rop;
+    if (!srcP || !dstP || !srcW || !srcH || !dstW || !dstH) return MR_SUCCESS;
+    if (srcX > srcW || srcY > srcH || w > srcW - srcX || h > srcH - srcY) return MR_SUCCESS;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    const mirrorScreen = dstW === screen.width && dstH === screen.height;
+    try {
+      screen.drawBitmapEx(
+        (sx, sy) => mem.read16((srcP + ((sy * srcW + sx) << 1)) >>> 0),
+        srcX,
+        srcY,
+        (dx, dy, color) => {
+          if (dx < 0 || dy < 0 || dx >= dstW || dy >= dstH) return;
+          mem.write16((dstP + ((dy * dstW + dx) << 1)) >>> 0, color);
+          if (mirrorScreen) screen.drawPoint565(dx, dy, color);
+        },
+        dstW,
+        dstH,
+        dstX,
+        dstY,
+        w,
+        h,
+        A,
+        B,
+        C,
+        D,
+        rop,
+        trans,
+      );
+    } catch {
+      /* unmapped dest/src: official would fault; keep the ABI call SUCCESS */
+    }
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[124] = `asm_BitmapCheck` = `_BitmapCheck`.
+   * C: `int _BitmapCheck(uint16 *p, int16 x, int16 y, uint16 w, uint16 h,
+   * uint16 transcoler, uint16 color_check)`.
+   * AAPCS: r0=p r1=x r2=y r3=w; [sp]=h [sp+4]=trans [sp+8]=color_check.
+   * Counts non-transparent source pixels whose host cache is not `color_check`.
+   */
+  bitmapCheck(sp: number, mem: GuestMemory, args: Uint32Array): number {
+    const p = args[0]! >>> 0;
+    const x = asI16(args[1]!);
+    const y = asI16(args[2]!);
+    const w = args[3]! & 0xffff;
+    const h = mem.read32(sp >>> 0) & 0xffff;
+    const trans = mem.read32((sp + 4) >>> 0) & 0xffff;
+    const colorCheck = mem.read32((sp + 8) >>> 0) & 0xffff;
+    if (!p) return 0;
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    return screen.bitmapCheck((i) => mem.read16((p + (i << 1)) >>> 0), x, y, w, h, trans, colorCheck);
+  }
+
+  /**
+   * table[126] = `wstrlen`. C: `int wstrlen(char *txt)`.
+   * Count UCS-2 bytes until a 0x0000 pair. NULL → 0.
+   */
+  wstrlen(mem: GuestMemory, addr: number): number {
+    if (!addr) return 0;
+    let i = 0;
+    try {
+      while (i < 0x10000) {
+        const a = mem.read8((addr + i) >>> 0);
+        const b = mem.read8((addr + i + 1) >>> 0);
+        if (a === 0 && b === 0) break;
+        i += 2;
+      }
+    } catch {
+      return i;
+    }
+    return i;
   }
 
   /**
@@ -504,24 +620,59 @@ export class MrTableBridge {
    * table[57] = `asm_mr_playSound` = `mr_playSound`.
    * C: `int32 mr_playSound(int type, const void *data, uint32 dataLen, int32 loop)`.
    * AAPCS: r0=type r1=guest data* r2=len r3=loop.
-   * rxgj `aex_t057` forwards to the host player. flymrp has no PCM/MIDI
-   * device; return `MR_SUCCESS` and record the request. `data` stays a
-   * guest address and is not read as a host pointer.
+   * rxgj `aex_t057` copies the guest stream and plays it. Node has no device;
+   * return `MR_SUCCESS`, record the guest pointer, and optionally copy bytes
+   * for a host hook. Unmapped `data*` does not fail the ABI call.
    */
   lastPlaySound: { type: number; data: number; len: number; loop: number } | null = null;
-  playSound(type: number, data: number, len: number, loop: number): number {
-    this.lastPlaySound = { type: type | 0, data: data >>> 0, len: len >>> 0, loop: loop | 0 };
+  lastPlaySoundBytes: Uint8Array | null = null;
+  playSound(mem: GuestMemory, type: number, data: number, len: number, loop: number): number {
+    const kind = type | 0;
+    const ptr = data >>> 0;
+    const n = len >>> 0;
+    const repeat = loop | 0;
+    this.lastPlaySound = { type: kind, data: ptr, len: n, loop: repeat };
+    let bytes: Uint8Array | null = null;
+    if (ptr && n && n <= PLAYSOUND_COPY_MAX) {
+      try {
+        bytes = mem.slice(ptr, n);
+      } catch {
+        bytes = null;
+      }
+    }
+    this.lastPlaySoundBytes = bytes;
+    this.hooks.onPlaySound?.(kind, bytes, repeat);
     return MR_SUCCESS;
   }
 
   /**
    * table[58] = `asm_mr_stopSound` = `mr_stopSound`.
    * C: `int32 mr_stopSound(int type)`. AAPCS: r0=type. Leftover r1–r3 ignored.
-   * rxgj `aex_t058` forwards to the host player. No device here; return SUCCESS.
+   * rxgj `aex_t058` forwards to the host player. Return SUCCESS either way.
    */
   lastStopSound: { type: number } | null = null;
   stopSound(type: number): number {
-    this.lastStopSound = { type: type | 0 };
+    const kind = type | 0;
+    this.lastStopSound = { type: kind };
+    this.hooks.onStopSound?.(kind);
+    return MR_SUCCESS;
+  }
+
+  /**
+   * table[119] = `asm_DrawPoint` = `_DrawPoint`.
+   * C: `void _DrawPoint(int16 x, int16 y, uint16 nativecolor)`.
+   * AAPCS: r0=x r1=y r2=RGB565. Leftover r3 ignored.
+   * rxgj `aex_t119` writes the screen cache and returns `MR_SUCCESS`.
+   * Out of bounds is a no-op, still SUCCESS.
+   */
+  lastDrawPoint: { x: number; y: number; color: number } | null = null;
+  drawPoint(x: number, y: number, native: number): number {
+    const x0 = asI16(x);
+    const y0 = asI16(y);
+    const color = native & 0xffff;
+    this.lastDrawPoint = { x: x0, y: y0, color };
+    const screen = this.hooks.getScreen?.() ?? this.screen;
+    screen.drawPoint565(x0, y0, color);
     return MR_SUCCESS;
   }
 

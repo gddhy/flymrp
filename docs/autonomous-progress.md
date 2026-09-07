@@ -58,9 +58,13 @@ realAppGreen         true
 | 31 | mr_timerStart | PARTIAL | uint16 ms; LIVE 80; owner = current/active/wrapper |
 | 32 | mr_timerStop | PARTIAL | zero-arg; leftover R0 ignored |
 | 80 | mr_getScreenInfo | PARTIAL | host 240×320 bit=16 |
-| 120 | _DrawBitmap | PARTIAL | C rop `DRAW_BM_*` (COPY=2); guest RGB565 via GuestMemory; not Lua `BM_COPY=0` |
-| 57 | mr_playSound | PARTIAL | AAPCS type/data*/len/loop; SUCCESS + record; no PCM/MIDI device; data stays guest |
-| 58 | mr_stopSound | PARTIAL | AAPCS type; leftover r1–r3 ignored; SUCCESS + record; LIVE type=0 |
+| 120 | _DrawBitmap | PARTIAL | C rop `DRAW_BM_*` (COPY=2); guest RGB565 via GuestMemory; cache only; present is 29 |
+| 121 | _DrawBitmapEx | PARTIAL | 8.8 transform; guest dest + screen-sized host mirror; I==0 no-op |
+| 124 | _BitmapCheck | PARTIAL | collision count vs host cache |
+| 126 | wstrlen | SUPPORTED | UCS-2 byte length until 0x0000 |
+| 57 | mr_playSound | PARTIAL | AAPCS type/data*/len/loop; SUCCESS + record + guest-byte copy hook; web MIDI/WAV/PCM; Node no device |
+| 58 | mr_stopSound | PARTIAL | AAPCS type; leftover r1–r3 ignored; SUCCESS + record + host stop hook; LIVE type=0 |
+| 119 | _DrawPoint | PARTIAL | AAPCS x/y/RGB565; host cache; OOB no-op; return SUCCESS |
 | 145 | mr_platDrawChar | PARTIAL | AAPCS ch/x/y/color; RGB565; last getCharBitmap size; generated gb16; return 0; not UC2 |
 
 ### other
@@ -71,7 +75,7 @@ realAppGreen         true
 | Lua resume after `arm_ext_call(0)` | SUPPORTED on this fixture path |
 | graphics | PARTIAL | DrawRect + DrawText + DrawBitmap + Canvas2D RGB565 present; not device-LCD pixel-perfect |
 | timer / event / input | PARTIAL | timer + frames PASS; FIRE→RW LIVE; SOFTRIGHT on 开启声音？ changes pixels after next timer |
-| audio / network / SMS / WAP | OPTIONAL / DEFERRED | play/stopSound SUCCESS no device; no SMS/WAP |
+| audio / network / SMS / WAP | PARTIAL | web MIDI/WAV/PCM sink; Node still no device; no SMS/WAP |
 | writable VFS / save | UNKNOWN / DEFERRED |
 | `mr_platEx(1204)` SWITCHPATH | PARTIAL |
 | `mr_plat(1205)` CHECK_TOUCH | PARTIAL | rxgj FULL `MR_TOUCH_SCREEN` |

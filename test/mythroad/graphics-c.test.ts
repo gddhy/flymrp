@@ -109,6 +109,7 @@ describe("5-C graphics command recording", () => {
     callName(rt, "_drawLine", [0, 0, 1, 1, 9, 8, 7]);
     callName(rt, "_drawRect", [1, 2, 3, 4, 5, 6, 7]);
     expect(g.commands.map((c) => c.op)).toEqual(["clear", "point", "line", "rect"]);
+    expect(rt.screen.pixels[5 * rt.screen.width + 4]).not.toBe(0);
   });
 
   it("text and flush record", () => {

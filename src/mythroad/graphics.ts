@@ -41,6 +41,70 @@ export class ScreenBuffer {
   }
 
   /**
+   * C `_DrawPoint`: clip then write one RGB565 pixel.
+   * Out of bounds is a no-op. `native` is already RGB565, not 8-bit RGB.
+   */
+  drawPoint565(x: number, y: number, native: number): void {
+    const x0 = asI16(x);
+    const y0 = asI16(y);
+    if (x0 < 0 || y0 < 0 || x0 >= this.width || y0 >= this.height) return;
+    this.pixels[y0 * this.width + x0] = native & 0xffff;
+  }
+
+  /**
+   * Official `MRF_DrawLine` Bresenham that calls `_DrawPoint`.
+   * Axis-swap when |dy| > |dx|; always walks the long axis to the right.
+   */
+  drawLine(x1: number, y1: number, x2: number, y2: number, r: number, g: number, b: number): void {
+    const native = makeRgb565(r & 0xff, g & 0xff, b & 0xff);
+    let X1 = asI16(x1);
+    let Y1 = asI16(y1);
+    let X2 = asI16(x2);
+    let Y2 = asI16(y2);
+    let swap = 0;
+    let dx = X2 - X1;
+    let dy = Y2 - Y1;
+    if (((dx < 0) ? -dx : dx) < ((dy < 0) ? -dy : dy)) {
+      swap = 1;
+      let t = X1;
+      X1 = Y1;
+      Y1 = t;
+      t = X2;
+      X2 = Y2;
+      Y2 = t;
+    }
+    if (X1 > X2) {
+      let t = X1;
+      X1 = X2;
+      X2 = t;
+      t = Y1;
+      Y1 = Y2;
+      Y2 = t;
+    }
+    dx = X2 - X1;
+    dy = Y2 - Y1;
+    let c1 = dy * 2;
+    let stepY = 1;
+    if (c1 < 0) {
+      c1 = -c1;
+      stepY = -1;
+    }
+    let err = c1 - dx;
+    const c2 = err - dx;
+    let x = X1;
+    let y = Y1;
+    while (x <= X2) {
+      this.drawPoint565(swap ? y : x, swap ? x : y, native);
+      x++;
+      if (err < 0) err += c1;
+      else {
+        y += stepY;
+        err += c2;
+      }
+    }
+  }
+
+  /**
    * rxgj `DrawRect`: clip to screen, fill RGB565.
    * Zero-size or fully off-screen is a no-op (`MR_SUCCESS`).
    */
@@ -217,6 +281,95 @@ export class ScreenBuffer {
           }
         }
         break;
+    }
+  }
+
+  /**
+   * Official `_BitmapCheck`: count non-transparent source pixels whose
+   * destination is not `colorCheck`. Used for collision, not drawing.
+   */
+  bitmapCheck(readPixel: (i: number) => number, x: number, y: number, w: number, h: number, trans: number, colorCheck: number): number {
+    const maxX = Math.min(this.width, x + w);
+    const maxY = Math.min(this.height, y + h);
+    const minX = Math.max(0, x);
+    const minY = Math.max(0, y);
+    const t = trans & 0xffff;
+    const want = colorCheck & 0xffff;
+    const blitW = w | 0;
+    let n = 0;
+    for (let dy = minY; dy < maxY; dy++) {
+      const dest = dy * this.width;
+      for (let dx = minX; dx < maxX; dx++) {
+        const src = readPixel((dy - y) * blitW + (dx - x)) & 0xffff;
+        if (src === t) continue;
+        if ((this.pixels[dest + dx]! & 0xffff) !== want) n++;
+      }
+    }
+    return n;
+  }
+
+  /**
+   * Official `_DrawBitmapEx` inverse-transform blit.
+   * `A,B,C,D` are 8.8 fixed point. `I==0` is a no-op.
+   */
+  drawBitmapEx(
+    readSrc: (sx: number, sy: number) => number,
+    srcX: number,
+    srcY: number,
+    writeDst: (dx: number, dy: number, color: number) => void,
+    dstW: number,
+    dstH: number,
+    dstX: number,
+    dstY: number,
+    w: number,
+    h: number,
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    rop: number,
+    trans: number,
+  ): void {
+    const A = asI16(a);
+    const B = asI16(b);
+    const C = asI16(c);
+    const D = asI16(d);
+    const I = (A * D - B * C) | 0;
+    if (I === 0) return;
+    const W = w & 0xffff;
+    const H = h & 0xffff;
+    const centerX = asI16(dstX) + ((W / 2) | 0);
+    const centerY = asI16(dstY) + ((H / 2) | 0);
+    let maxY = ((Math.abs(C) * W + Math.abs(D) * H) >> 9) | 0;
+    let minY = 0 - maxY;
+    maxY = Math.min(maxY, dstH - centerY);
+    minY = Math.max(minY, 0 - centerY);
+    const t = trans & 0xffff;
+    const copy = (rop & 0xffff) === DRAW_BM_COPY;
+    const key = (rop & 0xffff) === DRAW_BM_TRANSPARENT;
+    if (!copy && !key) return;
+    const div = (num: number, den: number) => (num / den) | 0;
+    for (let dy = minY; dy < maxY; dy++) {
+      const wI = (W * I) >> 9;
+      const hI = (H * I) >> 9;
+      let maxX = Math.min(
+        D === 0 ? 999 : Math.max(div(wI + B * dy, D), div(B * dy - wI, D)),
+        C === 0 ? 999 : Math.max(div(A * dy + hI, C), div(A * dy - hI, C)),
+      );
+      let minX = Math.max(
+        D === 0 ? -999 : Math.min(div(B * dy - wI, D), div(wI + B * dy, D)),
+        C === 0 ? -999 : Math.min(div(A * dy - hI, C), div(A * dy + hI, C)),
+      );
+      maxX = Math.min(maxX, dstW - centerX);
+      minX = Math.max(minX, 0 - centerX);
+      for (let dx = minX; dx < maxX; dx++) {
+        const offsety = ((((A * dy - C * dx) << 8) / I) | 0) + ((H / 2) | 0);
+        const offsetx = ((((D * dx - B * dy) << 8) / I) | 0) + ((W / 2) | 0);
+        if (offsety < 0 || offsety >= H || offsetx < 0 || offsetx >= W) continue;
+        const src = readSrc((offsetx + srcX) | 0, (offsety + srcY) | 0) & 0xffff;
+        if (key && src === t) continue;
+        writeDst((dx + centerX) | 0, (dy + centerY) | 0, src);
+      }
     }
   }
 }

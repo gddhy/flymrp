@@ -33,6 +33,16 @@ describe("Canvas2D RGB565 present", () => {
     expect([...dst.slice(12, 16)]).toEqual([0, 0, 0, 255]);
   });
 
+  it("drawPoint565 clips and drawLine writes the cache", () => {
+    const screen = new ScreenBuffer(8, 8);
+    screen.drawPoint565(-1, 0, 0xffff);
+    screen.drawPoint565(0, 0, 0xf800);
+    screen.drawLine(0, 1, 3, 1, 0, 255, 0);
+    expect(screen.pixels[0]).toBe(0xf800);
+    expect(screen.pixels[8]).toBe(makeRgb565(0, 255, 0));
+    expect(screen.pixels[8 + 3]).toBe(makeRgb565(0, 255, 0));
+  });
+
   it("flush presents the host ScreenBuffer, not a guest pointer", () => {
     const screen = new ScreenBuffer(2, 1);
     screen.pixels[0] = makeRgb565(255, 0, 0);

@@ -57,6 +57,9 @@ export type MythroadRuntimeOptions = {
   armInstructionBudget?: number;
   /** Observes each `arm_ext_call`. Does not change ABI. */
   onExtCall?: (code: number, out: ExtCallResult) => void;
+  /** Host audio sink. Node tests omit this; the web player supplies Web Audio. */
+  onPlaySound?: (type: number, data: Uint8Array | null, loop: number) => void;
+  onStopSound?: (type: number) => void;
 };
 
 /**
@@ -110,6 +113,8 @@ export class MythroadRuntime {
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
+  private readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number) => void) | null;
+  private readonly onStopSound: ((type: number) => void) | null;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
@@ -137,6 +142,8 @@ export class MythroadRuntime {
     this.entry = opts.entry ?? "_dsm";
     this.param = opts.param ?? "";
     this.onExtCall = opts.onExtCall ?? null;
+    this.onPlaySound = opts.onPlaySound ?? null;
+    this.onStopSound = opts.onStopSound ?? null;
     this.strCom = createStrCom({
       getVfs: () => this.vfs,
       getExt: () => this.ext,
@@ -318,6 +325,8 @@ export class MythroadRuntime {
       onDrawRect: (x, y, w, h, r, g, b) => this.gfx.drawRect(x, y, w, h, r, g, b),
       onDrawText: (text, x, y, r, g, b, unicode, font) => this.gfx.drawText(text, x, y, r, g, b, unicode, font),
       onFlush: (x, y, w, h) => this.gfx.flush(x, y, w, h, 0),
+      onPlaySound: (type, data, loop) => this.onPlaySound?.(type, data, loop),
+      onStopSound: (type) => this.onStopSound?.(type),
       onAlloc: (rec) => this.mrAllocs.push(rec),
       onRead: (rec) => this.mrReads.push(rec),
       onUnknownAbi: (info) => {
