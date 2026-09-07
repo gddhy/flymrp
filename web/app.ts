@@ -50,7 +50,6 @@ function stop(keepStatus = false): void {
   fpsEl.textContent = "— FPS";
   if (!keepStatus) setStatus("已停止。选择游戏即可重新加载。");
 }
-function present(s: Pick<Session, "rt" | "gfx">): void { s.gfx.flush(0, 0, s.rt.screenW, s.rt.screenH, 0); }
 function fail(e: unknown, rt?: MythroadRuntime): void {
   const exited = rt?.exited;
   stop(true);
@@ -64,7 +63,6 @@ function frame(now: number): void {
     s.rt.advance(Math.max(0, Math.min(100, now - s.last)));
     s.last = now;
     for (let i = 0; i < 16 && s.rt.step(); i++);
-    present(s);
     if (s.rt.exited) { stop(true); setStatus("游戏已退出，可重新加载。"); return; }
     if (now >= s.nextHud) {
       setStatus(`${s.title} · ${s.rt.screenW}×${s.rt.screenH} · 运行中${audio.lastError ? ` · 声音：${audio.lastError}` : ""}`);
@@ -74,7 +72,7 @@ function frame(now: number): void {
     }
     frames++;
     s.raf = requestAnimationFrame(frame);
-  } catch (e) { present(s); fail(e, s.rt); }
+  } catch (e) { fail(e, s.rt); }
 }
 async function ensureFont(): Promise<void> {
   if (gb16Uc2Loaded() && systemFiles["system/gb12.uc2"]) return;
@@ -113,19 +111,18 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     rt = new MythroadRuntime({ systemFiles, profile, graphics: gfx, abiMode: "strict",
       onPlaySound: (type, data, loop) => audio.play(type, data, loop), onStopSound: type => audio.stop(type) });
     const archive = rt.loadMrp(new Uint8Array(buffer));
-    try {
-      rt.start();
-      // Yield between boot ticks so stop/reload stays responsive during animations.
-      for (let i = 0; i < 32; i++) {
-        rt.advance(80);
-        for (let j = 0; j < 16 && rt.step(); j++);
-        if (i % 4 === 0) {
-          present({ rt, gfx });
-          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-          if (token !== generation) return;
-        }
+    rt.start();
+    // Only the guest's flush presents a frame. Between callbacks the guest may
+    // already have cleared dialogue/sprites to prepare its next background.
+    // Yield between boot ticks so stop/reload stays responsive during animations.
+    for (let i = 0; i < 32; i++) {
+      rt.advance(80);
+      for (let j = 0; j < 16 && rt.step(); j++);
+      if (i % 4 === 0) {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        if (token !== generation) return;
       }
-    } finally { if (token === generation) present({ rt, gfx }); }
+    }
     if (token !== generation) return;
     const title = archive.header.appname ? new TextDecoder("gbk").decode(binToBytes(archive.header.appname)) : name.split("/").at(-1)!;
     session = { rt, gfx, raf: 0, last: performance.now(), nextHud: 0, title };
