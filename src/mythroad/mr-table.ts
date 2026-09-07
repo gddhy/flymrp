@@ -10,13 +10,30 @@ import { MythroadTimer } from "./timer.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph, gbkBytesToUcs2, ucs2ToGbk } from "./font.ts";
 import { CurrentPackFileBackend, type PackFileSource } from "./pack-file.ts";
-import { defaultProfile, type DeviceProfile } from "./profile.ts";
+import { defaultProfile, lcgNext, type DeviceProfile } from "./profile.ts";
 import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
 import { GuestHeap } from "./guest-heap.ts";
 
 /** `sizeof(mr_userinfo)` in `mrporting.h`. */
 export const MR_USERINFO_SIZE = 64;
+
+/** C strtoul on the guest's 32-bit unsigned long, including base autodetection. */
+export function guestStrtoul(value: string, radix: number): number {
+  let text = value.trimStart(), negative = false;
+  if (text[0] === "-" || text[0] === "+") { negative = text[0] === "-"; text = text.slice(1); }
+  if (radix !== 0 && (radix < 2 || radix > 36)) return 0;
+  if ((radix === 0 || radix === 16) && /^0x[0-9a-f]/i.test(text)) { radix = 16; text = text.slice(2); }
+  if (!radix) radix = text[0] === "0" ? 8 : 10;
+  let n = 0n;
+  for (const ch of text.toLowerCase()) {
+    const c = ch.charCodeAt(0), digit = c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 122 ? c - 87 : 99;
+    if (digit >= radix) break;
+    n = n * BigInt(radix) + BigInt(digit);
+    if (n > 0xffffffffn) return 0xffffffff;
+  }
+  return Number(negative ? BigInt.asUintN(32, -n) : n);
+}
 export const MR_USERINFO_IMEI_OFF = 0;
 export const MR_USERINFO_IMSI_OFF = 16;
 export const MR_USERINFO_MANU_OFF = 32;
@@ -122,6 +139,9 @@ export class MrTableBridge {
   /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
   switchPathAddr = 0;
   private diskInfoAddr = 0;
+  private randSeed: number | null = null;
+  networkMode: string | null = null;
+  readonly ignoredPlatformExtensions = new Set<number>();
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
   workPath = MYTHROAD_WORK_PATH;
   /** Isolated-test screen when `hooks.getScreen` is absent. */
@@ -224,6 +244,11 @@ export class MrTableBridge {
       return 0;
     });
     this.ext.registerHandler(18, (_cpu, mem, args) => atoi2(mem, args[0]!));
+    this.ext.registerHandler(19, (_cpu, mem, [ptr, radix]) => guestStrtoul(readGuestCString(mem, ptr), radix));
+    this.ext.registerHandler(20, () => {
+      this.randSeed = lcgNext(this.randSeed ?? (this.hooks.getProfile?.() ?? defaultProfile()).randSeed);
+      return (this.randSeed >>> 16) & 0x7fff;
+    });
     this.ext.registerHandler(9, (_cpu, mem, args) => memcmp2(mem, args[0]!, args[1]!, args[2]!));
     this.ext.registerHandler(10, (_cpu, mem, args) => strcmp2(mem, args[0]!, args[1]!));
     this.ext.registerHandler(14, (_cpu, mem, args) => this.memset(mem, args[0]!, args[1]!, args[2]!));
@@ -278,12 +303,20 @@ export class MrTableBridge {
     this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
     this.ext.registerHandler(46, (_cpu, mem, args) => this.files.getLen(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(47, (_cpu, mem, args) => this.files.remove(readGuestCString(mem, args[0]! >>> 0)));
+    this.ext.registerHandler(48, (_cpu, mem, [from, to]) => this.files.rename(readGuestCString(mem, from), readGuestCString(mem, to)));
     this.ext.registerHandler(30, (_cpu, mem, args) =>
       this.getCharBitmap(mem, args[0]! >>> 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! >>> 0),
     );
     this.ext.registerHandler(37, (_cpu, _mem, args) => this.plat(args[0]! >>> 0, args[1]! | 0));
     // rxgj aex_t082: closing an already inactive network succeeds.
-    this.ext.registerHandler(82, () => MR_SUCCESS);
+    this.ext.registerHandler(81, (_cpu, mem, args) => {
+      // Initializing the virtual network is synchronous. No host connection
+      // is opened; DNS/socket requests below report unavailable transport.
+      this.networkMode = args[1] ? readGuestCString(mem, args[1]) : "";
+      return MR_SUCCESS;
+    });
+    this.ext.registerHandler(82, () => { this.networkMode = null; return MR_SUCCESS; });
+    for (const slot of [83,84,85,86,87,88,89,90]) this.ext.registerHandler(slot, () => MR_FAILED);
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
@@ -417,6 +450,9 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1015) return this.free(input, inputLen);
+    // Optional vendor hook. DSM's platform dispatcher returns MR_IGNORE for
+    // this extension; callers retain their own implementation on that result.
+    if (code === 2221) { this.ignoredPlatformExtensions.add(code); return MR_IGNORE; }
     if (code === 1207) {
       if (!input || !output) return MR_FAILED;
       const chars: number[] = [];

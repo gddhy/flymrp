@@ -82,6 +82,20 @@ export class CurrentPackFileBackend {
     return this.appFs?.remove(filename) ?? MR_FAILED;
   }
 
+  rename(from: string, to: string): number {
+    const fs = this.appFs;
+    if (!fs || from === this.getPack()?.name || to === this.getPack()?.name) return MR_FAILED;
+    const source = fs.normalize(from), target = fs.normalize(to), node = fs.nodes.get(source);
+    if (!source || !target || node?.kind !== "file" || fs.nodes.get(target)?.kind === "dir") return MR_FAILED;
+    if (source === target) return MR_SUCCESS;
+    fs.nodes.delete(source); fs.nodes.set(target, node);
+    for (const handle of this.handles.values()) {
+      if (handle.efsKey === source) handle.efsKey = target;
+      else if (handle.efsKey === target) handle.efsKey = null;
+    }
+    return MR_SUCCESS;
+  }
+
   /**
    * `int32 mr_open(const char *filename, uint32 mode)`.
    * Success = positive handle. Pack alias is RDONLY only.
