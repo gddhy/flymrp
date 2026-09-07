@@ -242,9 +242,20 @@ loadGame.addEventListener("click", () => {
     return response.arrayBuffer();
   });
 });
-void fetch("/__games").then(r => r.ok ? r.json() : []).then((data: Game[]) => {
-  games = data;
-  if (!games.length) return;
-  document.querySelector<HTMLElement>("#library")!.hidden = false;
-  renderLibrary();
-}).catch(() => { /* Local file upload remains available without the dev library. */ });
+const refreshLibrary = document.querySelector<HTMLButtonElement>("#refresh-library")!;
+async function reloadLibrary(): Promise<void> {
+  refreshLibrary.disabled = true;
+  try {
+    const response = await fetch("/__games");
+    if (!response.ok) throw new Error("无法刷新本地游戏库");
+    const selected = gameSelect.value;
+    games = await response.json();
+    document.querySelector<HTMLElement>("#library")!.hidden = !games.length;
+    renderLibrary();
+    if ([...gameSelect.options].some(option => option.value === selected)) gameSelect.value = selected;
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : String(error), true);
+  } finally { refreshLibrary.disabled = false; }
+}
+refreshLibrary.addEventListener("click", () => { void reloadLibrary(); });
+void reloadLibrary();

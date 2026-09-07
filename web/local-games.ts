@@ -7,7 +7,8 @@ export function localGames(directory: string | undefined): Plugin {
   return {
     name: "local-mrp-library",
     configureServer(server) {
-      let files: string[] | null = null;
+      const files: string[] = [];
+      const ids = new Map<string, number>();
       async function scan(dir: string): Promise<string[]> {
         const entries = await readdir(dir, { withFileTypes: true });
         const groups = await Promise.all(entries.map(e => e.isDirectory() ? scan(join(dir, e.name)) :
@@ -25,10 +26,11 @@ export function localGames(directory: string | undefined): Plugin {
             res.setHeader("Content-Type", "application/json");
             res.end("[]"); return;
           }
-          files ??= await scan(directory);
           if (pathname === "/__games") {
+            const current = await scan(directory);
+            for (const file of current) if (!ids.has(file)) { ids.set(file, files.length); files.push(file); }
             res.setHeader("Content-Type", "application/json; charset=utf-8");
-            res.end(JSON.stringify(files.map((p, id) => ({ id, name: relative(directory, p) }))));
+            res.end(JSON.stringify(current.map(p => ({ id: ids.get(p), name: relative(directory, p) }))));
             return;
           }
           const id = pathname.slice("/__games/".length);
