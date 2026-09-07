@@ -1,0 +1,26 @@
+{
+  "method": "same-runtime-monotonic-clock-interpreter-versus-compiled-blocks",
+  "sha256": "341999f1f51f12266e24181323fdc5871ebe5133d555e38cac8fcf3ab69f3fad",
+  "runs": [
+    {
+      "compiled": false,
+      "scores": {
+        "综合": 2173,
+        "运算": 27316,
+        "排序": 4984,
+        "内存": 263
+      },
+      "elapsedMs": 7683.660667
+    },
+    {
+      "compiled": true,
+      "scores": {
+        "综合": 3677,
+        "运算": 47970,
+        "排序": 10796,
+        "内存": 452
+      },
+      "elapsedMs": 7695.647833
+    }
+  ]
+}

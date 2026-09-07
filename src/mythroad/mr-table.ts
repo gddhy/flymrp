@@ -137,6 +137,7 @@ export class MrTableBridge {
   private screenCapacity = 0;
   private drawTarget: { address: number; screen: ScreenBuffer } | null = null;
   readonly allocs: AllocRecord[] = [];
+  private readonly liveAllocations = new Map<number, AllocRecord>();
   readonly reads: ReadFileRecord[] = [];
   readonly files: CurrentPackFileBackend;
   readonly appFs = new AppFileSystem();
@@ -174,6 +175,8 @@ export class MrTableBridge {
   private lastTimeCall = { serial: -1, bridge: -1, instructions: 0 };
   private timePolls = 0;
   private pollingInstructions = 0;
+  private pollingStarted = 0;
+  private pollingCharged = 0;
   /** Isolated-test timer when `hooks.getTimer` is absent. */
   localTimer = new MythroadTimer();
 
@@ -240,9 +243,10 @@ export class MrTableBridge {
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
     this.ext.onHostBoundary = () => this.recycleRetiredBlocks();
     this.ext.registerHandler(1, (_cpu, _mem, args) => {
-      const record = this.allocs.find(a => a.live && a.guestAddr === args[0]);
+      const record = this.liveAllocations.get(args[0]);
       if (record) {
         record.live = false;
+        this.liveAllocations.delete(record.guestAddr);
         this.retiredBlocks.push({ pointer: record.guestAddr, size: record.alignedSize });
       }
       return MR_SUCCESS;
@@ -492,15 +496,23 @@ export class MrTableBridge {
   private pollTime(): number {
     const serial = this.ext.guestCallSerial, bridge = this.ext.bridgeCalls;
     const instructions = this.ext.cpu.insnCount, last = this.lastTimeCall;
-    if (serial !== last.serial) this.timePolls = 0;
+    const now = this.ext.monotonicTime?.();
+    if (serial !== last.serial) {
+      this.timePolls = 0;
+      this.pollingStarted = now ?? 0;
+      this.pollingCharged = 0;
+    }
     this.timePolls++;
     // Keep normal frame pacing unchanged. A few timestamp samples around
     // drawing/decoding are not a synchronous wait; sustained polling is.
     if (serial === last.serial && (bridge === last.bridge + 1 || this.timePolls >= 32)) {
       this.pollingInstructions += Math.max(0, instructions - last.instructions);
-      const ms = Math.floor(this.pollingInstructions / 16384);
+      const elapsed = now === undefined ? 0 : Math.max(this.pollingCharged, Math.floor(now - this.pollingStarted));
+      const ms = now === undefined ? Math.floor(this.pollingInstructions / 16384) : elapsed - this.pollingCharged;
+      this.pollingCharged = elapsed;
       if (ms) {
         this.pollingInstructions %= 16384;
+        this.ext.synchronousClockProgress += ms;
         if (this.hooks.onSleep) this.hooks.onSleep(ms);
         else if (!this.hooks.getClock) this.clock += ms;
       }
@@ -1336,6 +1348,7 @@ export class MrTableBridge {
     }
     const rec: AllocRecord = { size: want, alignedSize: aligned, guestAddr, owner: this.owner, live: true };
     this.allocs.push(rec);
+    this.liveAllocations.set(guestAddr, rec);
     this.hooks.onAlloc?.(rec);
     return guestAddr;
   }
@@ -1354,15 +1367,16 @@ export class MrTableBridge {
     const ptr = p >>> 0;
     void len;
     if (ptr === 0) return MR_SUCCESS;
-    const rec = this.allocs.find((a) => a.live && a.guestAddr === ptr);
+    const rec = this.liveAllocations.get(ptr);
     if (!rec) return MR_SUCCESS;
     rec.live = false;
+    this.liveAllocations.delete(ptr);
     this.heap?.free(ptr, rec.alignedSize);
     return MR_SUCCESS;
   }
 
   liveAllocs(): AllocRecord[] {
-    return this.allocs.filter((a) => a.live);
+    return Array.from(this.liveAllocations.values());
   }
 
   /** Some handset SDK destructors clear object fields immediately after free.

@@ -2,6 +2,7 @@ import type { ARMCPU } from "./cpu.ts";
 import { decodeAt, insnSize } from "./decode.ts";
 import { execPacked, step } from "./interp.ts";
 import { Op } from "./opcodes.ts";
+import { compileBlock, type CompiledBlock } from './compile-block.ts';
 
 const MAX_INSNS = 16;
 const POOL_CAP = 4096;
@@ -16,6 +17,8 @@ export type BasicBlock = {
   generation: number;
   valid: boolean;
   region: ExecRegion | null;
+  runs: number;
+  compiled: CompiledBlock | null;
 };
 
 export type ExecRegion = {
@@ -59,6 +62,7 @@ function endsBlock(w0: number): boolean {
 }
 
 export class BlockCache {
+  compileBlocks = true;
   readonly regions: ExecRegion[] = [];
   lastRegion: ExecRegion | null = null;
   readonly pool: Array<BasicBlock | null> = [null];
@@ -66,6 +70,8 @@ export class BlockCache {
   misses = 0;
   private readonly freeIds: number[] = [];
   private nextVictim = 1;
+  /** Index only pages containing decoded code; ordinary data writes are O(1). */
+  private readonly codePages = new Map<number, Set<number>>();
 
   addRegion(base: number, len: number): ExecRegion {
     base >>>= 0;
@@ -171,6 +177,8 @@ export class BlockCache {
       generation: region ? region.generation : 0,
       valid: true,
       region,
+      runs: 0,
+      compiled: null,
     };
     if (region) {
       let id = this.freeIds.pop();
@@ -179,6 +187,11 @@ export class BlockCache {
         else { id = this.nextVictim; this.nextVictim = this.nextVictim % (POOL_CAP - 1) + 1; this.drop(id, false); }
       }
       this.pool[id] = block;
+      for (let page = block.guestPC >>> 12; page <= (block.endPC - 1) >>> 12; page++) {
+        let ids = this.codePages.get(page);
+        if (!ids) this.codePages.set(page, ids = new Set());
+        ids.add(id);
+      }
       const table = this.slot(region, pc, thumb);
       if (table) table[this.index(pc, region.base, thumb)] = id;
     }
@@ -198,6 +211,10 @@ export class BlockCache {
       return;
     }
     const packed = block.packed;
+    if (this.compileBlocks && ++block.runs === 32) {
+      try { block.compiled = compileBlock(block); } catch { this.compileBlocks = false; }
+    }
+    if (this.compileBlocks && block.compiled) { block.compiled(cpu, budget, block); return; }
     for (let i = 0; i < block.count && budget > 0; i++) {
       const o = i * 3;
       execPacked(cpu, instPC, packed[o]!, packed[o + 1]!, packed[o + 2]!);
@@ -212,6 +229,11 @@ export class BlockCache {
     const block = this.pool[id];
     if (!block) return;
     block.valid = false;
+    for (let page = block.guestPC >>> 12; page <= (block.endPC - 1) >>> 12; page++) {
+      const ids = this.codePages.get(page);
+      ids?.delete(id);
+      if (!ids?.size) this.codePages.delete(page);
+    }
     if (block.region) {
       const table = this.slot(block.region, block.guestPC, block.thumb);
       const index = this.index(block.guestPC, block.region.base, block.thumb);
@@ -224,19 +246,15 @@ export class BlockCache {
   invalidate(base: number, len: number): void {
     if (len <= 0) return;
     const end = base + len;
-    for (const r of this.regions) {
-      const a = Math.max(r.base, base), b = Math.min(r.base + r.len, end);
-      if (a >= b) continue;
-      r.generation = (r.generation + 1) >>> 0 || 1;
-      // An instruction in the middle of a cached block may change. Search
-      // preceding starts too; unrelated data writes must not flush all code.
-      for (const [table, shift] of [[r.blockIdArm, 2], [r.blockIdThumb, 1]] as const) {
-        const first = Math.max(0, a - r.base - MAX_INSNS * 4) >>> shift;
-        const last = Math.min(table.length, Math.ceil((b - r.base) / (1 << shift)));
-        for (let index = first; index < last; index++) {
-          const id = table[index], block = this.pool[id];
-          if (id && block && block.guestPC < end && block.endPC > base) this.drop(id, true);
-        }
+    for (const region of this.regions) {
+      if (region.base < end && region.base + region.len > base) region.generation = (region.generation + 1) >>> 0 || 1;
+    }
+    for (let page = base >>> 12; page <= Math.floor((end - 1) / 4096); page++) {
+      const ids = this.codePages.get(page);
+      if (!ids) continue;
+      for (const id of ids) {
+        const block = this.pool[id];
+        if (block && block.guestPC < end && block.endPC > base) this.drop(id, true);
       }
     }
   }

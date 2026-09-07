@@ -74,6 +74,9 @@ export class ExtRuntime {
   codeBase = EXT_CODE_ADDR;
   codeLen = 0;
   insnBudget = DEFAULT_INSN_BUDGET;
+  /** Optional real monotonic clock for interactive hosts; omitted in deterministic runs. */
+  monotonicTime?: () => number;
+  synchronousClockProgress = 0;
   lastKind: ExtStopKind = ExtStopKind.Return;
   bridgeCalls = 0;
   guestCallSerial = 0;
@@ -349,7 +352,25 @@ export class ExtRuntime {
     const startCount = this.cpu.insnCount;
     const budget = Math.min(Math.max(this.insnBudget | 0, 1), MAX_INSN_BUDGET);
     try {
-      run(this.cpu, budget);
+      if (!this.monotonicTime) run(this.cpu, budget);
+      else {
+        const deadline = this.monotonicTime() + 30_000;
+        let remaining = budget, progress = this.synchronousClockProgress;
+        for (;;) {
+          const slice = Math.min(remaining, 1_000_000);
+          run(this.cpu, slice);
+          remaining -= slice;
+          if (this.monotonicTime() >= deadline) return this.finish(ExtStopKind.AbiFault, "execution deadline exceeded");
+          if (remaining <= 0) {
+            // A timed synchronous workload can exceed the instruction cap on
+            // a faster host. Renew only while its clock actually advances;
+            // explicit test budgets and the 30-second deadline stay binding.
+            if (budget !== DEFAULT_INSN_BUDGET || this.synchronousClockProgress <= progress) break;
+            progress = this.synchronousClockProgress;
+            remaining = budget;
+          }
+        }
+      }
       this.lastKind = ExtStopKind.AbiFault;
       return this.finish(ExtStopKind.AbiFault, "budget exceeded");
     } catch (e) {

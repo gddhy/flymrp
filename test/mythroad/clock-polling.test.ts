@@ -57,3 +57,25 @@ it('advances timed allocation loops without discarding time at malloc/free calls
   clock += 80;
   expect(ext.runGuest(tableSlotAddr(33)).r0).toBe(182);
 });
+
+it('uses actual elapsed time for synchronous calls and keeps host-event gaps separate', () => {
+  let now = 1000;
+  const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'real-clock');
+  ext.monotonicTime = () => now; bridge.install();
+  const poll = () => { ext.bridgeCalls++; return (bridge as any).pollTime(); };
+  expect(poll()).toBe(0);
+  now += 1.75; expect(poll()).toBe(1);
+  now += 0.5; expect(poll()).toBe(2);
+  now -= 0.75; expect(poll()).toBe(2); // backward samples cannot reverse guest time
+  ext.guestCallSerial++; now += 300; expect(poll()).toBe(2);
+  now += 10; expect(poll()).toBe(12);
+  expect(ext.synchronousClockProgress).toBe(12);
+});
+
+it('retains explicit instruction budgets and a wall-clock deadline for endless code', () => {
+  const ext = new ExtRuntime(); const code = ext.alloc(64); ext.mem.write32(code,0xeafffffe);
+  ext.insnBudget=32; ext.monotonicTime=()=>0;
+  const bounded=ext.runGuest(code); expect(bounded.detail).toBe('budget exceeded'); expect(bounded.insnCount).toBe(32);
+  let now=0; ext.monotonicTime=()=>now+=30001;
+  expect(ext.runGuest(code).detail).toBe('execution deadline exceeded');
+});

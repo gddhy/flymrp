@@ -61,6 +61,8 @@ export type MythroadRuntimeOptions = {
    * Not an execution slice. Omitted → `DEFAULT_INSN_BUDGET`. Clamped to `MAX_INSN_BUDGET`.
    */
   armInstructionBudget?: number;
+  /** Real synchronous timing in interactive hosts; omit for reproducible tests. */
+  monotonicTime?: () => number;
   /** Observes each `arm_ext_call`. Does not change ABI. */
   onExtCall?: (code: number, out: ExtCallResult) => void;
   /** Host audio sink. Node tests omit this; the web player supplies Web Audio. */
@@ -120,6 +122,7 @@ export class MythroadRuntime {
   readonly trace: RuntimeTrace | null = null;
   readonly abiMode: AbiMode = "strict";
   readonly armInstructionBudget: number;
+  private readonly monotonicTime?: () => number;
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
@@ -128,6 +131,7 @@ export class MythroadRuntime {
   soundOn = false;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
+    this.monotonicTime = opts.monotonicTime;
     this.profile = defaultProfile(opts.profile);
     this.abiMode = opts.abiMode ?? "strict";
     this.armInstructionBudget = Math.min(
@@ -396,6 +400,7 @@ export class MythroadRuntime {
     bridge.install();
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;
+    rt.monotonicTime = this.monotonicTime;
     rt.onExtCall = this.onExtCall;
     this.mrTable = bridge;
     this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
