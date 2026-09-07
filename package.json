@@ -12,7 +12,8 @@
     "bench": "tsx bench/run.ts",
     "inspect": "tsx tools/real/inspect.ts",
     "start": "vite --config web/vite.config.ts --host 127.0.0.1 --open",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:collection": "tsx tools/real/collection-test.ts"
   },
   "engines": {
     "node": ">=20"
