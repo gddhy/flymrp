@@ -20,12 +20,11 @@ describe("collection string and platform ABI",()=>{
     expect(guestStrtoul("123",1)).toBe(0);
     const {str,call}=setup();expect(call(19,str("0xff"),16,0)).toBe(255);
   });
-  it("initializes a virtual network, reports unavailable transport, and retains vendor fallback status",()=>{
+  it("initializes a virtual network, reports unavailable transport, and rejects unknown platform extensions",()=>{
     const {ext,bridge,str,call}=setup();expect(call(81,0,str("CMNET"),0)).toBe(0);
     expect(bridge.networkMode).toBe("CMNET");expect(call(83,str("example.invalid"),0,0)).toBe(-1);
     expect(call(84,0,0,0)).toBe(-1);expect(call(82,0,0,0)).toBe(0);expect(bridge.networkMode).toBeNull();
-    expect(bridge.platEx(ext.mem,new Uint32Array([2221,0,0,0,0]))).toBe(1);
-    expect(bridge.ignoredPlatformExtensions.has(2221)).toBe(true);
+    expect(bridge.platEx(ext.mem,new Uint32Array([2221,0,0,0,0]))).toBe(-1);
     expect(()=>bridge.platEx(ext.mem,new Uint32Array([999999,0,0,0,0]))).toThrow();
   });
   it("renames EFS files while preserving the source's open handle and rejects missing sources",()=>{

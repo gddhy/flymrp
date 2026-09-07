@@ -37,7 +37,7 @@ describe("5-C.10J current-pack file ABI forensics", () => {
     expect(r.handlers[43]).toBe(true);
     expect(r.handlers[44]).toBe(true);
     expect(r.handlers[45]).toBe(true);
-    for (const s of NOT_REQUIRED_STARTUP_FILE_SLOTS) expect(r.handlers[s]).toBe(s === 46 || s === 47);
+    for (const s of NOT_REQUIRED_STARTUP_FILE_SLOTS) expect(r.handlers[s]).toBe(s === 46 || s === 47 || s === 48);
     expect(r.handlers[14]).toBe(true);
     expect(r.handlers[0]).toBe(true);
     expect(r.handlers[1]).toBe(true);

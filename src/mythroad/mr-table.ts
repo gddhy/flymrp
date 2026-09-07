@@ -14,6 +14,7 @@ import { defaultProfile, lcgNext, type DeviceProfile } from "./profile.ts";
 import { aapcsPrintfVararg, aapcsSprintfVararg, guestPrintf, guestSprintf } from "./sprintf.ts";
 import type { MythroadVfs } from "./vfs.ts";
 import { GuestHeap } from "./guest-heap.ts";
+import { MediaDevices } from "./media.ts";
 
 /** `sizeof(mr_userinfo)` in `mrporting.h`. */
 export const MR_USERINFO_SIZE = 64;
@@ -141,7 +142,13 @@ export class MrTableBridge {
   private diskInfoAddr = 0;
   private randSeed: number | null = null;
   networkMode: string | null = null;
-  readonly ignoredPlatformExtensions = new Set<number>();
+  private readonly media = new MediaDevices({
+    alloc: size => this.ext.alloc(size),
+    readFile: name => this.appFs.file(name),
+    play: (type, bytes, loop) => this.hooks.onPlaySound?.(type, bytes, loop),
+    stop: type => this.stopSound(type),
+  });
+  volume = 100;
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
   workPath = MYTHROAD_WORK_PATH;
   /** Isolated-test screen when `hooks.getScreen` is absent. */
@@ -151,6 +158,8 @@ export class MrTableBridge {
    * Production always reads `MythroadRuntime.clock` via `getClock`.
    */
   clock = 0;
+  private lastTimeCall = { serial: -1, bridge: -1, instructions: 0 };
+  private pollingInstructions = 0;
   /** Isolated-test timer when `hooks.getTimer` is absent. */
   localTimer = new MythroadTimer();
 
@@ -294,7 +303,7 @@ export class MrTableBridge {
       return MR_SUCCESS;
     });
     this.ext.registerHandler(54, () => { this.hooks.onExit?.(); return MR_SUCCESS; });
-    this.ext.registerHandler(33, (_cpu, _mem, _args) => this.getTime());
+    this.ext.registerHandler(33, () => this.pollTime());
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
@@ -393,6 +402,25 @@ export class MrTableBridge {
     return n >>> 0;
   }
 
+  /** Synchronous guest delay loops must see elapsed time, even before they
+   * return to the host event loop. Charge only uninterrupted clock polling at
+   * a deterministic 16.384 MIPS; normal event-driven time stays unchanged. */
+  private pollTime(): number {
+    const serial = this.ext.guestCallSerial, bridge = this.ext.bridgeCalls;
+    const instructions = this.ext.cpu.insnCount, last = this.lastTimeCall;
+    if (serial === last.serial && bridge === last.bridge + 1) {
+      this.pollingInstructions += Math.max(0, instructions - last.instructions);
+      const ms = Math.floor(this.pollingInstructions / 16384);
+      if (ms) {
+        this.pollingInstructions %= 16384;
+        if (this.hooks.onSleep) this.hooks.onSleep(ms);
+        else if (!this.hooks.getClock) this.clock += ms;
+      }
+    } else this.pollingInstructions = 0;
+    this.lastTimeCall = { serial, bridge, instructions };
+    return this.getTime();
+  }
+
   /**
    * table[17] = `sprintf_`.
    *
@@ -450,9 +478,8 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1015) return this.free(input, inputLen);
-    // Optional vendor hook. DSM's platform dispatcher returns MR_IGNORE for
-    // this extension; callers retain their own implementation on that result.
-    if (code === 2221) { this.ignoredPlatformExtensions.add(code); return MR_IGNORE; }
+    const mediaResult = this.media.dispatch(mem, code, input, inputLen, output, outputLen);
+    if (mediaResult !== null) return mediaResult;
     if (code === 1207) {
       if (!input || !output) return MR_FAILED;
       const chars: number[] = [];
@@ -962,7 +989,7 @@ export class MrTableBridge {
   }
 
   plat(code: number, param: number): number {
-    void param;
+    if (code === 1302) { this.volume = Math.max(0, Math.min(100, param)); return MR_SUCCESS; }
     if ((code >>> 0) === MR_GET_HANDSET_LG) return MR_CHINESE;
     if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;
     // rxgj dsm.c: SMS-centre query is asynchronous (MR_WAITING); no SMS is sent.

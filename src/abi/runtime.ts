@@ -76,6 +76,7 @@ export class ExtRuntime {
   insnBudget = DEFAULT_INSN_BUDGET;
   lastKind: ExtStopKind = ExtStopKind.Return;
   bridgeCalls = 0;
+  guestCallSerial = 0;
   debugOutput = "";
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
 
@@ -320,6 +321,7 @@ export class ExtRuntime {
       lr?: number;
     } = {},
   ): ExtCallResult {
+    this.guestCallSerial++;
     const thumb = (regs.thumb ?? (start & 1)) & 1;
     const pc = (start & ~1) >>> 0;
     this.cpu.reset(pc, thumb);
