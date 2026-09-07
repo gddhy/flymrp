@@ -9,7 +9,7 @@ import { MemoryFault, type GuestMemory } from "../hot/memory.ts";
 import { guestMd5Init, guestMd5Append, guestMd5Finish } from "./guest-md5.ts";
 import { MRPArchive } from "../mrp/index.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_DIR, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
+import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_DIR, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_PLAT_VALUE_BASE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
 import { MythroadTimer } from "./timer.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph, gbkBytesToUcs2, ucs2ToGbk } from "./font.ts";
@@ -20,6 +20,7 @@ import type { MythroadVfs } from "./vfs.ts";
 import { GuestHeap } from "./guest-heap.ts";
 import { MediaDevices } from "./media.ts";
 import { OfflineNetwork } from "./offline-network.ts";
+import jpeg from "jpeg-js";
 
 /** `sizeof(mr_userinfo)` in `mrporting.h`. */
 export const MR_USERINFO_SIZE = 64;
@@ -72,6 +73,38 @@ export function writeFixedCString(mem: GuestMemory, addr: number, s: string, fie
   for (let i = 0; i < take; i++) mem.write8((a + i) >>> 0, s.charCodeAt(i) & 0xff);
 }
 
+/** Read dimensions from the image formats commonly embedded in MRP resources. */
+function imageDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  const u16le = (p: number) => bytes[p]! | (bytes[p + 1]! << 8);
+  const u16be = (p: number) => (bytes[p]! << 8) | bytes[p + 1]!;
+  const u32le = (p: number) => (bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24)) >>> 0;
+  const u32be = (p: number) => (((bytes[p]! << 24) | (bytes[p + 1]! << 16) | (bytes[p + 2]! << 8) | bytes[p + 3]!) >>> 0);
+  if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
+    return { width: u32be(16), height: u32be(20) };
+  if (bytes.length >= 10 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46)
+    return { width: u16le(6), height: u16le(8) };
+  if (bytes.length >= 26 && bytes[0] === 0x42 && bytes[1] === 0x4d)
+    return { width: u32le(18), height: Math.abs((u32le(22) | 0)) };
+  // JPEG dimensions are stored in the SOF marker following each variable-size segment.
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let p = 2;
+    while (p + 9 < bytes.length) {
+      if (bytes[p] !== 0xff) { p++; continue; }
+      while (p < bytes.length && bytes[p] === 0xff) p++;
+      const marker = bytes[p++]!;
+      if (marker === 0xd8 || marker === 0xd9) continue;
+      if (p + 2 > bytes.length) break;
+      const length = u16be(p);
+      if (length < 2 || p + length > bytes.length) break;
+      if ((marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7) ||
+          (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf))
+        return { width: u16be(p + 5), height: u16be(p + 3) };
+      p += length;
+    }
+  }
+  return null;
+}
+
 /**
  * rxgj FULL `_mr_TestCom` under `#ifdef MR_PLAT_DRAWTEXT`.
  * Not universal Mythroad. Not a flymrp capability probe.
@@ -80,7 +113,8 @@ export const MR_TESTCOM_CASE7 = 7;
 
 /**
  * Observed LIVE `mr_platEx` code. `0x4c6 == 1222 == MR_TURONBACKLIGHT` numerically.
- * This stage only returns `MR_SUCCESS`; it is not a backlight implementation.
+ * The browser keeps a virtual backlight state so games can query and toggle it
+ * without depending on a native device.
  */
 export const MR_PLATEX_CODE_4C6 = 0x4c6;
 
@@ -149,6 +183,7 @@ export class MrTableBridge {
   /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
   switchPathAddr = 0;
   private diskInfoAddr = 0;
+  private imageInfoAddr = 0;
   private signalInfoAddr = 0;
   private signalInitialized = false;
   private nextSearch = 1;
@@ -167,6 +202,8 @@ export class MrTableBridge {
     stop: type => this.stopSound(type),
   });
   volume = 100;
+  /** Virtual LCD backlight state. `mr_plat(1020)` reports 1000 when off. */
+  private backlightOn = true;
   /** rxgj `dsmWorkPath`. Starts at `mythroad/`. */
   private readonly localWorkPath = new WorkPath();
   get workPath(): string { return (this.hooks.workPath ?? this.localWorkPath).value; }
@@ -573,13 +610,14 @@ export class MrTableBridge {
    * This is rxgj FULL compatibility behavior for the observed
    * `mr_platEx(0x4c6, NULL, 0, NULL, NULL, NULL)` call.
    *
-   * It is not claimed to implement the complete `mr_platEx` API
-   * or universal Mythroad platform behavior. No backlight / Canvas /
-   * DOM / device side effects.
+   * It is not claimed to implement every device-specific `mr_platEx` API, but
+   * the common backlight, image, and media calls used by bundled games are
+   * handled here with browser-safe behavior.
    *
    * AAPCS: r0=code r1=input r2=input_len r3=output [sp]=output_len [sp+4]=cb.
-   * Implemented: `0x4c6` → `MR_SUCCESS`; `1204` `dsmSwitchPath` (Y/Z/X/A/B/C).
-   * Other platEx codes remain UnknownAbiError.
+   * Implemented: backlight 1222/1223, image 3001/3002, and common
+   * no-op/success platform calls. Unknown codes still raise UnknownAbiError so
+   * new incompatibilities remain visible during regression testing.
    */
   platEx(mem: GuestMemory, args: Uint32Array): number {
     const code = args[0]! >>> 0;
@@ -594,9 +632,84 @@ export class MrTableBridge {
       void output;
       void outputLen;
       void cb;
+      this.backlightOn = code === MR_PLATEX_CODE_4C6;
       return MR_SUCCESS;
     }
+    if (code === 1001) {
+      if (output) mem.write32(output, this.screenAddr);
+      if (outputLen) mem.write32(outputLen, this.screenCapacity);
+      return MR_SUCCESS;
+    }
+    if (code === 1002 || code === 1012 || code === 1013) return code === 1002 ? MR_SUCCESS : MR_IGNORE;
+    if (code === 1201) {
+      if (!output || !outputLen) return MR_FAILED;
+      const p = this.ext.alloc(4); if (!p) return MR_FAILED;
+      mem.load(p, [16, 16, 8, 16]); mem.write32(output, p); mem.write32(outputLen, 4); return MR_SUCCESS;
+    }
+    if (code === 1116) {
+      if (!output || !outputLen) return MR_FAILED;
+      const bytes = new TextEncoder().encode("2011/01/01 00:00:00\0"), p = this.ext.alloc(bytes.length);
+      if (!p) return MR_FAILED; mem.load(p, bytes); mem.write32(output, p); mem.write32(outputLen, bytes.length); return MR_SUCCESS;
+    }
+    if (code === 1224) {
+      if (!output || !outputLen) return MR_FAILED;
+      const p = this.ext.alloc(32); if (!p) return MR_FAILED; mem.fill(p, 0, 32); mem.write32(output, p); mem.write32(outputLen, 32); return MR_SUCCESS;
+    }
+    if (code === 1307) return MR_IGNORE;
+    if (code === 4033) return MR_SUCCESS;
     if (code === MR_SWITCHPATH) return this.switchPath(mem, input, inputLen, output, outputLen);
+    if (code === 3002) {
+      // MRAPP_IMAGE_DECODE_T: src, len, width, height, src_type, dest.
+      if (!input || inputLen < 24) return MR_FAILED;
+      const source = mem.read32(input), length = mem.read32(input + 4);
+      const width = mem.read32(input + 8), height = mem.read32(input + 12);
+      const sourceType = mem.read32(input + 16), dest = mem.read32(input + 20);
+      if (!source || !width || !height || !dest) return MR_FAILED;
+      let bytes: Uint8Array | null = null;
+      try {
+        if (sourceType === 1 || sourceType === 2) bytes = mem.slice(source, length);
+        else bytes = this.vfs.readFile(readGuestCString(mem, source)) ?? this.appFs.file(readGuestCString(mem, source));
+        if (!bytes) return MR_FAILED;
+        const decoded = jpeg.decode(bytes, { useTArray: true });
+        const rgba = decoded.data as Uint8Array;
+        for (let y = 0; y < height; y++) {
+          const sy = Math.min(decoded.height - 1, Math.floor(y * decoded.height / height));
+          for (let x = 0; x < width; x++) {
+            const sx = Math.min(decoded.width - 1, Math.floor(x * decoded.width / width));
+            const i = (sy * decoded.width + sx) * 4;
+            const r = rgba[i]!, g = rgba[i + 1]!, b = rgba[i + 2]!;
+            mem.write16(dest + (y * width + x) * 2, ((r >>> 3) << 11) | ((g >>> 2) << 5) | (b >>> 3));
+          }
+        }
+        return MR_SUCCESS;
+      } catch {
+        // Some MRP images are already RGB565 buffers; preserve those bytes as-is.
+        if (bytes && bytes.length >= width * height * 2) { mem.load(dest, bytes.subarray(0, width * height * 2)); return MR_SUCCESS; }
+        return MR_FAILED;
+      }
+    }
+    if (code === 3001) {
+      // MRAPP_IMAGE_ORIGIN_T: src pointer, stream length, and SRC_NAME/SRC_STREAM.
+      if (!input || inputLen < 12 || !output || !outputLen) return MR_FAILED;
+      const source = mem.read32(input), length = mem.read32(input + 4), sourceType = mem.read32(input + 8);
+      let bytes: Uint8Array | null = null;
+      try {
+        if (sourceType === 1 || sourceType === 2) bytes = source && length ? mem.slice(source, length) : null;
+        else if (source) {
+          const name = readGuestCString(mem, source);
+          bytes = this.vfs.readFile(name) ?? this.appFs.file(name);
+        }
+      } catch { bytes = null; }
+      const dimensions = bytes ? imageDimensions(bytes) : null;
+      if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) return MR_FAILED;
+      this.imageInfoAddr ||= this.ext.alloc(8);
+      if (!this.imageInfoAddr) return MR_FAILED;
+      mem.write32(this.imageInfoAddr, dimensions.width);
+      mem.write32(this.imageInfoAddr + 4, dimensions.height);
+      mem.write32(output, this.imageInfoAddr);
+      mem.write32(outputLen, 8);
+      return MR_SUCCESS;
+    }
     if (code === 1014) {
       const screen = this.hooks.getScreen?.() ?? this.screen;
       const size = (inputLen | 0) > 0 ? inputLen : screen.width * screen.height * 4;
@@ -607,6 +720,11 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1015) return this.free(input, inputLen);
+    // Recording is unavailable in a browser; report the documented optional
+    // feature as ignored so applications can continue with their UI fallback.
+    if (code === 2700 || code === 2704) return MR_IGNORE;
+    if (code === 3003 || code === 3010) return MR_SUCCESS;
+    if ([3004, 3005, 3007, 3008, 3009, 3011, 3013, 3014, 3015].includes(code)) return MR_IGNORE;
     // Optional platform billing-state query; this offline host does not take over.
     if (code === 0x90004) return MR_IGNORE;
     const mediaResult = this.media.dispatch(mem, code, input, inputLen, output, outputLen);
@@ -1119,8 +1237,24 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1001) return this.offlineNetwork.state(param);
+    if (code === 1002) return MR_IGNORE; // socket timeout is host-controlled
+    if (code === 1211) {
+      const n = param | 0;
+      if (n <= 0) return MR_FAILED;
+      this.randSeed = lcgNext(this.randSeed ?? (this.hooks.getProfile?.() ?? defaultProfile()).randSeed);
+      return MR_PLAT_VALUE_BASE + ((this.randSeed >>> 16) & 0x7fff) % n;
+    }
+    if (code === 1231) {
+      const pos = this.files.peek(param | 0)?.pos;
+      return pos === undefined ? MR_FAILED : MR_PLAT_VALUE_BASE + pos;
+    }
     if (code === 1016 || code === 1018) { this.signalInitialized = code === 1016; return MR_SUCCESS; }
-    if (code === 1101 || code === 1011 || code === 1215) return MR_IGNORE;
+    // SKYENGINE backlight query: 1000 means off; any other value means on.
+    // Keep the virtual display lit by default so games do not start black.
+    if (code === 1020) return this.backlightOn ? MR_PLAT_VALUE_BASE + 1 : MR_PLAT_VALUE_BASE;
+    if (code === 1100 || code === 1101 || code === 1011 || code === 1215) return code === 1100 ? MR_SUCCESS : MR_IGNORE;
+    if (code === 1218) return MR_PLAT_VALUE_BASE + 1;
+    if (code === 1328) return MR_SUCCESS;
     if (code === 1327 || code === 1391) return MR_IGNORE; // No guest Wi-Fi/background service (dsm.c).
     if (code === 1214) return MR_SUCCESS; // Enable key-release events (always supported).
     if (code === 1302) { this.volume = Math.max(0, Math.min(100, param)); return MR_SUCCESS; }
@@ -1128,6 +1262,10 @@ export class MrTableBridge {
     if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;
     // rxgj dsm.c: SMS-centre query is asynchronous (MR_WAITING); no SMS is sent.
     if ((code >>> 0) === 1106) return 2;
+    if (code >= 4001 && code <= 4006) {
+      this.hooks.onPlatformEvent?.(code, param | 0);
+      return MR_SUCCESS;
+    }
     const message = `unsupported mr_plat code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_plat", code, message });
     throw new UnknownAbiError(message, {
