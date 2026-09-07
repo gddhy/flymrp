@@ -1606,5 +1606,99 @@
       "6bde5c73a3196351814ddb33348f3c14b86eeab3c864ed07e9cdbb7c0685de24"
     ],
     "reviewNote": "人工核对海滩连连看棋盘、选中光标与计时条；默认方向与确认键输入后持续运行 60 秒。仅覆盖此场景。"
+  },
+  "79": {
+    "gameplaySha256": [
+      "c58eb0a75ccfa7a69638072e0d87f19524c48e9f73251b6bfcc053f783b16328"
+    ],
+    "controlSha256": [
+      "c58eb0a75ccfa7a69638072e0d87f19524c48e9f73251b6bfcc053f783b16328"
+    ],
+    "reviewNote": "人工核对载入后的实际战斗场景、角色生命与指令选择；默认输入后持续模拟 60 秒，非完整通关验证。"
+  },
+  "90": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "RIGHT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "RIGHT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE",
+        "wait": 60
+      }
+    ],
+    "controls": [
+      {
+        "key": "LEFT",
+        "wait": 20
+      },
+      {
+        "key": "LEFT",
+        "wait": 20
+      },
+      {
+        "key": "LEFT",
+        "wait": 20
+      },
+      {
+        "key": "LEFT",
+        "wait": 20
+      },
+      {
+        "key": "LEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "UP",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 100
+      }
+    ],
+    "gameplaySha256": [
+      "ed2f515e3f5a62db5cec55821f96e5754fcd9bdd06a5a78d3700e421f46d7000"
+    ],
+    "controlSha256": [
+      "ed2f515e3f5a62db5cec55821f96e5754fcd9bdd06a5a78d3700e421f46d7000"
+    ],
+    "reviewNote": "人工核对选择三张卡后进入第一关，以键盘种下豌豆射手；尾部持续模拟 60 秒。"
   }
 }

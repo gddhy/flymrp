@@ -160,7 +160,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.height = profile.height;
     fitScreen();
     const packName = MRPArchive.parse(new Uint8Array(buffer)).header.filename;
-    const localFiles = { ...await loadLocalSystem(), ...await loadLocalSystem(packName) };
+    const [localFiles, resources] = await Promise.all([loadLocalSystem(), loadLocalSystem(packName)]);
     if (token !== generation) return;
     rt = new PlayerClient(canvas, { edit: state => {
       if (!state) { if (editorDialog.open) editorDialog.close(); editingRuntime = null; canvas.focus(); return; }
@@ -173,7 +173,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     }, sound: (type, data, loop) => audio.play(type, data, loop), soundStop: type => audio.stop(type),
       error: error => { if (token === generation) fail(error, rt); } });
     loadingRuntime = rt;
-    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, profile });
+    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, resources, profile });
     if (token !== generation) return;
     loadingRuntime = null;
     const title = guestTitle || name.split('/').at(-1)!;

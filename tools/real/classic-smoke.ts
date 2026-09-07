@@ -23,9 +23,9 @@ if (worker) {
     const bytes = await readFile(path);
     const packName = MRPArchive.parse(bytes).header.filename;
     const systemFiles = Object.fromEntries(await Promise.all(SYSTEM_COMPONENTS.map(async name => [name, new Uint8Array(await readFile(`assets/${name}`))] as const)));
-    Object.assign(systemFiles, await loadGameResourceFiles(process.env.MRP_RESOURCE_DIR ?? join(root, "mythroad_res"), packName));
+    const resourceFiles = await loadGameResourceFiles(process.env.MRP_RESOURCE_DIR ?? join(root, "mythroad_res"), packName);
     loadGb16Uc2(systemFiles["system/gb16.uc2"]);
-    rt = new MythroadRuntime({ profile, graphics: display, systemFiles, networkRules: DEFAULT_NETWORK_RULES, abiMode: "strict" });
+    rt = new MythroadRuntime({ profile, graphics: display, systemFiles, resourceFiles, networkRules: DEFAULT_NETWORK_RULES, abiMode: "strict" });
     rt.loadMrp(bytes); phase = "start"; rt.start(); phase = "boot";
     for (let i = 0; i < 40; i++) {
       rt.advance(80);

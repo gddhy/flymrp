@@ -42,7 +42,7 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
   try {
     if (message.type === 'start') {
       loadGb16Uc2(message.files['system/gb16.uc2']);
-      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
+      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
         networkRules: DEFAULT_NETWORK_RULES,
         onEditChange: state => send({ type: 'edit', state }),
         onPlaySound: (format, bytes, loop) => send({ type: 'sound', format, bytes, loop }),

@@ -47,6 +47,8 @@ export type MythroadRuntimeOptions = {
   onEditChange?: (state: EditState | null) => void;
   /** Bundled handset files, copied into each runtime’s virtual filesystem. */
   systemFiles?: Readonly<Record<string, Uint8Array>>;
+  /** Download supplements: install missing files after the app unpacks its own version. */
+  resourceFiles?: Readonly<Record<string, Uint8Array>>;
   graphics?: GraphicsBackend;
   entry?: string;
   param?: string;
@@ -80,6 +82,8 @@ export class MythroadRuntime {
   private readonly networkRules?: NetworkRules;
   private readonly onEditChange?: (state: EditState | null) => void;
   private readonly systemFiles: Readonly<Record<string, Uint8Array>>;
+  private readonly resourceFiles: Readonly<Record<string, Uint8Array>>;
+  private initializing = false;
   readonly timers = new MythroadTimer();
   readonly events = new EventQueue();
   readonly gfx: GraphicsBackend;
@@ -155,6 +159,7 @@ export class MythroadRuntime {
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
     this.systemFiles = opts.systemFiles ?? {};
+    this.resourceFiles = opts.resourceFiles ?? {};
     this.networkRules = opts.networkRules;
     this.onEditChange = opts.onEditChange;
     this.entry = opts.entry ?? "_dsm";
@@ -222,7 +227,9 @@ export class MythroadRuntime {
     this.lua.L.setGlobal("_mr_param", TAG_STRING, this.lua.L.internStr(this.param));
     const chunk = this.vfs.readFile(entry);
     if (!chunk) throw new LuaRuntimeError(`cannot read ${entry}`);
-    this.lua.runBytes(chunk);
+    this.initializing = true;
+    try { this.lua.runBytes(chunk); } finally { this.initializing = false; }
+    this.installMissingResources();
     if (this.timers.state === MR_TIMER_STATE_IDLE && this.lua.hasGlobalFn("dealtimer")) {
       this.timers.start(this.clock, 100, "dealtimer", this.state);
     }
@@ -289,7 +296,9 @@ export class MythroadRuntime {
     const name = this.pendingStartFile || MR_START_FILE;
     const chunk = this.vfs.readFile(name);
     if (!chunk) throw new LuaRuntimeError(`cannot read ${name}`);
-    this.lua.runBytes(chunk);
+    this.initializing = true;
+    try { this.lua.runBytes(chunk); } finally { this.initializing = false; }
+    this.installMissingResources();
     if (this.timers.state === MR_TIMER_STATE_IDLE && this.lua.hasGlobalFn("dealtimer")) {
       this.timers.start(this.clock, 100, "dealtimer", this.state);
     }
@@ -328,6 +337,13 @@ export class MythroadRuntime {
     return MR_SUCCESS;
   }
 
+  private installMissingResources(bridge = this.mrTable): void {
+    if (!bridge) return;
+    for (const [name, bytes] of Object.entries(this.resourceFiles)) {
+      if (bridge.appFs.info(name) === null) bridge.appFs.replace(name, bytes.slice());
+    }
+  }
+
   bindExt(rt: ExtRuntime | null): void {
     if (!rt) {
       this.ext = null;
@@ -349,7 +365,7 @@ export class MythroadRuntime {
       onPlatformEvent: (type, value) => this.queueEvent(EV_SYSTEM, type, value, 0),
       onEditChange: this.onEditChange,
       onEditComplete: accepted => this.queueEvent(EV_SYSTEM, 6, accepted ? 0 : 1, 0),
-      getDownloadFile: name => this.systemFiles[name] ?? null,
+      getDownloadFile: name => this.mrTable?.appFs.file(name) ?? this.resourceFiles[name] ?? this.systemFiles[name] ?? null,
       getClock: () => this.clock,
       onSleep: (ms) => { this.clock += ms; },
       onExit: exitGuest,
@@ -398,6 +414,7 @@ export class MythroadRuntime {
     });
     for (const [name, bytes] of Object.entries(this.systemFiles)) bridge.appFs.replace(name, bytes.slice());
     bridge.install();
+    if (!this.initializing) this.installMissingResources(bridge);
     rt.setPackTableName(this.packName);
     rt.insnBudget = this.armInstructionBudget;
     rt.monotonicTime = this.monotonicTime;
