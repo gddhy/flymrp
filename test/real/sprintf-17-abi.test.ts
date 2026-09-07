@@ -53,6 +53,17 @@ function call17(
 }
 
 describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
+  it("reads stack varargs beyond the first four AAPCS words", () => {
+    const ext = new ExtRuntime();
+    const bridge = new MrTableBridge(ext, new MythroadVfs(), "test");
+    bridge.install();
+    const dst = ext.alloc(32), fmt = ext.alloc(32), sp = ext.cpu.r[13] >>> 0;
+    ext.mem.load(fmt, new TextEncoder().encode("%d %d %d %d %d %d %d\0"));
+    ext.mem.write32(sp + 16, 55);
+    const args = new Uint32Array([dst, fmt, 1, 2, 3, 4, 5, 6]);
+    bridge.sprintf(ext.mem, args, sp);
+    expect(new TextDecoder().decode(ext.mem.slice(dst, 20)).replace(/\0.*$/, "")).toBe("1 2 3 4 5 6 55");
+  });
   it("formats literals and %d into GuestMemory with NUL, returns length excluding NUL", () => {
     const { ext } = wire();
     const buf = ext.alloc(32);

@@ -193,8 +193,11 @@ export function aapcsPrintfVararg(args: Uint32Array, index: number): number {
 }
 
 /** AAPCS vararg #n: 0→R2, 1→R3, 2+→[SP+(n-2)*4] via `readAapcs` slots 2..7. */
-export function aapcsSprintfVararg(args: Uint32Array, index: number): number {
+export function aapcsSprintfVararg(args: Uint32Array, index: number, mem?: GuestMemory, sp?: number): number {
   const slot = index + 2;
+  if (slot >= args.length && mem && sp !== undefined && index >= 2) {
+    return mem.read32((sp + (index - 2) * 4) >>> 0) >>> 0;
+  }
   if (slot < 0 || slot >= args.length) {
     throw new UnknownAbiError(`sprintf vararg ${index} out of AAPCS window`, {
       family: "sprintf_",

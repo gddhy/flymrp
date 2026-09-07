@@ -394,7 +394,7 @@ export class MrTableBridge {
     this.ext.registerHandler(72, (_cpu, _mem, [title, text, type]) => this.nativeUi.create('text', title, text, type));
     this.ext.registerHandler(74, (_cpu, _mem, [handle, title, text]) => this.nativeUi.refresh(handle, title, text));
     this.ext.registerHandler(33, () => this.pollTime());
-    this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
+    this.ext.registerHandler(17, (cpu, mem, args) => this.sprintf(mem, args, cpu.r[13] >>> 0));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
     this.ext.registerHandler(43, (_cpu, mem, args) => this.files.write(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
@@ -563,8 +563,8 @@ export class MrTableBridge {
    *
    * Return is bytes written excluding the trailing NUL (mpaland `sprintf_`).
    */
-  sprintf(mem: GuestMemory, args: Uint32Array): number {
-    return guestSprintf(mem, args[0]! >>> 0, args[1]! >>> 0, (index) => aapcsSprintfVararg(args, index));
+  sprintf(mem: GuestMemory, args: Uint32Array, sp?: number): number {
+    return guestSprintf(mem, args[0]! >>> 0, args[1]! >>> 0, (index) => aapcsSprintfVararg(args, index, mem, sp));
   }
 
   /**
