@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { crc32 } from "../../src/mrp/gzip.ts";
 import { loadGb16Uc2, MythroadRuntime } from "../../src/mythroad/index.ts";
+import { FrameCapture } from "./frame-capture.ts";
 import { inferScreenSize } from "../../src/mythroad/device-size.ts";
 
 type Game = { id: number; path: string; sha256: string; required?: boolean };
 type Action = { key: string; hold?: number; wait?: number };
-type Scenario = { entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; reviewNote?: string };
+type Scenario = { entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
 const manifestPath = resolve("docs/compatibility/collection-100.json");
 const scenarioPath = resolve("docs/compatibility/scenarios.json");
 const manifest = JSON.parse(readFileSync(manifestPath,"utf8"));
@@ -41,19 +42,20 @@ if(worker) {
   const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
   const systemFiles = Object.fromEntries(["system/gb16.uc2", "system/gb12.uc2", "system/gb12_uc2.adl", "system/gb16_uc2.adl", "plugins/netpay.mrp"].map(name => [name, readFileSync(`assets/${name}`)]));
-  const rt=new MythroadRuntime({profile,abiMode:"strict",systemFiles});
-  let phase="load",ticks=0,inputChanges=0,keysTested=0,error:string|null=null;
+  const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
+  const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,graphics:display});
+  let phase="load",ticks=0,inputChanges=0,controlChanges=0,keysTested=0,error:string|null=null;
   const distinct=new Set<string>();
-  const fingerprint=()=>hash(new Uint8Array(rt.screen.pixels.buffer,rt.screen.pixels.byteOffset,rt.screen.pixels.byteLength));
+  const fingerprint=()=>hash(new Uint8Array(display.pixels.buffer,display.pixels.byteOffset,display.pixels.byteLength));
   const checkpoints: {name:string;sha256:string;image:string;clock:number;colors:number}[]=[];
   const capture=(name:string)=>{
     const sha256=fingerprint(),image=`${game.id}-${name}.png`;
-    writeFileSync(join(output,image),png(rt.screenW,rt.screenH,rt.screen.pixels));
-    checkpoints.push({name,sha256,image,clock:rt.clock,colors:new Set(rt.screen.pixels).size});
+    writeFileSync(join(output,image),png(rt.screenW,rt.screenH,display.pixels));
+    checkpoints.push({name,sha256,image,clock:rt.clock,colors:new Set(display.pixels).size});
     writeFileSync(join(output,`${game.id}-progress.json`),JSON.stringify({phase,ticks,keysTested,checkpoints}));
   };
   const tick=(count:number)=>{for(let i=0;i<count;i++){rt.advance(80);for(let n=0;n<16&&rt.step();n++);if(rt.exited)throw new Error("guest exited");ticks++;if(ticks%5===0)distinct.add(fingerprint());}};
-  const tap=(action:Action)=>{const before=fingerprint();rt.input.press(action.key);tick(action.hold??3);rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint())inputChanges++;};
+  const tap=(action:Action)=>{const before=fingerprint();rt.input.press(action.key);tick(action.hold??3);rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}};
   const startedAt=Date.now();
   try {
     rt.loadMrp(bytes);phase="start";rt.start();phase="boot";tick(scenario.bootTicks??50);capture("boot");
@@ -61,14 +63,16 @@ if(worker) {
     const entry=scenario.entry??[{key:"SOFTLEFT"},{key:"FIRE"},{key:"FIRE"},{key:"FIRE"}];
     for(const [index,action] of entry.entries()){tap(action);capture(`entry${index+1}`);}
     phase="controls";
-    for(const action of scenario.controls??["UP","RIGHT","DOWN","LEFT","2","6","8","4","5"].map(key=>({key,hold:5,wait:10})))tap(action);
+    const controls=scenario.controls??["UP","RIGHT","DOWN","LEFT","2","6","8","4","5"].map(key=>({key,hold:5,wait:10}));
+    for(const [index,action] of controls.entries()){tap(action);capture(`control${index+1}`);}
     capture("controls");phase="sustained";
     tick(Math.max(scenario.tailTicks??750,750));capture("sustained");phase="complete";
   } catch(e) {error=e instanceof Error?`${e.name}: ${e.message}`:String(e);capture("failure");}
-  const nonBlack=rt.screen.pixels.some(p=>p!==0),expected=scenario.gameplaySha256??[];
+  const nonBlack=display.pixels.some(p=>p!==0),expected=scenario.gameplaySha256??[];
   const sceneVerified=expected.length>0&&checkpoints.some(c=>expected.includes(c.sha256));
-  const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":inputChanges===0?"no-input-response":!sceneVerified?"needs-scene-review":"passed";
-  console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,distinctFrames:distinct.size,nonBlack,sceneVerified,
+  const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>c.name.startsWith("control")&&scenario.controlSha256!.includes(c.sha256));
+  const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
+  console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,controlChanges,presentedFrames:display.frames,interactionVerified,distinctFrames:distinct.size,nonBlack,sceneVerified,
     checkpoints,exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
 } else {
   const onlyArg=args.find(a=>a.startsWith("--only="));
@@ -78,7 +82,8 @@ if(worker) {
   const revision=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim();
   const diff=execFileSync("git",["diff"],{encoding:"utf8"});
   const meta={revision,workingDiffSha256:hash(diff),manifestSha256:hash(readFileSync(manifestPath)),scenarioSha256:existsSync(scenarioPath)?hash(readFileSync(scenarioPath)):null,
-    startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-confirm-controls-60s-scene-review-v1"};
+    systemFilesSha256:Object.fromEntries(["system/gb16.uc2","system/gb12.uc2","system/gb12_uc2.adl","system/gb16_uc2.adl","plugins/netpay.mrp"].map(name=>[name,hash(readFileSync(`assets/${name}`))])),
+    startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
   const results: any[]=[];
   const save=()=>writeFileSync(join(output,"results.json"),JSON.stringify({...meta,complete:results.length===games.length,
     allPassed:results.length===allGames.length&&results.every(r=>r.outcome==="passed"),results:[...results].sort((a,b)=>a.id-b.id)},null,2)+"\n");

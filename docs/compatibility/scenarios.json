@@ -1,0 +1,5392 @@
+{
+  "102": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      }
+    ],
+    "tailTicks": 750
+  },
+  "103": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "104": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "DOWN",
+        "hold": 20,
+        "wait": 20
+      },
+      {
+        "key": "3",
+        "hold": 5,
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ],
+    "controls": [
+      {
+        "key": "RIGHT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "DOWN",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "LEFT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "UP",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "3",
+        "hold": 15,
+        "wait": 15
+      }
+    ]
+  },
+  "105": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "DOWN",
+        "hold": 20,
+        "wait": 20
+      },
+      {
+        "key": "3",
+        "hold": 5,
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ],
+    "controls": [
+      {
+        "key": "RIGHT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "DOWN",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "LEFT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "UP",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "3",
+        "hold": 15,
+        "wait": 15
+      }
+    ]
+  },
+  "3": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "6": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "14": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "15": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "22": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "24": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "27": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "31": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 60
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      }
+    ]
+  },
+  "38": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "49": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "57": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "65": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "7": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "19": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "32": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      }
+    ]
+  },
+  "34": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      },
+      {
+        "key": "5",
+        "wait": 10
+      }
+    ]
+  },
+  "37": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "56": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "64": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "66": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "67": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "71": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "74": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "79": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "86": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "89": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      }
+    ]
+  },
+  "8": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "9": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "12": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "23": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "33": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "35": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "36": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "39": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "50": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "59": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "70": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "75": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "80": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "88": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "96": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "11": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 15
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 15
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 15
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 15
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ]
+  },
+  "30": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      }
+    ]
+  },
+  "48": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "53": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "72": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "81": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "91": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "92": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "98": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "99": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "84": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "FIRE",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 15
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 20
+      },
+      {
+        "key": "DOWN",
+        "hold": 20,
+        "wait": 20
+      },
+      {
+        "key": "3",
+        "hold": 5,
+        "wait": 30
+      },
+      {
+        "key": "5",
+        "wait": 20
+      },
+      {
+        "key": "5",
+        "wait": 20
+      }
+    ],
+    "controls": [
+      {
+        "key": "RIGHT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "DOWN",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "LEFT",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "UP",
+        "hold": 15,
+        "wait": 15
+      },
+      {
+        "key": "3",
+        "hold": 15,
+        "wait": 15
+      }
+    ]
+  },
+  "47": {
+    "entry": [
+      {
+        "key": "SOFTLEFT",
+        "wait": 160
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 30
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      },
+      {
+        "key": "FIRE",
+        "wait": 12
+      }
+    ]
+  },
+  "41": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "0",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  },
+  "42": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 20
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      },
+      {
+        "key": "FIRE"
+      }
+    ]
+  },
+  "60": {
+    "entry": [
+      {
+        "key": "SOFTLEFT"
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      },
+      {
+        "key": "FIRE",
+        "wait": 10
+      }
+    ]
+  }
+}
