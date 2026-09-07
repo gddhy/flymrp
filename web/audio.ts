@@ -4,17 +4,23 @@ import {
   MR_SOUND_PCM,
   MR_SOUND_WAV,
 } from "../src/mythroad/index.ts";
+import TinySynth from "webaudio-tinysynth";
+import { parseMidi } from "./midi.ts";
 
 type Voice = { stop: () => void };
 
 /**
  * Browser sink for `mr_playSound`.
- * MIDI is a square-wave SMF player (not SoundFont).
+ * MIDI defaults to TinySynth GM; a lightweight square-wave player is optional.
  * WAV/MP3 use `decodeAudioData`. PCM is 8 kHz 16-bit LE mono.
  */
 export class BrowserAudio {
   private ctx: AudioContext | null = null;
   private voices = new Map<number, Voice>();
+  private requests = new Map<number, symbol>();
+  private synth: TinySynth | null = null;
+  private midi: { data: Uint8Array; loop: number } | null = null;
+  midiPlayer: "tinysynth" | "simple" = "tinysynth";
   lastType: number | null = null;
   lastLen = 0;
   lastError: string | null = null;
@@ -22,6 +28,15 @@ export class BrowserAudio {
   resume(): void {
     const ctx = this.ensure();
     if (ctx.state === "suspended") void ctx.resume();
+    const synthContext = this.synth?.getAudioContext();
+    if (synthContext?.state === "suspended") void synthContext.resume();
+  }
+
+  setMidiPlayer(player: "tinysynth" | "simple"): void {
+    if (this.midiPlayer === player) return;
+    this.midiPlayer = player;
+    const current = this.midi;
+    if (current) this.play(MR_SOUND_MIDI, current.data, current.loop);
   }
 
   play(type: number, data: Uint8Array | null, loop: number): void {
@@ -30,12 +45,19 @@ export class BrowserAudio {
     this.lastError = null;
     this.stop(type);
     if (!data || data.length === 0) return;
+    const request = Symbol();
+    this.requests.set(type, request);
     try {
       const ctx = this.ensure();
       if (ctx.state === "suspended") void ctx.resume();
-      if (type === MR_SOUND_MIDI) this.playMidi(ctx, type, data, loop !== 0);
+      if (type === MR_SOUND_MIDI) {
+        parseMidi(data); // Reject malformed SMF before either player schedules audio.
+        this.midi = { data: data.slice(), loop };
+        if (this.midiPlayer === "tinysynth") this.playSynth(data, loop !== 0);
+        else this.playMidi(ctx, type, data, loop !== 0);
+      }
       else if (type === MR_SOUND_PCM) this.playPcm(ctx, type, data, loop !== 0);
-      else if (type === MR_SOUND_WAV || type === MR_SOUND_MP3) void this.playDecoded(ctx, type, data, loop !== 0);
+      else if (type === MR_SOUND_WAV || type === MR_SOUND_MP3) void this.playDecoded(ctx, type, data, loop !== 0, request);
       else this.lastError = `unsupported sound type ${type}`;
     } catch (e) {
       this.lastError = e instanceof Error ? e.message : String(e);
@@ -43,6 +65,8 @@ export class BrowserAudio {
   }
 
   stop(type: number): void {
+    this.requests.delete(type);
+    if (type === MR_SOUND_MIDI) this.midi = null;
     const v = this.voices.get(type);
     if (!v) return;
     this.voices.delete(type);
@@ -54,7 +78,7 @@ export class BrowserAudio {
   }
 
   stopAll(): void {
-    for (const type of [...this.voices.keys()]) this.stop(type);
+    for (const type of new Set([...this.voices.keys(), ...this.requests.keys()])) this.stop(type);
   }
 
   private ensure(): AudioContext {
@@ -75,20 +99,19 @@ export class BrowserAudio {
     this.startBuffer(ctx, type, buf, loop);
   }
 
-  private async playDecoded(ctx: AudioContext, type: number, data: Uint8Array, loop: boolean): Promise<void> {
+  private async playDecoded(ctx: AudioContext, type: number, data: Uint8Array, loop: boolean, request: symbol): Promise<void> {
     try {
       const copy = new ArrayBuffer(data.length);
       new Uint8Array(copy).set(data);
       const buf = await ctx.decodeAudioData(copy);
-      if (this.lastType !== type) return;
+      if (this.requests.get(type) !== request) return;
       this.startBuffer(ctx, type, buf, loop);
     } catch (e) {
-      this.lastError = e instanceof Error ? e.message : String(e);
+      if (this.requests.get(type) === request) this.lastError = e instanceof Error ? e.message : String(e);
     }
   }
 
   private startBuffer(ctx: AudioContext, type: number, buf: AudioBuffer, loop: boolean): void {
-    this.stop(type);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = loop;
@@ -104,6 +127,30 @@ export class BrowserAudio {
         src.disconnect();
       },
     });
+  }
+
+  private playSynth(data: Uint8Array, loop: boolean): void {
+    const song = parseMidi(data);
+    if (!song.events.length) return;
+    this.synth ??= new TinySynth({ quality: 1, voices: 64, useReverb: 0 });
+    const synth = this.synth, ctx = synth.getAudioContext();
+    synth.reset(); synth.setMasterVol(0.35);
+    if (ctx.state === "suspended") void ctx.resume();
+    let index = 0, origin = ctx.currentTime + .05;
+    const period = Math.max(.25, song.duration);
+    // Schedule only a short window. Stop/switch cancels future notes as well.
+    const pump = () => {
+      while (origin + song.events[index].time < ctx.currentTime + .15) {
+        const event = song.events[index++]; synth.send(event.message, origin + event.time);
+        if (index === song.events.length) {
+          if (!loop) { window.clearInterval(timer); return; }
+          index = 0; origin += period;
+        }
+      }
+    };
+    const timer = window.setInterval(pump, 40);
+    this.voices.set(MR_SOUND_MIDI, { stop: () => { window.clearInterval(timer); synth.stopMIDI(); } });
+    pump();
   }
 
   private playMidi(ctx: AudioContext, type: number, data: Uint8Array, loop: boolean): void {
@@ -169,6 +216,7 @@ export class BrowserAudio {
       const period = Math.max(0.25, lastT + 0.1);
       again = window.setTimeout(() => {
         if (this.voices.get(type) !== voice) return;
+        voice.stop();
         this.playMidi(ctx, type, data, true);
       }, period * 1000);
     }

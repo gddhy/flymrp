@@ -25,5 +25,8 @@
     "vite": "^6.3.5",
     "vitest": "^3.2.4"
   },
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "webaudio-tinysynth": "1.1.3"
+  }
 }

@@ -1,0 +1,7 @@
+WebAudio TinySynth 1.1.3
+Author: g200kg / Tatsuya Shinyagaito
+https://github.com/g200kg/webaudio-tinysynth
+Licensed under the Apache License, Version 2.0; see webaudio-tinysynth.txt.
+
+flymrp source code is licensed under AGPL-3.0-only. Bundled game resources,
+fonts and handset components retain their original ownership and licenses.
