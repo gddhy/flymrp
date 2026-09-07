@@ -6,3 +6,6 @@
 @media(max-width:370px){.controller{padding:0 12px}.control-bottom{gap:14px}.dpad{grid-template-columns:repeat(3,34px)}.soft button{padding:9px 7px}.player-actions{gap:0}.toolbar-actions{gap:4px}}
 
 #refresh-library { border: 0; padding: 2px 5px; background: transparent; color: var(--accent); font: inherit; cursor: pointer; }
+
+.project-license { padding: 12px 24px 24px; text-align: center; font-size: 12px; color: var(--muted); }
+.project-license a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

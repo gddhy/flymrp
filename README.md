@@ -2,6 +2,8 @@
 
 Browser-native Mythroad MRP runtime.
 
+本项目原创代码采用 **GNU Affero General Public License v3.0（AGPL-3.0-only）**，完整协议见 [LICENSE](LICENSE)。第三方依赖、字库、插件和游戏文件保留各自的权利与许可，不因本项目的协议声明而改为 AGPL；组件来源见 [assets/README.md](assets/README.md)。
+
 当前支持浏览器本地上传、按键与触屏输入、自动/手动分辨率，以及可选的本地游戏目录搜索。已修复屏幕尺寸全局变量导致的清屏残留，并支持封装游戏使用的内存 MRP 和 EXT 加载。兼容性仍在完善，不能保证所有 MRP 正常运行。
 
 ```bash
