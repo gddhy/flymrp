@@ -12,6 +12,15 @@ function setup() {
   return {ext,bridge,str,call};
 }
 describe("collection string and platform ABI",()=>{
+  it("rmdir refuses files, missing paths and nonempty directories through the guest ABI",()=>{
+    const {bridge,str,call}=setup();
+    bridge.appFs.createFile("cache/entry",true);
+    expect(call(50,str("cache"),0,0)).toBe(-1);
+    expect(call(50,str("cache/entry"),0,0)).toBe(-1);
+    expect(bridge.appFs.remove("cache/entry")).toBe(0);
+    expect(call(50,str("cache/"),0,0)).toBe(0);
+    expect(call(50,str("cache"),0,0)).toBe(-1);
+  });
   it("strtoul supports prefixes, signs, overflow and partial input on a 32-bit guest",()=>{
     expect(guestStrtoul("  -0x10x",0)).toBe(0xfffffff0);
     expect(guestStrtoul("0778",0)).toBe(63);

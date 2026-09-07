@@ -56,6 +56,15 @@ export class AppFileSystem {
     return MR_SUCCESS;
   }
 
+  /** Native rmdir removes an existing empty directory, never its children. */
+  rmdir(name: string): number {
+    const key = this.normalize(name);
+    if (!key || this.nodes.get(key)?.kind !== "dir") return MR_FAILED;
+    for (const child of this.nodes.keys()) if (child.startsWith(key + "/")) return MR_FAILED;
+    this.nodes.delete(key);
+    return MR_SUCCESS;
+  }
+
   /**
    * CREATE/RECREATE: parent dirs are created in-memory.
    * Existing dir at `name` cannot become a file.

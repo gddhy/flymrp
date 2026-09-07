@@ -352,6 +352,7 @@ export class MrTableBridge {
     this.ext.registerHandler(26, (_cpu, mem, args) => this.printf(mem, args));
     this.ext.registerHandler(42, (_cpu, mem, args) => this.info(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(49, (_cpu, mem, args) => this.mkDir(readGuestCString(mem, args[0]! >>> 0)));
+    this.ext.registerHandler(50, (_cpu, mem, [name]) => this.appFs.rmdir(readGuestCString(mem, name)));
     this.ext.registerHandler(35, (_cpu, mem, args) => this.getUserInfo(mem, args[0]! >>> 0));
     this.ext.registerHandler(61, (_cpu, _mem, _args) => this.getNetworkID());
     this.ext.registerHandler(122, (_cpu, _mem, args) => this.drawRect(args));
