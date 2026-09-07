@@ -298,7 +298,7 @@ for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const
 const gameSelect = document.querySelector<HTMLSelectElement>("#games")!;
 const search = document.querySelector<HTMLInputElement>("#search")!;
 const loadGame = document.querySelector<HTMLButtonElement>("#load-game")!;
-type Game = { id: number; name: string };
+type Game = { id: number; name: string; sha256?: string };
 let games: Game[] = [];
 function renderLibrary(): void {
   const term = search.value.trim().toLowerCase();
@@ -317,23 +317,23 @@ loadGame.addEventListener("click", () => {
   const game = games.find(g => String(g.id) === gameSelect.value);
   if (!game) return;
   void start(game.name, async () => {
-    const response = await fetch(`/__games/${game.id}`);
+    const response = await fetch(import.meta.env.PROD ? assetUrl(`games/${game.name.split("/").map(encodeURIComponent).join("/")}${game.sha256 ? `?v=${encodeURIComponent(game.sha256)}` : ""}`) : `/__games/${game.id}`);
     if (!response.ok) throw new Error("无法读取本地游戏");
     return response.arrayBuffer();
   });
 });
 const refreshLibrary = document.querySelector<HTMLButtonElement>("#refresh-library")!;
 async function reloadLibrary(): Promise<void> {
-  if (import.meta.env.PROD) return;
   refreshLibrary.disabled = true;
   try {
-    const response = await fetch("/__games");
+    const response = await fetch(import.meta.env.PROD ? assetUrl("games/index.json") : "/__games", { cache: "no-cache" });
     if (!response.ok) throw new Error("无法刷新本地游戏库");
-    const selected = gameSelect.value;
+    const selectedName = games.find(game => String(game.id) === gameSelect.value)?.name;
     games = await response.json();
     document.querySelector<HTMLElement>("#library")!.hidden = !games.length;
     renderLibrary();
-    if ([...gameSelect.options].some(option => option.value === selected)) gameSelect.value = selected;
+    const selected = games.find(game => game.name === selectedName);
+    if (selected && [...gameSelect.options].some(option => option.value === String(selected.id))) gameSelect.value = String(selected.id);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : String(error), true);
   } finally { refreshLibrary.disabled = false; }

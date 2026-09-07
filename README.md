@@ -9,7 +9,7 @@ Browser-native Mythroad MRP runtime.
 ```bash
 npm install
 npm start
-# 同时启用本地游戏库（仅开发服务器读取此目录，不复制游戏到仓库）
+# 同时启用本地游戏库（开发服务器按需读取；构建时复制到 dist，不加入 Git）
 MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
 ```
 
@@ -20,10 +20,10 @@ MRP_GAME_DIR='/Users/zixing/Downloads/mrp游戏大集结' npm start
 ```bash
 ./build.sh
 # 其他机器可指定资源目录
-MRP_RESOURCE_DIR='/path/to/mythroad_res' ./build.sh
+MRP_GAME_DIR='/path/to/mrp-games' MRP_RESOURCE_DIR='/path/to/mythroad_res' ./build.sh
 ```
 
-脚本安装锁定的依赖、检查 TypeScript 并生成根目录 `dist/`。默认资源目录为 `/Users/zixing/Downloads/mrp游戏大集结/mythroad_res`，其中的非隐藏常规文件会复制到 `dist/mythroad_res/`。将整个 `dist/` 上传到静态托管即可，支持部署到子目录；不需要 Node 服务。生产网页通过“打开 MRP 文件”加载游戏，不公开本机游戏库。缺少资源目录会明确中止构建，避免发布缺失资源的产物。
+脚本安装锁定的依赖、检查 TypeScript 并生成根目录 `dist/`。默认资源目录为 `/Users/zixing/Downloads/mrp游戏大集结/mythroad_res`，其中的非隐藏常规文件会复制到 `dist/mythroad_res/`。将整个 `dist/` 上传到静态托管即可，支持部署到子目录；不需要 Node 服务。生产网页可直接搜索、选择打包的游戏，也保留“打开 MRP 文件”。默认递归收集 `/Users/zixing/Downloads/mrp游戏大集结/` 下的所有 MRP 到 `dist/games/`，保留相对目录和同名文件，并生成 `games/index.json`。重复构建按内容 SHA-256 比较，未变化的游戏和资源跳过复制，新增或修改的文件才更新；`dist/` 不再在构建前整目录清空。缺少游戏或资源目录会明确中止构建，避免发布缺失资源的产物。
 
 MIDI 默认使用 TinySynth GM，支持多种乐器、打击乐和 MIDI 控制器，无需在线下载音色库。也可选择“轻量方波”，切换时当前 MIDI 从头播放，选择保存在当前浏览器。TinySynth 使用 Apache-2.0 许可，随构建保留在 `licenses/`。网络拦截在后台运行，不向玩家展示调试配置。
 

@@ -1,7 +1,7 @@
 import { isGameResource } from "../tools/local-system-files.ts";
-import { readdir, mkdir, readFile, copyFile, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
-import { createHash } from "node:crypto";
+import { readdir, mkdir, writeFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import { copyStaticFile } from "../tools/static-files.ts";
 import type { Plugin } from "vite";
 
 /** Build a static download tree with a lightweight per-game index. */
@@ -22,11 +22,10 @@ export function resourceBuild(directory: string | undefined): Plugin {
           const source = join(dir, entry.name), name = relative(directory!, source).replace(/\\/g, "/");
           if (entry.isDirectory()) await copy(source);
           else if (entry.isFile()) {
-            const bytes = await readFile(source), sha256 = createHash("sha256").update(bytes).digest("hex");
-            const target = join(output, name); await mkdir(dirname(target), { recursive: true }); await copyFile(source, target);
+            const { sha256, size } = await copyStaticFile(source, join(output, name));
             if (!isGameResource(name)) continue;
             const group = name.includes("/") ? name.split("/")[0].toLowerCase() : "";
-            (groups[group] ??= []).push({ name, sha256, size: bytes.length });
+            (groups[group] ??= []).push({ name, sha256, size });
           }
         }
       }
