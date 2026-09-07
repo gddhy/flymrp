@@ -2,8 +2,8 @@ import { MythroadRuntime, loadGb16Uc2, type GraphicsBackend } from '../src/mythr
 import { DEFAULT_NETWORK_RULES } from '../src/mythroad/network-rules.ts';
 import { binToBytes } from '../src/mrp/index.ts';
 import { EV_KEY } from '../src/mythroad/events.ts';
-import { clockSlices } from './player-options.ts';
 import type { PlayerRequest, PlayerResponse } from './player-protocol.ts';
+import { clockSlices } from './player-options.ts';
 
 const send = (message: PlayerResponse, transfer: Transferable[] = []) => postMessage(message, { transfer });
 let rt: MythroadRuntime | null = null;
@@ -45,12 +45,12 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
       rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, userFiles: message.userFiles, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
         networkRules: DEFAULT_NETWORK_RULES,
         onEditChange: state => send({ type: 'edit', state }),
+        onVibrate: milliseconds => send({ type: 'vibrate', milliseconds }),
         onPlaySound: (format, bytes, loop, positionMs) => send({ type: 'sound', format, bytes, loop, positionMs }),
         onStopSound: format => send({ type: 'sound-stop', format }),
       });
       const archive = rt.loadMrp(new Uint8Array(message.bytes));
       rt.start();
-      for (let i = 0; i < 32; i++) step(80);
       present();
       send({ type: 'ready', title: new TextDecoder('gbk').decode(binToBytes(archive.header.appname)) });
       return;

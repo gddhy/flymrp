@@ -1,0 +1,30 @@
+{
+  "1": {
+    "tickMs": 16,
+    "bootTicks": 500,
+    "entry": [],
+    "controls": [
+      {
+        "key": "LEFT",
+        "hold": 3,
+        "wait": 30
+      },
+      {
+        "key": "RIGHT",
+        "hold": 3,
+        "wait": 30
+      },
+      {
+        "key": "UP",
+        "hold": 3,
+        "wait": 30
+      },
+      {
+        "key": "DOWN",
+        "hold": 3,
+        "wait": 30
+      }
+    ],
+    "reviewNote": "原文件启动错误 1016/1018 已修复；目前显示程序自带的 51 应用超市升级提示，不能标记桌面正常可用。"
+  }
+}

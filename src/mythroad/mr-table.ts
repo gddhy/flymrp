@@ -149,6 +149,8 @@ export class MrTableBridge {
   /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
   switchPathAddr = 0;
   private diskInfoAddr = 0;
+  private signalInfoAddr = 0;
+  private signalInitialized = false;
   private nextSearch = 1;
   private readonly searches = new Map<number, { names: string[]; index: number }>();
   private randSeed: number | null = null;
@@ -194,6 +196,7 @@ export class MrTableBridge {
       workPath?: WorkPath;
       onSetReturnApp?: (pack: string, entry: string) => void;
       getReturnApp?: () => { pack: string; entry: string } | null;
+      onVibrate?: (milliseconds: number) => void;
       onUiChange?: () => void;
       onPlatformEvent?: (type: number, value: number) => void;
       onEditChange?: (state: EditState | null) => void;
@@ -376,6 +379,11 @@ export class MrTableBridge {
       else this.clock += ms;
       return MR_SUCCESS;
     });
+    this.ext.registerHandler(55, (_cpu, _mem, [duration]) => {
+      if ((duration | 0) < 0) return MR_FAILED;
+      this.hooks.onVibrate?.(duration | 0); return MR_SUCCESS;
+    });
+    this.ext.registerHandler(56, () => { this.hooks.onVibrate?.(0); return MR_SUCCESS; });
     this.ext.registerHandler(54, () => { this.hooks.onExit?.(); return MR_SUCCESS; });
     this.ext.registerHandler(63, (_cpu, _mem, [title]) => this.nativeUi.create('menu', title));
     this.ext.registerHandler(64, (_cpu, _mem, [handle, text, index]) => this.nativeUi.setItem(handle, text, index | 0));
@@ -616,6 +624,14 @@ export class MrTableBridge {
         if (outputLen) mem.write32(outputLen, bytes.length + 1);
       }
       mem.load(destination, bytes); mem.write8(destination + bytes.length, 0);
+      return MR_SUCCESS;
+    }
+    if (code === 1017) {
+      if (!this.signalInitialized || !output || !outputLen) return MR_FAILED;
+      this.signalInfoAddr ||= this.ext.alloc(4);
+      // Virtual handset signal data, matching DSM T_RX (four uint8 fields).
+      mem.load(this.signalInfoAddr, new Uint8Array([3, 5, 5, 1]));
+      mem.write32(output, this.signalInfoAddr); mem.write32(outputLen, 4);
       return MR_SUCCESS;
     }
     if (code === 1305) {
@@ -1103,6 +1119,7 @@ export class MrTableBridge {
       return MR_SUCCESS;
     }
     if (code === 1001) return this.offlineNetwork.state(param);
+    if (code === 1016 || code === 1018) { this.signalInitialized = code === 1016; return MR_SUCCESS; }
     if (code === 1101 || code === 1011 || code === 1215) return MR_IGNORE;
     if (code === 1327 || code === 1391) return MR_IGNORE; // No guest Wi-Fi/background service (dsm.c).
     if (code === 1214) return MR_SUCCESS; // Enable key-release events (always supported).

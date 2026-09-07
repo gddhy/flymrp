@@ -16,7 +16,7 @@ import { inferScreenSize } from "../../src/mythroad/device-size.ts";
 
 type Game = { id: number; path: string; sha256: string; required?: boolean };
 type Action = ({ key: string } | { tap: [number, number] }) & { hold?: number; wait?: number };
-type Scenario = { entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
+type Scenario = { tickMs?: number; entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
 const manifestPath = resolve(process.env.MRP_TEST_MANIFEST ?? "docs/compatibility/collection-100.json");
 const scenarioPath = resolve(process.env.MRP_TEST_SCENARIOS ?? "docs/compatibility/scenarios.json");
 const manifest = JSON.parse(readFileSync(manifestPath,"utf8"));
@@ -51,7 +51,8 @@ if(worker) {
   const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(process.env.MRP_TEST_PRODUCTION ? undefined : localSystemDirectory) };
   loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
-  const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,resourceFiles,graphics:display});
+  const vibrationRequests: number[] = [];
+  const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,resourceFiles,graphics:display,onVibrate:ms=>vibrationRequests.push(ms)});
   let phase="load",ticks=0,inputChanges=0,controlChanges=0,keysTested=0,error:string|null=null;
   const distinct=new Set<string>();
   const fingerprint=()=>hash(new Uint8Array(display.pixels.buffer,display.pixels.byteOffset,display.pixels.byteLength));
@@ -62,7 +63,7 @@ if(worker) {
     checkpoints.push({name,sha256,image,clock:rt.clock,colors:new Set(display.pixels).size});
     writeFileSync(join(output,`${game.id}-progress.json`),JSON.stringify({phase,ticks,keysTested,checkpoints}));
   };
-  const tick=(count:number)=>{for(let i=0;i<count;i++){rt.advance(80);for(let n=0;n<16&&rt.step();n++);if(rt.exited)throw new Error("guest exited");ticks++;if(ticks%5===0)distinct.add(fingerprint());}};
+  const tick=(count:number)=>{for(let i=0;i<count;i++){rt.advance(scenario.tickMs??80);for(let n=0;n<16&&rt.step();n++);if(rt.exited)throw new Error("guest exited");ticks++;if(ticks%5===0)distinct.add(fingerprint());}};
   const tap=(action:Action)=>{const before=fingerprint();if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_DOWN, ...action.tap); else rt.input.press(action.key);tick(action.hold??3);if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_UP, ...action.tap); else rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}};
   const startedAt=Date.now();
   try {
@@ -74,14 +75,14 @@ if(worker) {
     const controls=scenario.controls??["UP","RIGHT","DOWN","LEFT","2","6","8","4","5"].map(key=>({key,hold:5,wait:10}));
     for(const [index,action] of controls.entries()){tap(action);capture(`control${index+1}`);}
     capture("controls");phase="sustained";
-    tick(Math.max(scenario.tailTicks??750,750));capture("sustained");phase="complete";
+    tick(Math.max(scenario.tailTicks??0,Math.ceil(60000/(scenario.tickMs??80))));capture("sustained");phase="complete";
   } catch(e) {error=e instanceof Error?`${e.name}: ${e.message}`:String(e);capture("failure");}
   const nonBlack=display.pixels.some(p=>p!==0),expected=scenario.gameplaySha256??[];
   const sceneVerified=expected.length>0&&checkpoints.some(c=>expected.includes(c.sha256));
   const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>c.name.startsWith("control")&&scenario.controlSha256!.includes(c.sha256));
   const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
   console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,controlChanges,presentedFrames:display.frames,interactionVerified,distinctFrames:distinct.size,nonBlack,sceneVerified,
-    checkpoints,resourceFilesSha256:systemFileHashes(resourceFiles),missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],networkInterceptions:rt.mrTable?.offlineNetwork.interceptions??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
+    checkpoints,vibrationRequests,resourceFilesSha256:systemFileHashes(resourceFiles),missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],networkInterceptions:rt.mrTable?.offlineNetwork.interceptions??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
 } else {
   const onlyArg=args.find(a=>a.startsWith("--only="));
   const only=onlyArg?new Set(onlyArg.slice(7).split(",").map(Number)):null;

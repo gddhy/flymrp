@@ -38,6 +38,7 @@ export class PlayerClient {
         case 'tick-complete': this.busy = false; break;
         case 'edit': hooks.edit(data.state); break;
         case 'sound': hooks.sound(data.format, data.bytes, data.loop, data.positionMs); break;
+        case 'vibrate': navigator.vibrate?.(data.milliseconds); break;
         case 'sound-stop': hooks.soundStop(data.format); break;
         case 'error': this.exited = data.exited; this.failed(new Error(data.message), hooks.error); break;
       }
@@ -64,6 +65,7 @@ export class PlayerClient {
   resume(): void { this.send({ type: 'pause', paused: false }); }
   finishEdit(text: string, accepted: boolean): void { this.send({ type: 'edit', text, accepted }); }
   stop(): void {
+    navigator.vibrate?.(0);
     this.stopped = true; this.worker.terminate();
     this.readyReject?.(new Error('游戏加载已取消')); this.readyResolve = null; this.readyReject = null;
   }

@@ -20,7 +20,6 @@ document.querySelector("#guest-editor-cancel")!.addEventListener("click", () => 
 editorDialog.addEventListener("cancel", ev => { ev.preventDefault(); editingRuntime?.finishEdit(editorText.value, false); });
 const canvas = document.querySelector<HTMLCanvasElement>("#screen")!;
 const fileInput = document.querySelector<HTMLInputElement>("#file")!;
-const stopBtn = document.querySelector<HTMLButtonElement>("#stop")!;
 const resolution = document.querySelector<HTMLSelectElement>("#resolution")!;
 const statusEl = document.querySelector<HTMLElement>("#status")!;
 const pauseBtn = document.querySelector<HTMLButtonElement>("#pause")!;
@@ -64,7 +63,6 @@ function stop(keepStatus = false): void {
   loadingRuntime?.stop(); loadingRuntime = null;
   session = null;
   audio.stopAll();
-  stopBtn.disabled = true;
   pauseBtn.disabled = true;
   pauseBtn.textContent = "暂停";
   paused = false;
@@ -149,7 +147,6 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
   emptyScreen.hidden = true;
   const token = generation;
   const profile = resolution.value === "auto" ? inferScreenSize(name) : inferScreenSize(resolution.value);
-  stopBtn.disabled = false;
   audio.resume();
   setStatus(`正在读取 ${name.split("/").at(-1)}…`);
   let rt: PlayerClient | undefined;
@@ -196,7 +193,6 @@ fileInput.addEventListener("change", () => {
   fileInput.value = ""; // Same game can be selected again after failure or exit.
   if (file) void start(file.name, () => file.arrayBuffer());
 });
-stopBtn.addEventListener("click", () => stop());
 pauseBtn.addEventListener("click", () => {
   if (!session) return;
   releaseAll();

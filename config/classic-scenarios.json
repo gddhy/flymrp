@@ -1700,5 +1700,51 @@
       "ed2f515e3f5a62db5cec55821f96e5754fcd9bdd06a5a78d3700e421f46d7000"
     ],
     "reviewNote": "人工核对选择三张卡后进入第一关，以键盘种下豌豆射手；尾部持续模拟 60 秒。"
+  },
+  "64": {
+    "tickMs": 16,
+    "bootTicks": 500,
+    "entry": [
+      {
+        "key": "SOFTRIGHT",
+        "wait": 250
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 250
+      },
+      {
+        "key": "SOFTRIGHT",
+        "wait": 250
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 250
+      },
+      {
+        "key": "SOFTLEFT",
+        "wait": 800
+      }
+    ],
+    "controls": [
+      {
+        "key": "LEFT",
+        "hold": 150,
+        "wait": 10
+      },
+      {
+        "key": "RIGHT",
+        "hold": 150,
+        "wait": 10
+      }
+    ],
+    "gameplaySha256": [
+      "d7e1191f70bcec697ef9dad83d59605029d74cb643799f98566bb4b9b465bfda"
+    ],
+    "controlSha256": [
+      "85a31c096fc6207e2bb2d3fbd4c0b4a3308b7380eab12e926b7a8c0678c83435",
+      "704679e114b2f2ab07949313614e78e7cabb2d4d401590eeb8ad0b08ce3cb0a2"
+    ],
+    "reviewNote": "已人工核对赛道画面、左右转向后赛车位置变化，随后继续运行至少 60 秒；试玩的升级/注册提示仍由原游戏决定。55/56 振动 ABI 另有真实 ARM 调用回归测试。"
   }
 }

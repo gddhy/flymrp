@@ -260,6 +260,12 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
       case 102:
         ret = rt.profile.memLeft;
         break;
+      case 200:
+        if (rt.shakeOn && rt.canRun()) rt.onVibrate?.(Math.max(0, a1));
+        break;
+      case 201:
+        rt.onVibrate?.(0);
+        break;
       case 300:
         rt.soundOn = a1 !== 0;
         break;

@@ -1,0 +1,11 @@
+{
+  "description": "用户报告的软件兼容性回归；独立于精选 100 游戏发布清单。",
+  "games": [
+    {
+      "path": "opdesk（51桌面）.mrp",
+      "title": "51桌面",
+      "sha256": "07e4e9de0e0ee1dbf00efc3f2b31d19d8a4b407e455be6ffcb0abefc495a9532",
+      "initialError": "unsupported mr_plat code 1016"
+    }
+  ]
+}

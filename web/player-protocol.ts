@@ -16,4 +16,5 @@ export type PlayerResponse =
   | { type: 'edit'; state: EditState | null }
   | { type: 'sound'; format: number; bytes: Uint8Array | null; loop: number; positionMs?: number }
   | { type: 'sound-stop'; format: number }
+  | { type: 'vibrate'; milliseconds: number }
   | { type: 'error'; message: string; exited: boolean };
