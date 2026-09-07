@@ -31,7 +31,7 @@ export class GuestHeap {
       const address = (this.base + offset) >>> 0;
       if (visited.has(address) || address % 4 || address + 8 > this.end) throw new Error(`corrupt guest heap free list: base=${this.base.toString(16)} end=${this.end.toString(16)} head=${this.head.toString(16)} node=${address.toString(16)} previousEnd=${end.toString(16)}`);
       const size = mem.read32(address + 4);
-      if (size < 8 || size % 8 || address + size > this.end) throw new Error("corrupt guest heap free block");
+      if (size < 8 || size % 8 || address + size > this.end) throw new Error(`corrupt guest heap free block: address=0x${address.toString(16)} size=0x${size.toString(16)} base=0x${this.base.toString(16)} end=0x${this.end.toString(16)}`);
       if (!mem.regions.some(r => address >= r.base && address + size <= r.base + r.size)) throw new Error("unmapped guest heap free block");
       visited.add(address);
       yield { address, offset, size };

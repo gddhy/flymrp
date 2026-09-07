@@ -81,6 +81,8 @@ export class ExtRuntime {
   guestExitCode: number | null = null;
   onGuestExit: (() => void) | null = null;
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
+  /** Commit deferred host bookkeeping before the next ABI call or guest return. */
+  onHostBoundary: (() => void) | null = null;
 
   constructor() {
     this.mem = createExtMemory();
@@ -369,6 +371,7 @@ export class ExtRuntime {
       }
       throw e;
     } finally {
+      this.onHostBoundary?.();
       void startCount;
     }
   }
@@ -392,11 +395,13 @@ export class ExtRuntime {
       throw new ExtStopped(ExtStopKind.Return, pc);
     }
     if (pc < EXT_TABLE_COUNT * 4 && (pc & 3) === 0) {
+      this.onHostBoundary?.();
       this.bridgeCalls++;
       this.table.dispatch(cpu, this.mem, (EXT_TABLE_ADDR + pc) >>> 0);
       return true;
     }
     if (pc >= EXT_TABLE_ADDR && pc < EXT_TABLE_ADDR + EXT_TABLE_COUNT * 4) {
+      this.onHostBoundary?.();
       this.bridgeCalls++;
       this.table.dispatch(cpu, this.mem, pc);
       return true;

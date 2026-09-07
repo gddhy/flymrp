@@ -3,8 +3,6 @@ import { LuaState } from "../lua/state.ts";
 import { TAG_NUMBER, TAG_TABLE, TAG_STRING, TAG_NIL, type NativeFunction } from "../lua/types.ts";
 import {
   BITMAPMAX,
-  BM_COPY,
-  BM_TRANSPARENT,
   MR_FAILED,
   MR_FILE_CREATE,
   MR_FILE_RDONLY,
@@ -17,6 +15,9 @@ import {
   MR_SEEK_SET,
   MR_SUCCESS,
   MR_VERSION,
+  MR_NET_ID_MOBILE,
+  MR_SOUND_WAV,
+  MR_SOUND_MIDI,
   SHORT_TYPENAMES,
   SPRITEMAX,
   TILEMAX,
@@ -24,7 +25,7 @@ import {
 import { persistRoot, unpersistRoot } from "./persist.ts";
 import { gb16Glyph, gbkBytesToUcs2 } from "./font.ts";
 import { binToBytes } from "../mrp/archive.ts";
-import { makeRgb565 } from "./graphics.ts";
+import { makeRgb565, DRAW_BM_COPY, DRAW_BM_TRANSPARENT, MR_SPRITE_INDEX_MASK, MR_SPRITE_TRANSPARENT } from "./graphics.ts";
 import { lcgNext } from "./profile.ts";
 import type { MythroadRuntime } from "./runtime.ts";
 
@@ -34,6 +35,37 @@ export function installNatives(rt: MythroadRuntime): void {
 
   reg("_strCom", rt.strCom);
   reg("TestCom1", rt.strCom);
+  reg("GetNetworkID", Ls => { Ls.pushInteger(MR_NET_ID_MOBILE); return 1; });
+  // mythroad.c MRF_platEx returns (binary output, platform status). Old Lua
+  // games query the four little-endian font metric bytes before drawing menus.
+  reg("_platEx", (Ls) => {
+    const code = Ls.optNumber(1, 0) | 0;
+    if (code === 1201) { Ls.pushString(new Uint8Array([16, 16, 8, 16])); Ls.pushInteger(MR_SUCCESS); return 2; }
+    throw new NativeAbiError(`unsupported Lua _platEx code ${code}`);
+  });
+  const sounds = new Map<number, { data: Uint8Array; type: number }>();
+  const soundIndex = (Ls: LuaState): number => {
+    const index = (Ls.optNumber(1, 0) | 0) & 0xffff;
+    if (index >= 5) throw new LuaRuntimeError(`Sound index ${index} invalid`);
+    return index;
+  };
+  const setSound = (index: number, name: string, type: number): void => {
+    sounds.delete(index);
+    if (name.startsWith("*")) return;
+    const data = rt.vfs.readFile(name);
+    if (!data) throw new LuaRuntimeError(`SoundSet cannot read ${name}`);
+    sounds.set(index, { data, type });
+  };
+  const playSound = (index: number, loop: number): void => {
+    const sound = sounds.get(index);
+    if (sound && rt.soundOn && rt.state === 1) rt.onPlaySound?.(sound.type, sound.data, loop);
+  };
+  reg("SoundSet", Ls => { setSound(soundIndex(Ls), Ls.checkString(2).s, Ls.optNumber(3, MR_SOUND_WAV)); return 0; });
+  reg("SoundPlay", Ls => { playSound(soundIndex(Ls), Ls.top > Ls.base + 1 && !Ls.isFalse(Ls.base + 1) ? 1 : 0); return 0; });
+  reg("SoundStop", Ls => { const sound = sounds.get(soundIndex(Ls)); if (sound) rt.onStopSound?.(sound.type); return 0; });
+  reg("BgMusicSet", Ls => { setSound(0, Ls.checkString(1).s, Ls.optNumber(2, MR_SOUND_MIDI)); return 0; });
+  reg("BgMusicStart", Ls => { playSound(0, Ls.top === Ls.base || !Ls.isFalse(Ls.base) ? 1 : 0); return 0; });
+  reg("BgMusicStop", () => { const sound = sounds.get(0); if (sound) rt.onStopSound?.(sound.type); return 0; });
   reg("print", (Ls) => {
     const parts: string[] = [];
     for (let i = Ls.base; i < Ls.top; i++) {
@@ -123,6 +155,28 @@ export function installNatives(rt: MythroadRuntime): void {
   reg("TileSet", makeTileSet(rt));
   reg("TileSetRect", makeTileSetRect(rt));
   reg("TileDraw", makeTileDraw(rt));
+  reg("GetTile", makeTileCell(rt, false));
+  reg("SetTile", makeTileCell(rt, true));
+  reg("TileLoad", Ls => {
+    const i = Ls.optNumber(1, 0) & 0xffff, tile = rt.tiles[i];
+    if (i >= TILEMAX || !tile) throw new LuaRuntimeError("TileLoad: invalid tile");
+    const bytes = rt.vfs.readFile(Ls.checkString(2).s);
+    if (!bytes || bytes.length !== tile.w * tile.h * 2) throw new LuaRuntimeError("TileLoad: map size mismatch");
+    tile.cells = pixels565(bytes); return 0;
+  });
+  reg("TileShift", Ls => {
+    const tile = rt.tiles[Ls.optNumber(1, 0) & 0xffff], mode = Ls.optNumber(2, 0) & 0xffff;
+    if (!tile?.cells) throw new LuaRuntimeError("TileShift: missing map");
+    const cells = tile.cells, w = tile.w, h = tile.h;
+    if (mode === 0) cells.copyWithin(0, w);
+    else if (mode === 1) cells.copyWithin(w, 0, w * (h - 1));
+    else if (mode === 2 || mode === 3) for (let y = 0; y < h; y++) {
+      const start = y * w;
+      if (mode === 2) cells.copyWithin(start, start + 1, start + w);
+      else cells.copyWithin(start + 1, start, start + w - 1);
+    }
+    return 0;
+  });
 
   const save = makeSaveTable(rt);
   const load = makeLoadTable(rt);
@@ -169,6 +223,9 @@ function makeCom(rt: MythroadRuntime): NativeFunction {
         break;
       case 102:
         ret = rt.profile.memLeft;
+        break;
+      case 300:
+        rt.soundOn = a1 !== 0;
         break;
       case 400:
         rt.sleeps.push(a1);
@@ -268,9 +325,13 @@ function makeDrawText(rt: MythroadRuntime): NativeFunction {
     const b = L.optNumber(6, 0) | 0;
     const uni = L.optNumber(7, 0) ? 1 : 0;
     const font = L.optNumber(8, MR_FONT_MEDIUM) | 0;
+    const bytes = binToBytes(text);
+    const chars = uni ? Array.from({ length: Math.floor(bytes.length / 2) }, (_, i) =>
+      bytes[i * 2] << 8 | bytes[i * 2 + 1]) : gbkBytesToUcs2(bytes);
     let chx = x;
-    for (let i = 0; i < text.length; i++) {
-      const glyph = gb16Glyph(text.charCodeAt(i));
+    for (const ch of chars) {
+      if (!ch) break;
+      const glyph = gb16Glyph(ch);
       rt.screen.drawGlyph(chx, y, glyph.width, glyph.height, glyph.bits, r, g, b);
       chx += glyph.width;
     }
@@ -634,9 +695,14 @@ function makeBitmapLoad(rt: MythroadRuntime): NativeFunction {
     const maxw = L.optNumber(7, 0) | 0;
     if (!(rt.bi & MR_FLAGS_BI)) throw new LuaRuntimeError(`BitmapLoad:cannot read File "${filename}"!`);
     if (i > BITMAPMAX) throw new LuaRuntimeError(`BitmapLoad:index ${i} invalid!`);
-    if (filename.charCodeAt(0) === 42) return 0;
-    if (!rt.vfs.exists(filename)) throw new LuaRuntimeError(`BitmapLoad ${i}:cannot read "${filename}"!`);
-    rt.bitmaps[i] = { w, h, loaded: true, name: filename };
+    if (filename.charCodeAt(0) === 42) { delete rt.bitmaps[i]; return 0; }
+    const bytes = rt.vfs.readFile(filename);
+    if (!bytes) throw new LuaRuntimeError(`BitmapLoad ${i}:cannot read "${filename}"!`);
+    const source = pixels565(bytes), stride = maxw || w;
+    if (x < 0 || y < 0 || w < 0 || h < 0 || x + w > stride || (y + h - 1) * stride + x + w > source.length) throw new LuaRuntimeError("BitmapLoad: image bounds exceed resource");
+    const pixels = checkedPixels(w, h);
+    for (let row = 0; row < h; row++) pixels.set(source.subarray((y + row) * stride + x, (y + row) * stride + x + w), row * w);
+    rt.bitmaps[i] = { w, h, loaded: true, name: filename, pixels };
     rt.gfx.image({ op: "image", sub: "load", i, filename, x, y, w, h, maxw });
     return 0;
   };
@@ -647,12 +713,13 @@ function makeBitmapShow(rt: MythroadRuntime): NativeFunction {
     const i = L.optNumber(1, 0) | 0;
     const x = L.optNumber(2, 0) | 0;
     const y = L.optNumber(3, 0) | 0;
-    const rop = L.optNumber(4, BM_COPY) | 0;
+    const rop = L.optNumber(4, DRAW_BM_COPY) | 0;
     const sx = L.optNumber(5, 0) | 0;
     const sy = L.optNumber(6, 0) | 0;
     const slot = rt.bitmaps[i];
     const w = L.absindex(7) < L.top && L.optNumber(7, -1) !== -1 ? L.optNumber(7, -1) | 0 : (slot?.w ?? -1);
     const h = L.absindex(8) < L.top && L.optNumber(8, -1) !== -1 ? L.optNumber(8, -1) | 0 : (slot?.h ?? -1);
+    if (slot?.pixels) rt.screen.drawBitmapRop(index => slot.pixels![index] ?? 0, x, y, w, h, rop, slot.pixels[0], sx, sy, slot.w);
     rt.gfx.image({ op: "image", sub: "show", i, x, y, w, h, rop, sx, sy });
     return 0;
   };
@@ -664,7 +731,8 @@ function makeBitmapNew(rt: MythroadRuntime): NativeFunction {
     const w = L.optNumber(2, 0) | 0;
     const h = L.optNumber(3, 0) | 0;
     if (i > BITMAPMAX) throw new LuaRuntimeError(`BitmapNew:index ${i} invalid!`);
-    rt.bitmaps[i] = { w, h, loaded: true, name: "" };
+    const old = rt.bitmaps[i]?.pixels;
+    rt.bitmaps[i] = { w, h, loaded: true, name: "", pixels: old?.length === w * h ? old : checkedPixels(w, h) };
     rt.gfx.image({ op: "image", sub: "new", i, w, h });
     return 0;
   };
@@ -677,6 +745,12 @@ function makeBitmapDraw(rt: MythroadRuntime): NativeFunction {
     const dy = L.optNumber(3, 0) | 0;
     const si = L.optNumber(4, 0) | 0;
     if (si > BITMAPMAX || di > BITMAPMAX) throw new LuaRuntimeError(`BitmapDraw:index ${di} or ${si} invalid!`);
+    const src = rt.bitmaps[si], dst = rt.bitmaps[di];
+    if (src?.pixels && dst?.pixels) rt.screen.drawBitmapEx(
+      (x, y) => src.pixels![y * src.w + x] ?? 0, L.optNumber(5, 0), L.optNumber(6, 0),
+      (x, y, color) => { dst.pixels![y * dst.w + x] = color; }, dst.w, dst.h, dx, dy,
+      L.optNumber(7, 0), L.optNumber(8, 0), L.optNumber(9, 0), L.optNumber(10, 0), L.optNumber(11, 0), L.optNumber(12, 0),
+      L.optNumber(13, DRAW_BM_COPY), src.pixels[0]);
     rt.gfx.image({
       op: "image",
       sub: "draw",
@@ -689,7 +763,7 @@ function makeBitmapDraw(rt: MythroadRuntime): NativeFunction {
       sy: L.optNumber(6, 0) | 0,
       w: L.optNumber(7, 0) | 0,
       h: L.optNumber(8, 0) | 0,
-      rop: L.optNumber(13, BM_COPY) | 0,
+      rop: L.optNumber(13, DRAW_BM_COPY) | 0,
     });
     return 0;
   };
@@ -711,7 +785,13 @@ function makeSpriteDraw(rt: MythroadRuntime): NativeFunction {
     const spriteindex = L.optNumber(2, 0) | 0;
     const x = L.optNumber(3, 0) | 0;
     const y = L.optNumber(4, 0) | 0;
-    const mod = L.optNumber(5, BM_TRANSPARENT) | 0;
+    const mod = L.optNumber(5, DRAW_BM_TRANSPARENT) | 0;
+    const bitmap = rt.bitmaps[i], height = rt.sprites[i]?.h ?? 0;
+    if (bitmap?.pixels && height > 0) {
+      const offset = (spriteindex & MR_SPRITE_INDEX_MASK) * bitmap.w * height;
+      const rop = (spriteindex & ~MR_SPRITE_INDEX_MASK) | mod;
+      rt.screen.drawBitmapRop(index => bitmap.pixels![offset + index] ?? 0, x, y, bitmap.w, height, rop, bitmap.pixels[0], 0, 0, bitmap.w);
+    }
     rt.gfx.sprite({ op: "sprite", i, spriteindex, x, y, mod });
     return 0;
   };
@@ -726,7 +806,9 @@ function makeTileSet(rt: MythroadRuntime): NativeFunction {
     const w = L.optNumber(4, 0) | 0;
     const h = L.optNumber(5, 0) | 0;
     const tileh = L.optNumber(6, 0) | 0;
-    rt.tiles[i] = { x, y, w, h, tileh, x1: 0, y1: 0, x2: 0, y2: 0 };
+    const old = rt.tiles[i];
+    const cells = old?.cells?.length === w * h ? old.cells : checkedPixels(w, h);
+    rt.tiles[i] = { x, y, w, h, tileh, x1: old?.x1 ?? 0, y1: old?.y1 ?? 0, x2: old?.x2 ?? rt.screenW, y2: old?.y2 ?? rt.screenH, cells };
     rt.gfx.tile({ op: "tile", sub: "set", i, x, y, w, h, tileh });
     return 0;
   };
@@ -755,8 +837,40 @@ function makeTileDraw(rt: MythroadRuntime): NativeFunction {
   return (L) => {
     const i = L.optNumber(1, 0) | 0;
     if (i >= TILEMAX) throw new LuaRuntimeError("TileDraw:tile index out of rang!");
-    const t = rt.tiles[i] ?? { x: 0, y: 0, w: 0, h: 0, tileh: 0, x1: 0, y1: 0, x2: 0, y2: 0 };
+    const t: import("./graphics.ts").TileSlot = rt.tiles[i] ?? { x: 0, y: 0, w: 0, h: 0, tileh: 0, x1: 0, y1: 0, x2: 0, y2: 0 };
+    const bitmap = rt.bitmaps[i];
+    if (bitmap?.pixels && t.cells && bitmap.w > 0 && t.tileh > 0) {
+      const xStart = Math.max(0, Math.floor(-t.x / bitmap.w)), yStart = Math.max(0, Math.floor(-t.y / t.tileh));
+      const xEnd = Math.min(t.w, Math.ceil((rt.screenW - t.x) / bitmap.w)), yEnd = Math.min(t.h, Math.ceil((rt.screenH - t.y) / t.tileh));
+      for (let row = yStart; row < yEnd; row++) for (let col = xStart; col < xEnd; col++) {
+        const cell = t.cells[row * t.w + col], index = cell & MR_SPRITE_INDEX_MASK;
+        const x = t.x + col * bitmap.w, y = t.y + row * t.tileh;
+        if (index === MR_SPRITE_INDEX_MASK || x + bitmap.w < t.x1 || x >= t.x2 || y + t.tileh < t.y1 || y >= t.y2) continue;
+        const offset = index * bitmap.w * t.tileh;
+        const rop = (cell & 0xfc00) | (cell & MR_SPRITE_TRANSPARENT ? DRAW_BM_TRANSPARENT : DRAW_BM_COPY);
+        rt.screen.drawBitmapRop(n => bitmap.pixels![offset + n] ?? 0, x, y, bitmap.w, t.tileh, rop, bitmap.pixels[0], 0, 0, bitmap.w);
+      }
+    }
     rt.gfx.tile({ op: "tile", sub: "draw", i, x: t.x, y: t.y, w: t.w, h: t.h, tileh: t.tileh });
     return 0;
+  };
+}
+
+function checkedPixels(w: number, h: number): Uint16Array {
+  if (!Number.isInteger(w) || !Number.isInteger(h) || w < 0 || h < 0 || w * h > 16 * 1024 * 1024) throw new LuaRuntimeError('Invalid bitmap/map dimensions');
+  return new Uint16Array(w * h);
+}
+function pixels565(bytes: Uint8Array): Uint16Array {
+  const pixels = new Uint16Array(Math.floor(bytes.length / 2));
+  for (let i = 0; i < pixels.length; i++) pixels[i] = bytes[i * 2] | bytes[i * 2 + 1] << 8;
+  return pixels;
+}
+function makeTileCell(rt: MythroadRuntime, write: boolean): NativeFunction {
+  return L => {
+    const i = L.optNumber(1, 0) & 0xffff, x = L.optNumber(2, 0) & 0xffff, y = L.optNumber(3, 0) & 0xffff;
+    const tile = rt.tiles[i];
+    if (i >= TILEMAX || !tile?.cells || x >= tile.w || y >= tile.h) throw new LuaRuntimeError('Tile cell out of bounds');
+    if (write) { tile.cells[y * tile.w + x] = L.optNumber(4, 0) & 0xffff; return 0; }
+    L.pushInteger((tile.cells[y * tile.w + x] << 16) >> 16); return 1;
   };
 }

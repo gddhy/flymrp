@@ -123,8 +123,9 @@ export class MythroadRuntime {
   readonly approvedUnknown = new Map<string, ApprovedBehavior>();
   readonly unknownEvents: UnknownAbiEvent[] = [];
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
-  private readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number) => void) | null;
-  private readonly onStopSound: ((type: number) => void) | null;
+  readonly onPlaySound: ((type: number, data: Uint8Array | null, loop: number) => void) | null;
+  readonly onStopSound: ((type: number) => void) | null;
+  soundOn = false;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.profile = defaultProfile(opts.profile);
@@ -246,6 +247,7 @@ export class MythroadRuntime {
     this.lastDispatch = ev.kind;
     if (ev.kind === EV_TIMER) return this.dispatchTimer();
     if (ev.kind === EV_KEY && (ev.type === 0 || ev.type === 1) && this.mrTable?.editor.key(ev.type, ev.p1)) return MR_SUCCESS;
+    if (ev.kind === EV_KEY && this.mrTable?.nativeUi.key(ev.type, ev.p1, ev.p2)) return MR_SUCCESS;
     return this.dispatchMrEvent(ev.type, ev.p1, ev.p2);
   }
 
@@ -339,6 +341,8 @@ export class MythroadRuntime {
     rt.onGuestExit = exitGuest;
     const bridge = new MrTableBridge(rt, this.vfs, owner, {
       networkRules: this.networkRules,
+      onUiChange: () => this.present(),
+      onPlatformEvent: (type, value) => this.queueEvent(EV_SYSTEM, type, value, 0),
       onEditChange: this.onEditChange,
       onEditComplete: accepted => this.queueEvent(EV_SYSTEM, 6, accepted ? 0 : 1, 0),
       getDownloadFile: name => this.systemFiles[name] ?? null,
@@ -350,9 +354,10 @@ export class MythroadRuntime {
       getPack: () => (this.archive ? { name: this.packName, bytes: this.archive.data } : null),
       getProfile: () => this.profile,
       getScreen: () => this.screen,
+      setScreen: screen => { this.screen = screen; this.screenW = screen.width; this.screenH = screen.height; },
       onDrawRect: (x, y, w, h, r, g, b) => this.gfx.drawRect(x, y, w, h, r, g, b),
       onDrawText: (text, x, y, r, g, b, unicode, font) => this.gfx.drawText(text, x, y, r, g, b, unicode, font),
-      onFlush: (x, y, w, h) => this.gfx.flush(x, y, w, h, 0),
+      onFlush: (x, y, w, h) => this.present(x, y, w, h),
       onPlaySound: (type, data, loop) => this.onPlaySound?.(type, data, loop),
       onStopSound: (type) => this.onStopSound?.(type),
       onAlloc: (rec) => this.mrAllocs.push(rec),
@@ -394,6 +399,12 @@ export class MythroadRuntime {
     rt.onExtCall = this.onExtCall;
     this.mrTable = bridge;
     this.ext = this.trace ? wrapExtInstance(rt, this.trace) : rt;
+  }
+
+  private present(x = 0, y = 0, w = this.screenW, h = this.screenH): void {
+    const screen = this.screen;
+    this.screen = this.mrTable?.nativeUi.render(screen) ?? screen;
+    try { this.gfx.flush(x, y, w, h, 0); } finally { this.screen = screen; }
   }
 
   private dispatchTimer(): number {

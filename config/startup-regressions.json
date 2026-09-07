@@ -1,0 +1,96 @@
+{
+  "description": "原始精选中启动失败的 13 个文件；替换发布版本不视为修复。",
+  "games": [
+    {
+      "path": "mrpoid2在线商城所有游戏/仙剑问情.mrp",
+      "title": "仙剑问情",
+      "sha256": "38f5967e7843c85ec6dc43af5394b0671aaa2346480bcb32021a8ebdff695bd7",
+      "initialOutcome": "black-screen",
+      "initialError": null
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/俄罗斯方块.mrp",
+      "title": "俄罗斯方块",
+      "sha256": "05a36869089b99d7d24fd882624035e9810a856a6feedcba3f995b04aa965f15",
+      "initialOutcome": "runtime-error",
+      "initialError": "LuaRuntimeError: attempt to call a non-function"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/冒险岛.mrp",
+      "title": "冒险岛",
+      "sha256": "f3ae99a68a19218ff86e6ded44ffe71b2325e4808485b71bc4b8f766de5361a7",
+      "initialOutcome": "runtime-error",
+      "initialError": "Error: corrupt guest heap free block"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/冒险岛2.mrp",
+      "title": "冒险岛2",
+      "sha256": "1ab510d0a4b2258dd5a7b4af24c920e9befefe6ce589b2f4b86d4272aef9b65a",
+      "initialOutcome": "runtime-error",
+      "initialError": "Error: corrupt guest heap free block"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/拳皇格斗天王.mrp",
+      "title": "拳皇格斗天王",
+      "sha256": "98cb74e8605df5c9207fdc677ba1e70f665808b2161976614eb94bce26739cf3",
+      "initialOutcome": "runtime-error",
+      "initialError": "ExtFault: EXT fault unmapped at 0x25b838 (timer EXT: GuestMemory map32 fault at 0xfffffffc)"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/推箱子.mrp",
+      "title": "推箱子",
+      "sha256": "afccf87771be5afa37bd00c931ae2747c4b528414844a55ed52f7ec59c2a9e3c",
+      "initialOutcome": "runtime-error",
+      "initialError": "UnknownAbiError: unsupported mr_open mode 4"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/梦幻宝石.mrp",
+      "title": "梦幻宝石",
+      "sha256": "9f3a060dbce83384be441ca8b3a478e474804e621522e15a5cf66b70f578f868",
+      "initialOutcome": "runtime-error",
+      "initialError": "LuaRuntimeError: attempt to call a non-function"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/水晶宠物.mrp",
+      "title": "水晶宠物",
+      "sha256": "6f0ebe13d0136528b3fb9e436758e533e6137fd289a8744d60332d54bc5704a7",
+      "initialOutcome": "runtime-error",
+      "initialError": "LuaRuntimeError: attempt to call a non-function"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/泡泡龙.mrp",
+      "title": "泡泡龙",
+      "sha256": "577e8ac82eabad3ee02057755b854d1b522cb1eea9989acc25f2c6735aa6d6fe",
+      "initialOutcome": "runtime-error",
+      "initialError": "LuaRuntimeError: attempt to call a non-function"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/西游记释厄传.mrp",
+      "title": "西游记释厄传",
+      "sha256": "cd7662dfdfefd923f00f757abecdf32f2673ee086577363b4d1b45f5d2576fb7",
+      "initialOutcome": "runtime-error",
+      "initialError": "UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 51"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/贪吃猫.mrp",
+      "title": "贪吃猫",
+      "sha256": "7e87253c7908322ca3ec58b3bbb62c0e939a76cc61b44733d51e47f5ffda1fdb",
+      "initialOutcome": "runtime-error",
+      "initialError": "UnknownAbiError: unsupported mr_plat code 101"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/金庸群侠合辑.mrp",
+      "title": "金庸群侠合辑",
+      "sha256": "1cd6d309c2a6f40e92902bc17d485d672cf84fa94061bc7935a6fc9ef96053b4",
+      "initialOutcome": "runtime-error",
+      "initialError": "UnknownAbiError: _strCom code 3 not implemented in Stage 5-C"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/魔兽连连看.mrp",
+      "title": "魔兽连连看",
+      "sha256": "2c3fe1aeb18d738b0dc38a25e7ef6091cc493d3cc65433dc41bc7ad432750216",
+      "initialOutcome": "runtime-error",
+      "initialError": "UnknownAbiError: UNKNOWN_REQUIRED_SLOT = 63"
+    }
+  ]
+}

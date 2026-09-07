@@ -416,9 +416,9 @@ export type DrawCommand =
       y2?: number;
     };
 
-export type BitmapSlot = { w: number; h: number; loaded: boolean; name: string };
+export type BitmapSlot = { w: number; h: number; loaded: boolean; name: string; pixels?: Uint16Array };
 export type SpriteSlot = { h: number };
-export type TileSlot = { x: number; y: number; w: number; h: number; tileh: number; x1: number; y1: number; x2: number; y2: number };
+export type TileSlot = { x: number; y: number; w: number; h: number; tileh: number; x1: number; y1: number; x2: number; y2: number; cells?: Uint16Array };
 
 export interface GraphicsBackend {
   clear(r: number, g: number, b: number): void;

@@ -1,3 +1,4 @@
+import { NativeUi } from "./native-ui.ts";
 import { NativeEditor, type EditState } from "./native-editor.ts";
 import type { NetworkRules } from "./network-rules.ts";
 import { EXT_STACK_ADDR, EXT_TABLE_COUNT, MR_MAX_FILENAME_SIZE, tableSlotIndex, tableSlotAddr } from "../abi/layout.ts";
@@ -7,7 +8,7 @@ import { MemoryFault, type GuestMemory } from "../hot/memory.ts";
 import { guestMd5Init, guestMd5Append, guestMd5Finish } from "./guest-md5.ts";
 import { MRPArchive } from "../mrp/index.ts";
 import { AppFileSystem } from "./app-fs.ts";
-import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
+import { MR_CHECK_TOUCH, MR_CHINESE, MR_FAILED, MR_GET_HANDSET_LG, MR_IGNORE, MR_IS_DIR, MR_IS_FILE, MR_IS_INVALID, MR_NET_ID_MOBILE, MR_STATE_RUN, MR_SUCCESS, MR_SWITCHPATH, MR_TOUCH_SCREEN } from "./constants.ts";
 import { MythroadTimer } from "./timer.ts";
 import { ScreenBuffer, asI16 } from "./graphics.ts";
 import { BYTES_PER_CHAR_16, gb16BitmapSize, gb16Glyph, gbkBytesToUcs2, ucs2ToGbk } from "./font.ts";
@@ -131,7 +132,9 @@ export type ReadFileRecord = {
  */
 export class MrTableBridge {
   private heap: GuestHeap | null = null;
+  private readonly retiredBlocks: { pointer: number; size: number }[] = [];
   private screenAddr = 0;
+  private screenCapacity = 0;
   private drawTarget: { address: number; screen: ScreenBuffer } | null = null;
   readonly allocs: AllocRecord[] = [];
   readonly reads: ReadFileRecord[] = [];
@@ -144,10 +147,13 @@ export class MrTableBridge {
   /** Guest buffer for `mr_platEx(1204)` `'Y'` path query. Reused. */
   switchPathAddr = 0;
   private diskInfoAddr = 0;
+  private nextSearch = 1;
+  private readonly searches = new Map<number, { names: string[]; index: number }>();
   private randSeed: number | null = null;
   networkMode: string | null = null;
   readonly offlineNetwork: OfflineNetwork;
   readonly editor: NativeEditor;
+  readonly nativeUi: NativeUi;
   readonly missingComponents = new Set<string>();
   private readonly media = new MediaDevices({
     alloc: size => this.ext.alloc(size),
@@ -177,6 +183,8 @@ export class MrTableBridge {
     readonly owner: string,
     readonly hooks: {
       networkRules?: NetworkRules;
+      onUiChange?: () => void;
+      onPlatformEvent?: (type: number, value: number) => void;
       onEditChange?: (state: EditState | null) => void;
       onEditComplete?: (accepted: boolean) => void;
       getDownloadFile?: (name: string) => Uint8Array | null;
@@ -189,6 +197,7 @@ export class MrTableBridge {
       getPack?: () => PackFileSource | null;
       getProfile?: () => DeviceProfile;
       getScreen?: () => ScreenBuffer;
+      setScreen?: (screen: ScreenBuffer) => void;
       onDrawRect?: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => void;
       onDrawText?: (text: string, x: number, y: number, r: number, g: number, b: number, unicode: number, font: number) => void;
       onFlush?: (x: number, y: number, w: number, h: number) => void;
@@ -199,6 +208,7 @@ export class MrTableBridge {
       getMrState?: () => number;
     } = {},
   ) {
+    this.nativeUi = new NativeUi(ext.mem, hooks.onUiChange ?? (() => {}), hooks.onPlatformEvent ?? (() => {}));
     this.editor = new NativeEditor(ext.mem, size => ext.alloc(size), hooks.onEditChange, hooks.onEditComplete);
     this.offlineNetwork = new OfflineNetwork({ rules: hooks.networkRules, readFile: name => hooks.getDownloadFile?.(name) ?? this.appFs.file(name) });
     this.files = new CurrentPackFileBackend(() => this.hooks.getPack?.() ?? null, this.appFs);
@@ -211,7 +221,8 @@ export class MrTableBridge {
     if (!this.screenAddr) {
       // Native drawing and guest direct pixel writes share one RGB565 buffer.
       // A second frame is reserved for legacy SDK framebuffer scratch space.
-      this.screenAddr = this.ext.alloc(screen.pixels.byteLength * 2);
+      this.screenCapacity = screen.pixels.byteLength * 2;
+      this.screenAddr = this.ext.alloc(this.screenCapacity);
       const shared = new Uint16Array(this.ext.mem.ram8.buffer,
         this.screenAddr - this.ext.mem.ramBase, screen.pixels.length);
       shared.set(screen.pixels);
@@ -227,7 +238,15 @@ export class MrTableBridge {
       this.ext.mem.write32(this.ext.mem.read32(tableSlotAddr(slot)), value);
     }
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
-    this.ext.registerHandler(1, (_cpu, _mem, args) => this.free(args[0]! >>> 0, args[1]! >>> 0));
+    this.ext.onHostBoundary = () => this.recycleRetiredBlocks();
+    this.ext.registerHandler(1, (_cpu, _mem, args) => {
+      const record = this.allocs.find(a => a.live && a.guestAddr === args[0]);
+      if (record) {
+        record.live = false;
+        this.retiredBlocks.push({ pointer: record.guestAddr, size: record.alignedSize });
+      }
+      return MR_SUCCESS;
+    });
     this.ext.registerHandler(2, (_cpu, mem, args) => {
       const [p, oldLen, newLen] = args;
       if (!p) return this.malloc(newLen);
@@ -326,6 +345,14 @@ export class MrTableBridge {
       return MR_SUCCESS;
     });
     this.ext.registerHandler(54, () => { this.hooks.onExit?.(); return MR_SUCCESS; });
+    this.ext.registerHandler(63, (_cpu, _mem, [title]) => this.nativeUi.create('menu', title));
+    this.ext.registerHandler(64, (_cpu, _mem, [handle, text, index]) => this.nativeUi.setItem(handle, text, index | 0));
+    for (const slot of [65, 68]) this.ext.registerHandler(slot, (_cpu, _mem, [handle]) => this.nativeUi.show(handle));
+    for (const slot of [67, 70, 73]) this.ext.registerHandler(slot, (_cpu, _mem, [handle]) => this.nativeUi.release(handle));
+    this.ext.registerHandler(69, (_cpu, _mem, [title, text, type]) => this.nativeUi.create('dialog', title, text, type));
+    this.ext.registerHandler(71, (_cpu, _mem, [handle, title, text, type]) => this.nativeUi.refresh(handle, title, text, type));
+    this.ext.registerHandler(72, (_cpu, _mem, [title, text, type]) => this.nativeUi.create('text', title, text, type));
+    this.ext.registerHandler(74, (_cpu, _mem, [handle, title, text]) => this.nativeUi.refresh(handle, title, text));
     this.ext.registerHandler(33, () => this.pollTime());
     this.ext.registerHandler(17, (_cpu, mem, args) => this.sprintf(mem, args));
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
@@ -333,6 +360,9 @@ export class MrTableBridge {
     this.ext.registerHandler(43, (_cpu, mem, args) => this.files.write(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(44, (_cpu, mem, args) => this.files.read(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
     this.ext.registerHandler(45, (_cpu, _mem, args) => this.files.seek(args[0]! | 0, args[1]! | 0, args[2]! | 0));
+    this.ext.registerHandler(51, (_cpu, mem, [name, buffer, length]) => this.findStart(readGuestCString(mem, name), buffer, length));
+    this.ext.registerHandler(52, (_cpu, _mem, [handle, buffer, length]) => this.findNext(handle, buffer, length));
+    this.ext.registerHandler(53, (_cpu, _mem, [handle]) => this.searches.delete(handle) ? MR_SUCCESS : MR_FAILED);
     this.ext.registerHandler(46, (_cpu, mem, args) => this.files.getLen(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(47, (_cpu, mem, args) => this.files.remove(readGuestCString(mem, args[0]! >>> 0)));
     this.ext.registerHandler(48, (_cpu, mem, [from, to]) => this.files.rename(readGuestCString(mem, from), readGuestCString(mem, to)));
@@ -369,6 +399,8 @@ export class MrTableBridge {
     this.ext.registerHandler(122, (_cpu, _mem, args) => this.drawRect(args));
     this.ext.registerHandler(123, (_cpu, mem, args) => this.drawText(mem, args));
     this.ext.registerHandler(29, (_cpu, mem, args) => this.drawBitmap(mem, args));
+    this.ext.registerHandler(118, (_cpu, mem, [x, y, w, h]) =>
+      this.hooks.getMrState && this.hooks.getMrState() !== MR_STATE_RUN ? MR_SUCCESS : this.drawBitmap(mem, new Uint32Array([mem.read32(mem.read32(tableSlotAddr(91))), x, y, w, h])));
     this.ext.registerHandler(120, (cpu, mem, args) => this.drawBitmapRop(cpu.r[13] >>> 0, mem, args));
     this.ext.registerHandler(121, (cpu, mem, args) => this.drawBitmapEx(cpu.r[13] >>> 0, mem, args));
     this.ext.registerHandler(124, (cpu, mem, args) => this.bitmapCheck(cpu.r[13] >>> 0, mem, args));
@@ -383,6 +415,11 @@ export class MrTableBridge {
     this.ext.registerHandler(79, (_cpu, _mem, args) => this.winRelease(args[0]! | 0));
     this.ext.registerHandler(57, (_cpu, mem, args) => this.playSound(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0, args[3]! | 0));
     this.ext.registerHandler(58, (_cpu, _mem, args) => this.stopSound(args[0]! | 0));
+    // Virtual handset service, matching rxgj dsm.c. No host SMS is sent.
+    this.ext.registerHandler(59, (_cpu, _mem, [_number, _content, flags]) => {
+      if (flags & 16) this.hooks.onPlatformEvent?.(9, MR_SUCCESS);
+      return MR_SUCCESS;
+    });
     this.ext.registerHandler(119, (_cpu, _mem, args) => this.drawPoint(args[0]! | 0, args[1]! | 0, args[2]! >>> 0));
     this.ext.registerHandler(145, (_cpu, _mem, args) => this.platDrawChar(args[0]! >>> 0, args[1]! | 0, args[2]! | 0, args[3]! >>> 0));
     this.ext.registerHandler(113, (_cpu, mem, args) => guestMd5Init(mem, args[0]));
@@ -724,7 +761,20 @@ export class MrTableBridge {
     const y = asI16(args[2]!);
     const w = args[3]! & 0xffff;
     const h = args[4]! & 0xffff;
-    const screen = this.hooks.getScreen?.() ?? this.screen;
+    let screen = this.hooks.getScreen?.() ?? this.screen;
+    // Engines can select a larger logical canvas after LCD rotation. A full
+    // presentation uses that canvas's stride; interpreting it at the old LCD
+    // width produces alternating horizontal strips. Offscreen targets do not
+    // resize the presented screen.
+    if (bmp === this.screenAddr && x === 0 && y === 0 && w && h &&
+        w === mem.read32(mem.read32(tableSlotAddr(92))) &&
+        h === mem.read32(mem.read32(tableSlotAddr(93))) &&
+        (w !== screen.width || h !== screen.height)) {
+      const size = w * h * 2;
+      if (size > this.screenCapacity) throw new MemoryFault(bmp, 'framebuffer', size);
+      screen = new ScreenBuffer(w, h, new Uint16Array(mem.ram8.buffer, bmp - mem.ramBase, w * h));
+      if (this.hooks.setScreen) this.hooks.setScreen(screen); else this.screen = screen;
+    }
     if (bmp && bmp !== this.screenAddr) {
       const maxW = Math.min(w, Math.max(0, screen.width - Math.max(x, 0)));
       const maxH = Math.min(h, Math.max(0, screen.height - Math.max(y, 0)));
@@ -1055,6 +1105,20 @@ export class MrTableBridge {
   }
 
   plat(code: number, param: number): number {
+    if (code === 101) {
+      if (param < 0 || param > 3) return MR_IGNORE;
+      const profile = this.hooks.getProfile?.() ?? defaultProfile();
+      const width = param % 2 ? profile.height : profile.width, height = param % 2 ? profile.width : profile.height;
+      if (width * height * 2 > this.screenCapacity) return MR_IGNORE;
+      const screen = new ScreenBuffer(width, height, new Uint16Array(this.ext.mem.ram8.buffer,
+        this.screenAddr - this.ext.mem.ramBase, width * height));
+      if (this.hooks.setScreen) this.hooks.setScreen(screen); else this.screen = screen;
+      for (const [slot, value] of [[92, width], [93, height]]) this.ext.mem.write32(this.ext.mem.read32(tableSlotAddr(slot)), value);
+      const bitmap = this.ext.mem.read32(tableSlotAddr(95)) + 30 * 16;
+      this.ext.mem.write16(bitmap, width); this.ext.mem.write16(bitmap + 2, height);
+      this.drawTarget = null;
+      return MR_SUCCESS;
+    }
     if (code === 1001) return this.offlineNetwork.state(param);
     if (code === 1101 || code === 1011 || code === 1215) return MR_IGNORE;
     if (code === 1327 || code === 1391) return MR_IGNORE; // No guest Wi-Fi/background service (dsm.c).
@@ -1079,7 +1143,7 @@ export class MrTableBridge {
    * `int32 mr_open(const char *filename, uint32 mode)`.
    *
    * Pack name + RDONLY is the current-pack alias. Other names go to AppFS.
-   * Missing EFS without CREATE returns 0. Pack write modes stay UnknownAbiError.
+   * Missing EFS without CREATE returns 0. Pack writes use a session-local copy.
    */
   open(mem: GuestMemory, nameAddr: number, mode: number): number {
     try {
@@ -1127,6 +1191,27 @@ export class MrTableBridge {
    * Creates an in-memory directory in the writable EFS namespace.
    * Does not touch the current pack or archive members.
    */
+  findStart(name: string, buffer: number, length: number): number {
+    const normalized = this.appFs.normalize(name).replace(/^c:\//i, '').replace(/^mythroad(?:\/|$)/i, '').replace(/^\.\/?/, '').replace(/^\//, '');
+    const prefix = normalized ? normalized + '/' : '';
+    const names = new Set<string>();
+    const paths = [...this.appFs.nodes.keys()];
+    const pack = this.hooks.getPack?.(); if (pack) paths.push(pack.name);
+    for (const path of paths) if (path.startsWith(prefix)) { const child = path.slice(prefix.length).split('/')[0]; if (child) names.add(child); }
+    if (normalized && this.appFs.info(normalized) !== MR_IS_DIR && !names.size) return MR_FAILED;
+    const handle = this.nextSearch++;
+    this.searches.set(handle, { names: [...names].sort(), index: 0 });
+    this.findNext(handle, buffer, length); return handle;
+  }
+  findNext(handle: number, buffer: number, length: number): number {
+    const search = this.searches.get(handle);
+    if (!search || !buffer || !length || length > 65536) return MR_FAILED;
+    const name = search.names[search.index];
+    if (name === undefined) { this.ext.mem.write8(buffer, 0); return MR_FAILED; }
+    writeFixedCString(this.ext.mem, buffer, name, length); search.index++;
+    return MR_SUCCESS;
+  }
+
   mkDir(name: string): number {
     this.lastMkDir = name;
     return this.appFs.mkdir(name);
@@ -1258,6 +1343,7 @@ export class MrTableBridge {
    * list. The registry owns the size even when the caller passes a stale hint.
    */
   free(p: number, len: number): number {
+    this.recycleRetiredBlocks();
     const ptr = p >>> 0;
     void len;
     if (ptr === 0) return MR_SUCCESS;
@@ -1270,6 +1356,15 @@ export class MrTableBridge {
 
   liveAllocs(): AllocRecord[] {
     return this.allocs.filter((a) => a.live);
+  }
+
+  /** Some handset SDK destructors clear object fields immediately after free.
+   * Keep retired bytes out of the intrusive free list until the next ABI call
+   * (or guest return), so that cleanup cannot erase the allocator's headers.
+   * Blocks are still reusable by the very next malloc; no errors are ignored.
+   */
+  private recycleRetiredBlocks(): void {
+    for (const block of this.retiredBlocks.splice(0)) this.heap?.free(block.pointer, block.size);
   }
 
   readFile(mem: GuestMemory, nameAddr: number, lenAddr: number, lookfor: number): number {
@@ -1305,8 +1400,19 @@ export class MrTableBridge {
       this.noteRead({ name, lookfor, guestAddr: address, length: data.length });
       return address;
     }
+    // SDKs temporarily select an extracted MRP while loading its plugin. Read
+    // that container, including compressed entries, rather than the outer app.
+    const selectedName = readGuestCString(mem, packName);
+    const selectedBytes = selectedName !== this.hooks.getPack?.()?.name
+      ? this.appFs.file(selectedName) : null;
+    let selected: MRPArchive | null = null;
+    if (selectedBytes) {
+      try { selected = MRPArchive.parse(selectedBytes); }
+      catch (e) { if (e instanceof MrpFormatError) return 0; throw e; }
+    }
+    const exists = selected ? selected.hasFile(name) : this.vfs.exists(name);
     if (lookfor === 1) {
-      const ok = this.vfs.exists(name) ? 1 : 0;
+      const ok = exists ? 1 : 0;
       this.noteRead({ name, lookfor, guestAddr: ok, length: 0 });
       return ok;
     }
@@ -1314,7 +1420,7 @@ export class MrTableBridge {
       this.noteRead({ name, lookfor, guestAddr: 0, length: 0 });
       return 0;
     }
-    const data = this.vfs.readFile(name);
+    const data = selected ? (exists ? selected.readFile(name) : null) : this.vfs.readFile(name);
     if (!data) {
       this.noteRead({ name, lookfor, guestAddr: 0, length: 0 });
       return 0;

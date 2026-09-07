@@ -11,6 +11,7 @@ import {
   CurrentPackFileBackend,
   MR_FAILED,
   MR_FILE_RDONLY,
+  MR_FILE_RDWR,
   MR_FILE_WRONLY,
   MR_SEEK_CUR,
   MR_SEEK_END,
@@ -55,6 +56,26 @@ function putName(ext: ExtRuntime, s: string): number {
 }
 
 describe("5-C.10K current-pack read-only file backend", () => {
+  it('keeps container writes private, shares changes with open handles and resets the copy', () => {
+    const { ext, bridge, pack } = wirePack(new Uint8Array([1, 2, 3, 4]));
+    const reader = bridge.files.open(PACK, MR_FILE_RDONLY);
+    const writer = bridge.files.open(PACK, MR_FILE_RDWR);
+    const data = ext.alloc(8); ext.mem.load(data, new Uint8Array([5, 6, 7, 8]));
+    expect(bridge.files.seek(writer, 2, MR_SEEK_SET)).toBe(MR_SUCCESS);
+    expect(bridge.files.write(ext.mem, writer, data, 4)).toBe(4);
+    expect([...pack.bytes]).toEqual([1, 2, 3, 4]);
+    expect(bridge.files.getLen(PACK)).toBe(6);
+    expect(bridge.files.read(ext.mem, reader, data, 8)).toBe(6);
+    expect(guestBytes(ext, data, 6)).toEqual([1, 2, 5, 6, 7, 8]);
+    expect(bridge.files.write(ext.mem, reader, data, 1)).toBe(MR_FAILED);
+    const reopened = bridge.files.open(PACK, MR_FILE_RDONLY);
+    expect(bridge.files.peek(reopened)!.bytes).toBe(bridge.files.peek(reader)!.bytes);
+    bridge.files.reset();
+    expect(bridge.files.getLen(PACK)).toBe(4);
+    const fresh = bridge.files.open(PACK, MR_FILE_RDONLY);
+    expect(bridge.files.peek(fresh)!.bytes).toBe(pack.bytes);
+  });
+
   it("open packName+RDONLY returns handle 1 then 2; other names are EFS misses", () => {
     const { ext, bridge } = wirePack();
     const name = putName(ext, PACK);
@@ -71,7 +92,7 @@ describe("5-C.10K current-pack read-only file backend", () => {
     expect(b.r0).toBe(2);
 
     expect(() => callSlot(ext, 40, name, 0)).toThrow(UnknownAbiError);
-    expect(() => callSlot(ext, 40, name, MR_FILE_WRONLY)).toThrow(UnknownAbiError);
+    expect(() => callSlot(ext, 40, name, 0x80000000)).toThrow(UnknownAbiError);
     expect(callSlot(ext, 40, other, MR_FILE_RDONLY).r0).toBe(0);
     expect(callSlot(ext, 40, empty, MR_FILE_RDONLY).r0).toBe(0);
     expect(MR_FILE_RDONLY).toBe(1);

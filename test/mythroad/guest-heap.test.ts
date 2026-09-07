@@ -6,6 +6,25 @@ import { MrTableBridge } from "../../src/mythroad/mr-table.ts";
 import { MythroadVfs } from "../../src/mythroad/vfs.ts";
 
 describe("shared Mythroad heap and framebuffer", () => {
+  it('allows SDK destructor cleanup after free and reuses the block at the next ABI call', () => {
+    const ext = new ExtRuntime(), bridge = new MrTableBridge(ext, new MythroadVfs(), 'destructor'); bridge.install();
+    const pointer = bridge.malloc(16), code = ext.alloc(64);
+    // free(r0,16); r0[1]=0; return malloc(16). The SDK zero belongs to its
+    // retired object, not to the allocator's next free-list header.
+    [0xe92d4030, 0xe1a04000, 0xe59f5024, 0xe1a0e00f, 0xe12fff15,
+      0xe3a00000, 0xe5840004, 0xe3a00010, 0xe59f5010, 0xe1a0e00f,
+      0xe12fff15, 0xe8bd8030, 0, tableSlotAddr(1), tableSlotAddr(0)]
+      .forEach((word, i) => ext.mem.write32(code + i * 4, word));
+    const result = ext.runGuest(code, { r0: pointer, r1: 16 });
+    expect(result.kind).toBe('return'); expect(result.r0).toBe(pointer);
+    ext.runGuest(tableSlotAddr(1), { r0: pointer, r1: 16 });
+    expect(bridge.liveAllocs()).toHaveLength(0);
+    expect(bridge.malloc(16)).toBe(pointer);
+    // Invalid free-list sizes still fail instead of being repaired or skipped.
+    const head = ext.mem.read32(tableSlotAddr(146)), base = ext.mem.read32(ext.mem.read32(tableSlotAddr(108)));
+    ext.mem.write32(base + ext.mem.read32(head) + 4, 0);
+    expect(() => bridge.malloc(16)).toThrow('corrupt guest heap free block');
+  });
   it("publishes capacity, reuses freed blocks, coalesces adjacent regions and tracks the low-water mark", () => {
     const ext = new ExtRuntime(), heap = new GuestHeap(ext, 128);
     const get = (slot: number) => ext.mem.read32(ext.mem.read32(tableSlotAddr(slot)));
