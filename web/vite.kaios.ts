@@ -13,7 +13,26 @@ export default defineConfig(({ mode }) => {
     base: "./",
     publicDir: resolve(root, "../assets"),
     define: { "import.meta.env.KAIOS": "true" },
+    resolve: {
+      alias: { "webaudio-tinysynth": resolve(root, "tinysynth-stub.ts") },
+    },
     worker: { format: "iife" },
+    esbuild: {
+      // Gecko 48 already has these. esbuild cannot rewrite them, so keep the
+      // rest of the firefox48 table (no BigInt, no object rest, no ??).
+      supported: {
+        "const-and-let": true,
+        "for-of": true,
+        "default-argument": true,
+        "destructuring": true,
+        "rest-argument": true,
+        "array-spread": true,
+        "template-literal": true,
+        "arrow": true,
+        "class": true,
+        "generator": true,
+      },
+    },
     build: {
       outDir: resolve(root, "../dist-kaios"),
       emptyOutDir: true,

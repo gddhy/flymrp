@@ -12,7 +12,7 @@
 <body>
   <header class="site-bar"><a class="brand" href="./"><span class="brand-mark">f</span> flymrp</a><nav><a href="https://github.com/zixing131/flymrp">项目源码 ↗</a><button id="theme" aria-label="切换深浅主题">◐</button></nav></header>
   <main class="catalog">
-    <section class="hero"><div><p class="eyebrow">掌上时光，随时重启</p><h1>那些年，<br />还没玩够的游戏。</h1><p class="intro">经典 MRP 游戏收藏，在浏览器里继续下一关。</p></div><div class="local-card"><span class="local-symbol" aria-hidden="true">＋</span><h2>你的收藏，也能玩</h2><p>打开本地 .mrp 文件即可开始。<br />文件留在浏览器，无需上传服务器。</p><label class="upload" for="local-file">打开 MRP 文件<input id="local-file" type="file" accept=".mrp,.MRP,application/octet-stream" /></label></div></section>
+    <section class="hero"><div><p class="eyebrow">掌上时光，随时重启</p><h1>那些年，<br />还没玩够的游戏。</h1><p class="intro">经典 MRP 游戏收藏，在浏览器里继续下一关。</p></div><div class="local-card"><span class="local-symbol" aria-hidden="true">＋</span><h2>你的收藏，也能玩</h2><p>打开本地 .mrp 文件即可开始。<br />文件留在浏览器，无需上传服务器。</p><label class="upload" for="local-file">打开 MRP 文件</label></div></section>
     <section aria-labelledby="collection-heading"><div class="collection-heading"><div><h2 id="collection-heading">经典精选 <span id="total-count">100</span></h2><p>找回熟悉的名字，或试试新的冒险。</p></div><input id="search" type="search" aria-label="搜索精选游戏" placeholder="搜索游戏或类型…" /></div><div id="categories" class="categories" role="group" aria-label="游戏类型"></div><div class="results-line"><span id="library-count" role="status">正在加载游戏库…</span><button id="refresh-library">刷新</button></div><div id="games" class="game-grid"></div><p id="empty" hidden>没有找到游戏，换个关键词，或打开自己的 MRP 文件。</p></section>
   </main>
   <footer>为掌上游戏留一个位置。<span>flymrp · <a href="https://github.com/zixing131/flymrp/blob/main/LICENSE">AGPL-3.0</a></span></footer>
@@ -33,6 +33,7 @@
       <div id="kaios-alert-text"></div>
     </div>
   </div>
+  <input id="local-file" type="file" accept=".mrp,.MRP" style="visibility:hidden;display:none" />
   <script type="module" src="./catalog.ts"></script>
 </body>
 </html>

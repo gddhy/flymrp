@@ -27,19 +27,19 @@ export const MR_USERINFO_SIZE = 64;
 
 /** C strtoul on the guest's 32-bit unsigned long, including base autodetection. */
 export function guestStrtoul(value: string, radix: number): number {
-  let text = value.trimStart(), negative = false;
+  let text = value.replace(/^\s+/, ""), negative = false;
   if (text[0] === "-" || text[0] === "+") { negative = text[0] === "-"; text = text.slice(1); }
   if (radix !== 0 && (radix < 2 || radix > 36)) return 0;
   if ((radix === 0 || radix === 16) && /^0x[0-9a-f]/i.test(text)) { radix = 16; text = text.slice(2); }
   if (!radix) radix = text[0] === "0" ? 8 : 10;
-  let n = 0n;
+  let n = 0;
   for (const ch of text.toLowerCase()) {
     const c = ch.charCodeAt(0), digit = c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 122 ? c - 87 : 99;
     if (digit >= radix) break;
-    n = n * BigInt(radix) + BigInt(digit);
-    if (n > 0xffffffffn) return 0xffffffff;
+    n = n * radix + digit;
+    if (n > 0xffffffff) return 0xffffffff;
   }
-  return Number(negative ? BigInt.asUintN(32, -n) : n);
+  return negative ? (-n >>> 0) : n >>> 0;
 }
 export const MR_USERINFO_IMEI_OFF = 0;
 export const MR_USERINFO_IMSI_OFF = 16;

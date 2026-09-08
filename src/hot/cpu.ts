@@ -28,6 +28,8 @@ export class ARMCPU {
   onSvc: ((cpu: ARMCPU, immediate: number) => boolean) | null = null;
   /** Set when the last instruction was a taken control-flow write to R15. */
   branched = 0;
+  /** Set when EXT hits the stop address; `run()` exits without throwing. */
+  halted = 0;
   insnCount = 0;
 
   constructor(mem: GuestMemory) {
@@ -68,6 +70,7 @@ export class ARMCPU {
     this.cpsrExtra = 0x0000_0010;
     this.r[15] = pc >>> 0;
     this.branched = 0;
+    this.halted = 0;
     this.insnCount = 0;
   }
 
@@ -94,6 +97,7 @@ export class UnsupportedInsn extends Error {
     this.pc = pc >>> 0;
     this.word = word >>> 0;
     this.thumb = thumb;
+    if (typeof Object.setPrototypeOf === "function") Object.setPrototypeOf(this, UnsupportedInsn.prototype);
   }
 }
 

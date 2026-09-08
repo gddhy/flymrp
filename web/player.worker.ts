@@ -10,29 +10,41 @@ import { createRemoteFileLoaders } from './remote-files.ts';
 const post = self.postMessage.bind(self) as (message: PlayerResponse, transfer?: Transferable[]) => void;
 const send = (message: PlayerResponse, transfer: Transferable[] = []) => post(message, transfer);
 let rt: MythroadRuntime | null = null;
-let pending: Extract<PlayerResponse, { type: 'frame' }> | null = null;
 let nextPresent = 0, remainder = 0;
-function present(): void {
-  if (!pending) return;
-  const frame = pending; pending = null;
-  send(frame, [frame.pixels.buffer as ArrayBuffer]);
-  nextPresent = performance.now() + 16;
-}
 class Display implements GraphicsBackend {
+  lcd = new Uint16Array(0);
+  width = 0;
+  height = 0;
+  dirty = false;
   clear() {} drawRect() {} drawLine() {} drawPoint() {} drawText() {}
   effSetCon() {} image() {} sprite() {} tile() {}
   flush(x: number, y: number, w: number, h: number): void {
     if (!rt) return;
     const screen = rt.screen;
-    if (!pending || pending.width !== screen.width || pending.height !== screen.height) {
-      pending = { type: 'frame', width: screen.width, height: screen.height, pixels: new Uint16Array(screen.pixels.length) };
+    if (this.width !== screen.width || this.height !== screen.height) {
+      this.width = screen.width;
+      this.height = screen.height;
+      this.lcd = new Uint16Array(screen.pixels.length);
     }
-    // Only the dirty rectangle hits the LCD. The working buffer may already
-    // contain the next map drawn over HUD chrome.
-    copyLcdDirtyRect(pending.pixels, pending.width, pending.height, screen.pixels, screen.width, screen.height, x, y, w, h);
-    // A benchmark can flush 100,000 times. Bound UI messages, not guest work.
+    const x0 = Math.max(0, x | 0);
+    const y0 = Math.max(0, y | 0);
+    const x1 = Math.min(this.width, screen.width, x0 + Math.max(0, w | 0));
+    const y1 = Math.min(this.height, screen.height, y0 + Math.max(0, h | 0));
+    if (x1 <= x0 || y1 <= y0) return;
+    // Retain LCD pixels. postMessage must send a copy; transferring this
+    // buffer would force the next dirty flush to start from a black screen.
+    copyLcdDirtyRect(this.lcd, this.width, this.height, screen.pixels, screen.width, screen.height, x, y, w, h);
+    this.dirty = true;
     if (performance.now() >= nextPresent) present();
   }
+}
+const display = new Display();
+function present(): void {
+  if (!display.dirty || !display.lcd.length) return;
+  const pixels = display.lcd.slice();
+  display.dirty = false;
+  send({ type: 'frame', width: display.width, height: display.height, pixels }, [pixels.buffer]);
+  nextPresent = performance.now() + 16;
 }
 function step(milliseconds: number): void {
   remainder += milliseconds;
@@ -45,13 +57,17 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
   const message = event.data;
   try {
     if (message.type === 'start') {
+      display.lcd = new Uint16Array(0);
+      display.width = 0;
+      display.height = 0;
+      display.dirty = false;
       loadGb16Uc2(message.files['system/gb16.uc2']);
       const names = new AppFileSystem();
       const loaders = message.fileSource ? createRemoteFileLoaders(message.fileSource, name => names.normalize(name)) : null;
       rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, userFiles: message.userFiles,
         systemCatalog: message.fileSource?.system, resourceCatalog: message.fileSource?.resources,
         loadSystemFile: loaders?.loadSystemFile, loadResourceFile: loaders?.loadResourceFile,
-        graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
+        graphics: display, abiMode: 'strict', monotonicTime: () => performance.now(),
         networkRules: DEFAULT_NETWORK_RULES,
         onEditChange: state => send({ type: 'edit', state }),
         onVibrate: milliseconds => send({ type: 'vibrate', milliseconds }),

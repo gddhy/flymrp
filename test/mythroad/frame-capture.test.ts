@@ -46,6 +46,14 @@ describe("copyLcdDirtyRect", () => {
     expect([...lcd]).toEqual([1, 1, 2, 2, 5, 5, 5, 5]);
   });
 
+  it("keeps LCD after a host snapshot, as if the canvas copy were transferred", () => {
+    const lcd = new Uint16Array([1, 2, 3, 4]);
+    const sent = lcd.slice();
+    expect([...sent]).toEqual([1, 2, 3, 4]);
+    const src = new Uint16Array([9, 9, 0, 0]);
+    copyLcdDirtyRect(lcd, 2, 2, src, 2, 2, 0, 0, 2, 1);
+    expect([...lcd]).toEqual([9, 9, 3, 4]);
+  });
   it("writes a later HUD flush without touching the playfield", () => {
     const lcd = new Uint16Array([1, 1, 2, 2, 0, 0, 0, 0]);
     const src = new Uint16Array([9, 9, 9, 9, 3, 3, 4, 4]);

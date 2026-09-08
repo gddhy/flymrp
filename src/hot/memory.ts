@@ -20,6 +20,7 @@ export class MemoryFault extends Error {
     this.addr = addr >>> 0;
     this.op = op;
     this.size = size;
+    if (typeof Object.setPrototypeOf === "function") Object.setPrototypeOf(this, MemoryFault.prototype);
   }
 }
 

@@ -2,7 +2,7 @@ import { ARMCPU, UnsupportedInsn } from "../hot/cpu.ts";
 import { BlockCache } from "../hot/cache.ts";
 import { GuestMemory, MemoryFault } from "../hot/memory.ts";
 import { run } from "../hot/interp.ts";
-import { ExtCallResult, ExtFault, ExtStopKind, ExtStopped } from "./fault.ts";
+import { errorNameIs, ExtCallResult, ExtFault, ExtStopKind, ExtStopped, isExtFault, isExtStopped } from "./fault.ts";
 import {
   AEX_P_ER_RW_OFF,
   AEX_P_SIZE,
@@ -359,6 +359,7 @@ export class ExtRuntime {
         for (;;) {
           const slice = Math.min(remaining, 1_000_000);
           run(this.cpu, slice);
+          if (this.cpu.halted) break;
           remaining -= slice;
           if (this.monotonicTime() >= deadline) return this.finish(ExtStopKind.AbiFault, "execution deadline exceeded");
           if (remaining <= 0) {
@@ -371,24 +372,28 @@ export class ExtRuntime {
           }
         }
       }
+      if (this.cpu.halted) {
+        this.lastKind = ExtStopKind.Return;
+        return this.finish(ExtStopKind.Return);
+      }
       this.lastKind = ExtStopKind.AbiFault;
       return this.finish(ExtStopKind.AbiFault, "budget exceeded");
     } catch (e) {
-      if (e instanceof ExtStopped) {
+      if (isExtStopped(e)) {
         this.lastKind = e.kind;
         return this.finish(e.kind);
       }
-      if (e instanceof ExtFault) {
+      if (isExtFault(e)) {
         this.lastKind = e.kind;
         return this.finish(e.kind, e.message);
       }
-      if (e instanceof UnsupportedInsn) {
+      if (e instanceof UnsupportedInsn || errorNameIs(e, "UnsupportedInsn")) {
         this.lastKind = ExtStopKind.Unsupported;
-        return this.finish(ExtStopKind.Unsupported, e.message);
+        return this.finish(ExtStopKind.Unsupported, (e as Error).message);
       }
-      if (e instanceof MemoryFault) {
+      if (e instanceof MemoryFault || errorNameIs(e, "MemoryFault")) {
         this.lastKind = ExtStopKind.Unmapped;
-        return this.finish(ExtStopKind.Unmapped, e.message);
+        return this.finish(ExtStopKind.Unmapped, (e as Error).message);
       }
       throw e;
     } finally {
@@ -413,7 +418,8 @@ export class ExtRuntime {
   private intercept(cpu: ARMCPU): boolean {
     const pc = cpu.r[15] >>> 0;
     if ((pc & ~1) === EXT_STOP_ADDR) {
-      throw new ExtStopped(ExtStopKind.Return, pc);
+      cpu.halted = 1;
+      return true;
     }
     if (pc < EXT_TABLE_COUNT * 4 && (pc & 3) === 0) {
       this.onHostBoundary?.();
@@ -444,7 +450,7 @@ export class ExtRuntime {
           this.mem.read32(chunk + 44) !== record) return 0;
       this.mem.read32(record + 125 * 4);
       return chunk;
-    } catch (e) { if (e instanceof MemoryFault) return 0; throw e; }
+    } catch (e) { if (e instanceof MemoryFault || errorNameIs(e, "MemoryFault")) return 0; throw e; }
   }
 
   private maybeSwitchOwner(cpu: ARMCPU, pc: number): void {

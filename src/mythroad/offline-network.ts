@@ -47,9 +47,19 @@ export class OfflineNetwork {
   constructor(private readonly options: { rules?: NetworkRules; readFile?: (name: string) => Uint8Array | null } = {}) {
     this.rules = parseNetworkRules(options.rules ?? DEFAULT_NETWORK_RULES);
     // Keep the original ROP address stable for old callers/tests.
-    const hosts = [...new Set(["rop.skymobiapp.com", ...this.rules.hosts, ...this.rules.routes.flatMap(r => r.host ? [r.host] : [])])];
-    for (const host of hosts) { const ip = (SERVICE_IP + this.dns.size) >>> 0; this.dns.set(host, ip); this.addresses.add(ip); }
-    for (const ip of [...this.rules.ips, ...this.rules.routes.flatMap(r => r.ip ? [r.ip] : [])]) this.addresses.add(ipv4(ip)!);
+    const hosts = ["rop.skymobiapp.com"];
+    for (const host of this.rules.hosts) hosts.push(host);
+    for (const route of this.rules.routes) if (route.host) hosts.push(route.host);
+    const seen = new Set<string>();
+    for (const host of hosts) {
+      if (seen.has(host)) continue;
+      seen.add(host);
+      const ip = (SERVICE_IP + this.dns.size) >>> 0;
+      this.dns.set(host, ip);
+      this.addresses.add(ip);
+    }
+    for (const ip of this.rules.ips) this.addresses.add(ipv4(ip)!);
+    for (const route of this.rules.routes) if (route.ip) this.addresses.add(ipv4(route.ip)!);
   }
   resolve(value: string): number {
     try { const host = hostname(value), ip = ipv4(host); return this.dns.get(host) ?? (ip !== null && this.addresses.has(ip) ? ip : MR_FAILED); }
@@ -63,7 +73,9 @@ export class OfflineNetwork {
   }
   connect(id: number, ip: number, port: number): number {
     const s = this.sockets.get(id);
-    if (!s || !this.addresses.has(ip >>> 0) || !Number.isInteger(port) || ![80, 6009, ...this.rules.routes.flatMap(r => r.port ? [r.port] : [])].includes(port)) return MR_FAILED;
+    const ports = [80, 6009];
+    for (const route of this.rules.routes) if (route.port) ports.push(route.port);
+    if (!s || !this.addresses.has(ip >>> 0) || !Number.isInteger(port) || ports.indexOf(port) < 0) return MR_FAILED;
     s.ip = ip >>> 0; s.port = port; s.connected = true;
     return MR_SUCCESS;
   }

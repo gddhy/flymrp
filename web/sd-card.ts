@@ -28,3 +28,19 @@ export const saveSdFile = (file: SdFile) => transaction('readwrite', store => st
 export const removeSdFile = (path: string) => transaction('readwrite', store => store.delete(path));
 
 export const readSdFile = (path: string) => transaction<SdFile | undefined>('readonly', store => store.get(path));
+
+/** Firefox 48 / KaiOS has FileReader, but not `Blob.arrayBuffer()`. */
+export function readBlobBytes(blob: Blob): Promise<Uint8Array> {
+  if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer().then(buf => new Uint8Array(buf));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error || new Error("读取文件失败"));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+export function fileBaseName(path: string): string {
+  const parts = path.replace(/\\/g, "/").split("/");
+  return parts[parts.length - 1] || path;
+}

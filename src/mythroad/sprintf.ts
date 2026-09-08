@@ -7,6 +7,7 @@
  * Return: number of bytes written excluding the trailing NUL
  * (mpaland `_vsnprintf` / `sprintf_`).
  */
+import { formatU64 } from "../abi/u64.ts";
 import { UnknownAbiError } from "../err/errors.ts";
 import type { GuestMemory } from "../hot/memory.ts";
 
@@ -27,6 +28,16 @@ function unsupported(spec: string): never {
     code: spec,
     caller: "ext",
   });
+}
+
+function padAlign(value: string, width: number, fill: string, atEnd: boolean): string {
+  if (width <= value.length) return value;
+  let pad = "";
+  const need = width - value.length;
+  const ch = fill || " ";
+  while (pad.length < need) pad += ch;
+  pad = pad.slice(0, need);
+  return atEnd ? value + pad : pad + value;
 }
 
 /**
@@ -65,10 +76,10 @@ export function guestSprintf(
     if (spec === "%") { write("%"); continue; }
     if (length === "ll") vi = (vi + 1) & ~1;
     const value = nextVararg(vi++) >>> 0;
-    const wide = length === "ll" ? (BigInt(nextVararg(vi++) >>> 0) << 32n) | BigInt(value) : null;
+    const wideHi = length === "ll" ? nextVararg(vi++) >>> 0 : 0;
     let piece = "";
-    if (wide !== null) {
-      piece = (spec === "d" || spec === "i" ? BigInt.asIntN(64, wide) : wide).toString(spec === "x" || spec === "X" ? 16 : 10);
+    if (length === "ll") {
+      piece = formatU64(wideHi, value, spec);
     } else if (spec === "s") {
       if (value) {
         for (let j = 0; ; j++) {
@@ -84,10 +95,10 @@ export function guestSprintf(
     else if (spec === "u") piece = String(value);
     else piece = value.toString(16);
     if (spec === "X") piece = piece.toUpperCase();
-    if (flag === "-") piece = piece.padEnd(width, " ");
+    if (flag === "-") piece = padAlign(piece, width, " ", true);
     else if (flag === "0" && spec !== "s" && spec !== "c") {
-      piece = piece.startsWith("-") ? "-" + piece.slice(1).padStart(Math.max(0, width - 1), "0") : piece.padStart(width, "0");
-    } else piece = piece.padStart(width, " ");
+      piece = piece.charAt(0) === "-" ? "-" + padAlign(piece.slice(1), Math.max(0, width - 1), "0", false) : padAlign(piece, width, "0", false);
+    } else piece = padAlign(piece, width, " ", false);
     write(piece);
   }
   mem.write8((dst + out) >>> 0, 0);
@@ -141,9 +152,7 @@ export function guestPrintf(
       // printf's first vararg is R1: skip an odd register/stack word.
       vi |= 1;
       const lo = nextVararg(vi++) >>> 0, hi = nextVararg(vi++) >>> 0;
-      const value = (BigInt(hi) << 32n) | BigInt(lo);
-      piece = (spec === 0x64 || spec === 0x69 ? BigInt.asIntN(64, value) : value).toString(spec === 0x78 || spec === 0x58 ? 16 : 10);
-      if (spec === 0x58) piece = piece.toUpperCase();
+      piece = formatU64(hi, lo, spec === 0x64 || spec === 0x69 ? "d" : spec === 0x58 ? "X" : spec === 0x78 ? "x" : "u");
     } else if (spec === 0x25) {
       piece = "%";
     } else if (spec === 0x75 || spec === 0x78 || spec === 0x58 || spec === 0x70) {
@@ -168,8 +177,8 @@ export function guestPrintf(
     }
     if (width > piece.length) {
       const pad = zeroPad && ![0x73, 0x63, 0x25].includes(spec) ? "0" : " ";
-      piece = pad === "0" && piece.startsWith("-")
-        ? "-" + piece.slice(1).padStart(width - 1, pad) : piece.padStart(width, pad);
+      piece = pad === "0" && piece.charAt(0) === "-"
+        ? "-" + padAlign(piece.slice(1), width - 1, pad, false) : padAlign(piece, width, pad, false);
     }
     out += piece;
     if (out.length >= maxOut) return out.slice(0, maxOut);

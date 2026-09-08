@@ -166,6 +166,7 @@ export function classifyKaiOSKey(ev: KeyboardEvent): KaiOSKey | undefined {
 function onGlobalKey(ev: KeyboardEvent): void {
   const kind = classifyKaiOSKey(ev);
   if (!kind) return;
+  if (ev.target instanceof HTMLInputElement && ev.target.type === "file" && kind === "enter") return;
   if (isTextInput(ev.target) && kind !== "back" && kind !== "softRight" && kind !== "softLeft" && kind !== "enter") return;
   if (isAlertOpen()) {
     if (kind === "softLeft" || kind === "enter") { ev.preventDefault(); ev.stopPropagation(); closeAlert(true); }
@@ -177,10 +178,10 @@ function onGlobalKey(ev: KeyboardEvent): void {
     if (kind === "up" && list) { ev.preventDefault(); ev.stopPropagation(); moveFocus(list, ".menuitem", -1); return; }
     if (kind === "down" && list) { ev.preventDefault(); ev.stopPropagation(); moveFocus(list, ".menuitem", 1); return; }
     if (kind === "enter" || kind === "softLeft") {
-      ev.preventDefault(); ev.stopPropagation();
       const index = list ? Array.from(list.querySelectorAll(".menuitem")).findIndex(item => item.classList.contains("focus")) : -1;
       const item = menuItems[index] ?? menuItems[0];
       if (item) runMenu(item);
+      ev.preventDefault(); ev.stopPropagation();
       return;
     }
     if (kind === "softRight" || kind === "back") { ev.preventDefault(); ev.stopPropagation(); closeMenu(); return; }
@@ -230,23 +231,22 @@ export function adjustKaiOSControl(el: HTMLElement, delta: number): void {
   }
 }
 
-export function applyKaiOS(): boolean {
+export function applyKaiOS(options?: { fullscreen?: boolean }): boolean {
   if (!isKaiOS() || typeof document === "undefined") return false;
   document.documentElement.classList.add("kaios");
   try { document.documentElement.dataset.theme = "dark"; } catch { /* theme is optional */ }
   const theme = document.querySelector('meta[name="theme-color"]');
   if (theme) theme.setAttribute("content", "#0b1220");
   const softkeys = document.getElementById("kaios-softkeys");
-  if (softkeys) softkeys.hidden = false;
+  if (options?.fullscreen) {
+    document.documentElement.classList.add("kaios-player");
+    if (softkeys) softkeys.hidden = true;
+  } else if (softkeys) {
+    softkeys.hidden = false;
+  }
   if (!listening) {
     listening = true;
     window.addEventListener("keydown", onGlobalKey, true);
   }
-  try {
-    const el = document.documentElement;
-    const request = el.requestFullscreen || (el as HTMLElement & { mozRequestFullScreen?: () => void }).mozRequestFullScreen;
-    const result = request?.call(el);
-    if (result && typeof (result as Promise<void>).catch === "function") void (result as Promise<void>).catch(() => {});
-  } catch { /* fullscreen needs a later gesture on some builds */ }
   return true;
 }

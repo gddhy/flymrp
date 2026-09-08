@@ -1,3 +1,4 @@
+import { add64, smul64, umul64 } from "../abi/u64.ts";
 import { ARMCPU, CpuTrap, UnsupportedInsn } from "./cpu.ts";
 import { decodeAt, insnSize } from "./decode.ts";
 import { addFlags, conditionPassed, nz, subFlags } from "./flags.ts";
@@ -338,11 +339,8 @@ function execMul(
     return;
   }
   const unsigned = op === Op.UMULL || op === Op.UMLAL;
-  const prod = unsigned
-    ? BigInt(a) * BigInt(b)
-    : BigInt(a << 0) * BigInt(b << 0);
-  let plo = Number(prod & 0xffffffffn) >>> 0;
-  let phi = Number((prod >> 32n) & 0xffffffffn) >>> 0;
+  const prod = unsigned ? umul64(a, b) : smul64(a << 0, b << 0);
+  let plo = prod[0], phi = prod[1];
   if (op === Op.UMLAL || op === Op.SMLAL) {
     const sLo = (plo + (cpu.r[rn] >>> 0)) >>> 0;
     const carry = sLo < plo ? 1 : 0;
@@ -427,10 +425,9 @@ export function execPacked(
       // matches arithmetic >>16 for negative products as well.
       const product = u.aux === 1 ? Math.floor((a | 0) * halfB / 65536) : halfA * halfB;
       if (u.aux === 2) {
-        const acc = (BigInt(cpu.r[u.rd]) << 32n) | BigInt(cpu.r[u.rn]);
-        const result = BigInt.asUintN(64, acc + BigInt(product));
-        cpu.r[u.rn] = Number(result & 0xffffffffn);
-        cpu.r[u.rd] = Number(result >> 32n);
+        const sum = add64(cpu.r[u.rn], cpu.r[u.rd], product >>> 0, product < 0 ? 0xffffffff : 0);
+        cpu.r[u.rn] = sum[0];
+        cpu.r[u.rd] = sum[1];
       } else {
         const accumulate = u.aux === 0 || (u.aux === 1 && !(u.shiftType & 1));
         const result = product + (accumulate ? cpu.r[u.rn] | 0 : 0);
@@ -595,11 +592,11 @@ export function run(cpu: ARMCPU, maxInsns: number): number {
   const start = cpu.insnCount;
   const limit = start + maxInsns;
   if (cpu.cache && cpu.itState === 0) {
-    while (cpu.insnCount < limit) {
+    while (cpu.insnCount < limit && !cpu.halted) {
       cpu.cache.runBlock(cpu, limit - cpu.insnCount);
     }
   } else {
-    while (cpu.insnCount < limit) step(cpu);
+    while (cpu.insnCount < limit && !cpu.halted) step(cpu);
   }
   return cpu.insnCount - start;
 }

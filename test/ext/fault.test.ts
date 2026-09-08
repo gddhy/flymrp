@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EXT_CODE_ADDR, EXT_STOP_ADDR, tableSlotAddr } from "../../src/abi/layout.ts";
-import { ExtStopKind } from "../../src/abi/fault.ts";
+import { ExtStopKind, ExtStopped, isExtStopped } from "../../src/abi/fault.ts";
 import { ExtRuntime } from "../../src/abi/runtime.ts";
 import { armB, armBx, armLdrImm } from "../helpers/asm.ts";
 import { wordsToBytes } from "../helpers/ext-asm.ts";
@@ -44,6 +44,14 @@ describe("4-I stop / fault boundary", () => {
     rt.pokeCode(EXT_CODE_ADDR, wordsToBytes([armLdrImm(0, 15, 0), armBx(0), tableSlotAddr(100)]));
     const out = rt.runGuest(EXT_CODE_ADDR);
     expect(out.kind).toBe(ExtStopKind.InvalidSlot);
+  });
+
+  it("recognizes a normal EXT return even when instanceof Error-subclass is broken", () => {
+    const lost = new ExtStopped(ExtStopKind.Return, EXT_STOP_ADDR);
+    Object.setPrototypeOf(lost, Error.prototype);
+    expect(lost instanceof ExtStopped).toBe(false);
+    expect(isExtStopped(lost)).toBe(true);
+    expect(isExtStopped(new Error("EXT return at 0x7fff0"))).toBe(true);
   });
 
   it("fixture: missing helper is AbiFault", () => {

@@ -7,12 +7,27 @@ html.kaios * {
 
 html.kaios,
 html.kaios body {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
   margin: 0;
   overflow: hidden;
   background: #0b1220;
   color: #e8eef8;
+  font-family: sans-serif;
+  font-weight: 400;
+}
+
+html.kaios h1,
+html.kaios h2,
+html.kaios h3,
+html.kaios strong,
+html.kaios b,
+html.kaios .brand,
+html.kaios #kaios-menu-title,
+html.kaios #kaios-alert-title,
+html.kaios #kaios-softkeys {
+  font-weight: 400 !important;
 }
 
 html.kaios body {
@@ -153,6 +168,39 @@ html.kaios .player-bar {
   gap: 0;
   background: #152238;
   border-bottom: 2px solid #d4a017;
+}
+
+html.kaios.kaios-player,
+html.kaios.kaios-player body {
+  background: #000;
+}
+
+html.kaios.kaios-player body {
+  display: block !important;
+}
+
+html.kaios.kaios-player .player-bar,
+html.kaios.kaios-player #kaios-softkeys,
+html.kaios.kaios-player #status,
+html.kaios.kaios-player #empty-screen,
+html.kaios.kaios-player #keypad {
+  display: none !important;
+}
+
+html.kaios.kaios-player .stage {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+html.kaios.kaios-player .settings-panel {
+  top: 0;
+  bottom: 0;
 }
 
 html.kaios .player-bar .icon-button,

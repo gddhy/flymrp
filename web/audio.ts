@@ -1,4 +1,7 @@
 import {
+  MR_SOUND_AMR,
+  MR_SOUND_AMR_WB,
+  MR_SOUND_M4A,
   MR_SOUND_MIDI,
   MR_SOUND_MP3,
   MR_SOUND_PCM,
@@ -8,11 +11,14 @@ import TinySynth from "webaudio-tinysynth";
 import { parseMidi } from "./midi.ts";
 
 type Voice = { stop: () => void };
+type HtmlAudio = HTMLAudioElement & { mozAudioChannelType?: string };
+
+const useHtmlAudio = Boolean(import.meta.env.KAIOS);
 
 /**
  * Browser sink for `mr_playSound`.
- * MIDI defaults to TinySynth GM; a lightweight square-wave player is optional.
- * WAV/MP3 use `decodeAudioData`. PCM is 8 kHz 16-bit LE mono.
+ * Desktop MIDI defaults to TinySynth GM; KaiOS 2.x uses HTML Audio like j2me midimode=3.
+ * WAV/MP3 use `decodeAudioData` on desktop. PCM is 8 kHz 16-bit LE mono.
  */
 export class BrowserAudio {
   private ctx: AudioContext | null = null;
@@ -21,6 +27,7 @@ export class BrowserAudio {
   private muted = false;
   private voices = new Map<number, Voice>();
   private requests = new Map<number, symbol>();
+  private elements = new Map<number, HtmlAudio>();
   private synth: TinySynth | null = null;
   private midi: { data: Uint8Array; loop: number } | null = null;
   midiPlayer: "tinysynth" | "simple" = "tinysynth";
@@ -32,11 +39,16 @@ export class BrowserAudio {
   setMuted(value: boolean): void { this.muted = value; this.applyVolume(); }
   private applyVolume(): void {
     const gain = this.muted ? 0 : this.volume;
+    if (useHtmlAudio) {
+      this.elements.forEach(el => { el.volume = gain; });
+      return;
+    }
     if (this.output) this.output.gain.value = gain;
     this.synth?.setMasterVol(0.35 * gain);
   }
 
   resume(): void {
+    if (useHtmlAudio) return;
     const ctx = this.ensure();
     if (ctx.state === "suspended") void ctx.resume();
     const synthContext = this.synth?.getAudioContext();
@@ -56,6 +68,11 @@ export class BrowserAudio {
     this.lastError = null;
     this.stop(type);
     if (!data || data.length === 0) return;
+    if (useHtmlAudio) {
+      try { this.playElement(type, data, loop !== 0, positionMs); }
+      catch (e) { this.lastError = e instanceof Error ? e.message : String(e); }
+      return;
+    }
     const request = Symbol();
     this.requests.set(type, request);
     try {
@@ -90,6 +107,37 @@ export class BrowserAudio {
 
   stopAll(): void {
     for (const type of new Set([...this.voices.keys(), ...this.requests.keys()])) this.stop(type);
+  }
+
+  private playElement(type: number, data: Uint8Array, loop: boolean, positionMs: number): void {
+    const bytes = type === MR_SOUND_PCM ? pcm16leToWav(data) : data;
+    const copy = new Uint8Array(bytes.length);
+    copy.set(bytes);
+    const url = URL.createObjectURL(new Blob([copy.buffer], { type: mimeFor(type) }));
+    const el = new Audio() as HtmlAudio;
+    el.mozAudioChannelType = "content";
+    el.preload = "auto";
+    el.loop = loop;
+    el.volume = this.muted ? 0 : this.volume;
+    el.src = url;
+    if (positionMs > 0) {
+      el.addEventListener("loadedmetadata", function seek() {
+        el.removeEventListener("loadedmetadata", seek);
+        try { el.currentTime = positionMs / 1000; } catch { /* some builds ignore currentTime */ }
+      });
+    }
+    const started = el.play();
+    if (started && typeof started.catch === "function") void started.catch(() => {});
+    this.elements.set(type, el);
+    this.voices.set(type, {
+      stop: () => {
+        this.elements.delete(type);
+        el.pause();
+        el.removeAttribute("src");
+        try { el.load(); } catch { /* element already detached */ }
+        URL.revokeObjectURL(url);
+      },
+    });
   }
 
   private ensure(): AudioContext {
@@ -249,8 +297,41 @@ type MidiEv = {
   match?: MidiEv;
 };
 
+function mimeFor(type: number): string {
+  if (type === MR_SOUND_MP3) return "audio/mpeg";
+  if (type === MR_SOUND_MIDI) return "audio/mid";
+  if (type === MR_SOUND_AMR || type === MR_SOUND_AMR_WB) return "audio/amr";
+  if (type === MR_SOUND_M4A) return "audio/mp4";
+  if (type === MR_SOUND_WAV || type === MR_SOUND_PCM) return "audio/wav";
+  return "audio/wav";
+}
+
+function pcm16leToWav(pcm: Uint8Array, sampleRate = 8000): Uint8Array {
+  const dataSize = pcm.length - (pcm.length & 1);
+  const out = new Uint8Array(44 + dataSize);
+  const view = new DataView(out.buffer);
+  const ascii = (offset: number, text: string): void => {
+    for (let i = 0; i < text.length; i++) out[offset + i] = text.charCodeAt(i);
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, "data");
+  view.setUint32(40, dataSize, true);
+  out.set(pcm.subarray(0, dataSize), 44);
+  return out;
+}
+
 function midiHz(note: number): number {
-  return 440 * 2 ** ((note - 69) / 12);
+  return 440 * Math.pow(2, (note - 69) / 12);
 }
 
 function parseSmf(data: Uint8Array): MidiEv[] {

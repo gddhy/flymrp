@@ -1,6 +1,15 @@
 import { expect, it } from 'vitest';
 import { ExtRuntime } from '../../src/abi/runtime.ts';
+import { formatU64, smul64, umul64 } from '../../src/abi/u64.ts';
 import { guestPrintf, guestSprintf, aapcsPrintfVararg, aapcsSprintfVararg } from '../../src/mythroad/sprintf.ts';
+
+it('multiplies and formats 64-bit values without BigInt', () => {
+  expect(umul64(0xffffffff, 0xffffffff)).toEqual([1, 0xfffffffe]);
+  expect(smul64(-1, -1)).toEqual([1, 0]);
+  expect(smul64(-2, 3)).toEqual([(0xfffffffa) >>> 0, 0xffffffff]);
+  expect(formatU64(0x80000000, 0, 'd')).toBe('-9223372036854775808');
+  expect(formatU64(0xffffffff, 0xffffffff, 'u')).toBe('18446744073709551615');
+});
 
 function fixture() {
   const ext = new ExtRuntime(), dst = ext.alloc(512);

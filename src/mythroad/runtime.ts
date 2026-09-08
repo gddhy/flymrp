@@ -426,7 +426,9 @@ export class MythroadRuntime {
       onSetReturnApp: (pack, entry) => this.setReturnApp(pack, entry),
       getReturnApp: () => this.returnApp,
       networkRules: this.networkRules,
-      onUiChange: () => this.present(),
+      onUiChange: () => {
+        if (this.mrTable?.nativeUi.active) this.present();
+      },
       onPlatformEvent: (type, value) => this.queueEvent(EV_SYSTEM, type, value, 0),
       onEditChange: this.onEditChange,
       onEditComplete: accepted => this.queueEvent(EV_SYSTEM, 6, accepted ? 0 : 1, 0),

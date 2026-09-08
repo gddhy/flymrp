@@ -1,4 +1,4 @@
-import { ExtFault, ExtStopped } from "../abi/fault.ts";
+import { errorNameIs, ExtFault, isExtFault, isExtStopped } from "../abi/fault.ts";
 import { ExtRuntime } from "../abi/runtime.ts";
 import { NativeAbiError } from "../err/errors.ts";
 import { LuaState } from "../lua/state.ts";
@@ -158,7 +158,7 @@ function strComPayload(L: LuaState, idx: number, ext: ExtRuntime | null): Uint8A
     try {
       return new Uint8Array(ext.mem.slice(ptr, len));
     } catch (e) {
-      if (e instanceof MemoryFault) {
+      if (e instanceof MemoryFault || errorNameIs(e, "MemoryFault")) {
         throw new NativeAbiError(`_strCom guest slice 0x${ptr.toString(16)}+${len}`);
       }
       throw e;
@@ -169,12 +169,16 @@ function strComPayload(L: LuaState, idx: number, ext: ExtRuntime | null): Uint8A
 
 function rethrowExt(e: unknown): never {
   if (
-    e instanceof ExtFault ||
-    e instanceof ExtStopped ||
+    isExtFault(e) ||
+    isExtStopped(e) ||
     e instanceof UnsupportedInsn ||
+    errorNameIs(e, "UnsupportedInsn") ||
     e instanceof CpuTrap ||
+    errorNameIs(e, "CpuTrap") ||
     e instanceof MemoryFault ||
-    e instanceof NativeAbiError
+    errorNameIs(e, "MemoryFault") ||
+    e instanceof NativeAbiError ||
+    errorNameIs(e, "NativeAbiError")
   ) {
     throw e;
   }

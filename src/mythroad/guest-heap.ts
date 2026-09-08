@@ -69,7 +69,7 @@ export class GuestHeap {
     blocks.sort((a, b) => a.address - b.address);
     const merged: typeof blocks = [];
     for (const block of blocks) {
-      const last = merged.at(-1);
+      const last = merged[merged.length - 1];
       if (last && last.address + last.size === block.address) last.size += block.size;
       else merged.push(block);
     }
