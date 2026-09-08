@@ -1,5 +1,5 @@
 import { setupSdPanel } from './sd-panel.ts';
-import { listSdFiles } from './sd-card.ts';
+import { listSdFiles, readSdFile } from './sd-card.ts';
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
 import { MRPArchive } from "../src/mrp/index.ts";
 import { PlayerClient } from "./player-client.ts";
@@ -364,15 +364,18 @@ document.querySelector('#screenshot')!.addEventListener('click', () => {
     link.href = url; link.download = `${titleEl.textContent || 'flymrp'}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 });
-document.querySelector('#back')!.addEventListener('click', () => { stop(); if (window.parent !== window) window.parent.postMessage({ type: 'flymrp:close' }, location.origin); else location.href = assetUrl('./'); });
+document.querySelector('#back')!.addEventListener('click', () => { stop(); location.assign(assetUrl('index.html')); });
 window.addEventListener('pagehide', () => stop(true));
-window.addEventListener('message', event => {
-  if (event.origin !== location.origin || event.source !== window.parent || event.source === window) return;
-  if (event.data?.type === 'flymrp:file' && event.data.file instanceof File) { const file = event.data.file; void start(file.name, () => file.arrayBuffer()); }
-});
-if (window.parent !== window) window.parent.postMessage({ type: 'flymrp:ready' }, location.origin);
 const selectedName = new URL(location.href).searchParams.get('game');
-if (selectedName) void (async () => {
+const localPath = new URL(location.href).searchParams.get('local');
+if (localPath) void (async () => {
+  try {
+    const file = await readSdFile(localPath);
+    if (!file) throw new Error('此浏览器中找不到本地游戏，请返回首页重新选择文件。');
+    await start(file.path.split('/').at(-1)!, async () => new Uint8Array(file.bytes).buffer);
+  } catch (error) { fail(error); }
+})();
+else if (selectedName) void (async () => {
   try { const game = (await readLibrary()).find(game => game.name === selectedName); if (!game) throw new Error('游戏不在精选清单中，请从游戏库选择或打开本地文件。'); await start(game.name, () => readGame(game)); }
   catch (error) { fail(error); }
 })();

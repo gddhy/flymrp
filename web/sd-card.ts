@@ -26,3 +26,5 @@ async function transaction<T>(mode: IDBTransactionMode, run: (store: IDBObjectSt
 export const listSdFiles = () => transaction<SdFile[]>('readonly', store => store.getAll());
 export const saveSdFile = (file: SdFile) => transaction('readwrite', store => store.put(file));
 export const removeSdFile = (path: string) => transaction('readwrite', store => store.delete(path));
+
+export const readSdFile = (path: string) => transaction<SdFile | undefined>('readonly', store => store.get(path));
