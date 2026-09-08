@@ -47,6 +47,7 @@ export {
   NullGraphicsBackend,
   Canvas2DBackend,
   ScreenBuffer,
+  copyLcdDirtyRect,
   makeRgb565,
   rgb565ToRgba,
   asI16,

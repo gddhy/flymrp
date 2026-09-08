@@ -7,6 +7,43 @@ export function asI16(v: number): number {
   return (v << 16) >> 16;
 }
 
+/**
+ * Physical LCD retain: `mr_drawBitmap` / table[118] only refresh one rectangle.
+ * Games like 神兽传说 draw the next map into the working buffer (including the
+ * HUD band) then present `0,0,240,256`. Copying the whole buffer shows that
+ * overwrite as 花屏; the handset keeps the last HUD flush (`0,256,240,64`).
+ */
+export function copyLcdDirtyRect(
+  lcd: Uint16Array,
+  lcdWidth: number,
+  lcdHeight: number,
+  src: Uint16Array,
+  srcWidth: number,
+  srcHeight: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  const x0 = Math.max(0, x | 0);
+  const y0 = Math.max(0, y | 0);
+  const x1 = Math.min(lcdWidth, srcWidth, x0 + Math.max(0, w | 0));
+  const y1 = Math.min(lcdHeight, srcHeight, y0 + Math.max(0, h | 0));
+  if (x1 <= x0 || y1 <= y0) return;
+  if (
+    x0 === 0 && y0 === 0 && x1 === lcdWidth && y1 === lcdHeight &&
+    lcdWidth === srcWidth && lcd.length === src.length
+  ) {
+    lcd.set(src);
+    return;
+  }
+  const span = x1 - x0;
+  for (let row = y0; row < y1; row++) {
+    const from = row * srcWidth + x0;
+    lcd.set(src.subarray(from, from + span), row * lcdWidth + x0);
+  }
+}
+
 /** C `mr_helper.h` `_DrawBitmap` rop enum. Not the Lua `BM_COPY=0` test alias. */
 export const DRAW_BM_OR = 0;
 export const DRAW_BM_XOR = 1;

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "description": "KaiOS 2.x 包只带 5 个体积小、知名度高的经典游戏，避免把完整精选库拷进功能机。",
+  "games": [
+    {
+      "path": "mrpoid2在线商城所有游戏/俄罗斯方块_1004.mrp",
+      "title": "俄罗斯方块",
+      "category": "益智休闲",
+      "sha256": "c910c554c33af9d3602413e559461e861a26b2a3f2844f1e08c816201b35db97"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/扫雷.mrp",
+      "title": "扫雷",
+      "category": "益智休闲",
+      "sha256": "4ac6bae80d4c4b6002d07a9e77dc65ccb88a90adbe526b68612693a8c4a175cc"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/推箱子（nes版）.mrp",
+      "title": "推箱子",
+      "category": "益智休闲",
+      "sha256": "bbb35122e36159c9535bcac554aa6057e42cfd7ea04753d67d7c1d076b36467d"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/经典泡泡龙_1001.mrp",
+      "title": "经典泡泡龙",
+      "category": "益智休闲",
+      "sha256": "8a5c5bf8164dc15871194ded740926c8cafa1ba06ea9ec038936e0e44e863f25"
+    },
+    {
+      "path": "mrpoid2在线商城所有游戏/黄金矿工.mrp",
+      "title": "黄金矿工",
+      "category": "益智休闲",
+      "sha256": "8d002ca91158345a38bf8c5572496e843f4f9de78dfa5fbce4730a04944906f4"
+    }
+  ]
+}

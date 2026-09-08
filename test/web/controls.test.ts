@@ -11,6 +11,8 @@ describe("web player controls", () => {
     }
     expect(resolveKey("STAR")).toBe(10);
     expect(resolveKey("POUND")).toBe(11);
+    expect(resolveKey(DOM_KEY.SoftLeft)).toBe(resolveKey("SOFTLEFT"));
+    expect(resolveKey(DOM_KEY.SoftRight)).toBe(resolveKey("SOFTRIGHT"));
   });
   it("retains keys held by another keyboard or pointer source and releases on blur", () => {
     const events: string[] = [];

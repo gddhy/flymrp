@@ -1,4 +1,5 @@
-import { AppFileSystem, MythroadRuntime, loadGb16Uc2, type GraphicsBackend } from '../src/mythroad/index.ts';
+import './kaios-polyfill.ts';
+import { AppFileSystem, copyLcdDirtyRect, MythroadRuntime, loadGb16Uc2, type GraphicsBackend } from '../src/mythroad/index.ts';
 import { DEFAULT_NETWORK_RULES } from '../src/mythroad/network-rules.ts';
 import { binToBytes } from '../src/mrp/index.ts';
 import { EV_KEY } from '../src/mythroad/events.ts';
@@ -6,7 +7,8 @@ import type { PlayerRequest, PlayerResponse } from './player-protocol.ts';
 import { clockSlices } from './player-options.ts';
 import { createRemoteFileLoaders } from './remote-files.ts';
 
-const send = (message: PlayerResponse, transfer: Transferable[] = []) => postMessage(message, { transfer });
+const post = self.postMessage.bind(self) as (message: PlayerResponse, transfer?: Transferable[]) => void;
+const send = (message: PlayerResponse, transfer: Transferable[] = []) => post(message, transfer);
 let rt: MythroadRuntime | null = null;
 let pending: Extract<PlayerResponse, { type: 'frame' }> | null = null;
 let nextPresent = 0, remainder = 0;
@@ -19,14 +21,15 @@ function present(): void {
 class Display implements GraphicsBackend {
   clear() {} drawRect() {} drawLine() {} drawPoint() {} drawText() {}
   effSetCon() {} image() {} sprite() {} tile() {}
-  flush(): void {
+  flush(x: number, y: number, w: number, h: number): void {
     if (!rt) return;
     const screen = rt.screen;
     if (!pending || pending.width !== screen.width || pending.height !== screen.height) {
       pending = { type: 'frame', width: screen.width, height: screen.height, pixels: new Uint16Array(screen.pixels.length) };
     }
-    // Retain the last LCD flush, even if guest code clears its working buffer.
-    pending.pixels.set(screen.pixels);
+    // Only the dirty rectangle hits the LCD. The working buffer may already
+    // contain the next map drawn over HUD chrome.
+    copyLcdDirtyRect(pending.pixels, pending.width, pending.height, screen.pixels, screen.width, screen.height, x, y, w, h);
     // A benchmark can flush 100,000 times. Bound UI messages, not guest work.
     if (performance.now() >= nextPresent) present();
   }
@@ -59,7 +62,10 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
       const archive = rt.loadMrp(new Uint8Array(message.bytes));
       rt.start();
       present();
-      send({ type: 'ready', title: new TextDecoder('gbk').decode(binToBytes(archive.header.appname)) });
+      let title = '';
+      try { title = new TextDecoder('gbk').decode(binToBytes(archive.header.appname)); }
+      catch { try { title = new TextDecoder().decode(binToBytes(archive.header.appname)); } catch { title = ''; } }
+      send({ type: 'ready', title });
       return;
     }
     if (!rt) return;

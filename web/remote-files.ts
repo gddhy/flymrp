@@ -26,7 +26,7 @@ export function isBundledGameResource(path: string): boolean {
 
 export function fetchAssetBytes(url: string): Uint8Array | null {
   try {
-    const xhr = new XMLHttpRequest();
+    const xhr = new (XMLHttpRequest as { new (opts?: { mozSystem?: boolean }): XMLHttpRequest })({ mozSystem: true });
     xhr.open("GET", url, false);
     xhr.responseType = "arraybuffer";
     xhr.send();

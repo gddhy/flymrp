@@ -5,6 +5,7 @@ import { ExtStopKind } from "../../src/abi/fault.ts";
 import { MR_SUCCESS } from "../../src/mythroad/constants.ts";
 import { makeRgb565, MrTableBridge } from "../../src/mythroad/index.ts";
 import { MythroadVfs } from "../../src/mythroad/vfs.ts";
+import { FrameCapture } from "../../tools/real/frame-capture.ts";
 
 function wire() {
   const ext = new ExtRuntime();
@@ -49,5 +50,27 @@ describe("table[29] mr_drawBitmap ABI", () => {
     expect(bridge.screen.pixels[2 * 240 + 1]).toBe(red);
     expect(bridge.screen.pixels[2 * 240 + 2]).toBe(red);
     expect(flushed).toEqual([[1, 2, 2, 1]]);
+  });
+
+  it("playfield dirty present keeps previously flushed HUD chrome", () => {
+    const ext = new ExtRuntime();
+    const flushed: number[][] = [];
+    let bridge: MrTableBridge;
+    const display = new FrameCapture(() => bridge.screen, 240, 320);
+    bridge = new MrTableBridge(ext, new MythroadVfs(), "hud", {
+      onFlush: (x, y, w, h) => {
+        flushed.push([x, y, w, h]);
+        display.flush(x, y, w, h);
+      },
+    });
+    bridge.install();
+    bridge.screen.pixels.fill(0x07e0);
+    expect(call29(ext, 0, 0, 256, 240, 64).r0).toBe(MR_SUCCESS);
+    bridge.screen.pixels.fill(0xf800);
+    expect(call29(ext, 0, 0, 0, 240, 256).r0).toBe(MR_SUCCESS);
+    expect(display.pixels[255 * 240]).toBe(0xf800);
+    expect(display.pixels[256 * 240]).toBe(0x07e0);
+    expect(display.pixels[319 * 240]).toBe(0x07e0);
+    expect(flushed).toEqual([[0, 256, 240, 64], [0, 0, 240, 256]]);
   });
 });

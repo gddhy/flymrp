@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScreenBuffer } from "../../src/mythroad/graphics.ts";
+import { copyLcdDirtyRect, ScreenBuffer } from "../../src/mythroad/graphics.ts";
 import { FrameCapture } from "../../tools/real/frame-capture.ts";
 
 describe("collection LCD capture", () => {
@@ -14,5 +14,42 @@ describe("collection LCD capture", () => {
     display.flush();
     expect([...display.pixels]).toEqual([9, 9, 9, 9]);
     expect(display.frames).toBe(2);
+  });
+
+  it("keeps LCD pixels outside a dirty present rectangle", () => {
+    const screen = new ScreenBuffer(4, 4);
+    const display = new FrameCapture(() => screen, 4, 4);
+    screen.pixels.set([
+      1, 1, 1, 1,
+      2, 2, 2, 2,
+      3, 3, 3, 3,
+      4, 4, 4, 4,
+    ]);
+    display.flush(0, 0, 4, 4);
+    screen.pixels.fill(9);
+    display.flush(0, 0, 4, 2);
+    expect([...display.pixels]).toEqual([
+      9, 9, 9, 9,
+      9, 9, 9, 9,
+      3, 3, 3, 3,
+      4, 4, 4, 4,
+    ]);
+  });
+});
+
+describe("copyLcdDirtyRect", () => {
+  it("leaves the HUD band alone when only the playfield is presented", () => {
+    const lcd = new Uint16Array(8);
+    const src = new Uint16Array([1, 1, 2, 2, 9, 9, 8, 8]);
+    lcd.set([7, 7, 7, 7, 5, 5, 5, 5]);
+    copyLcdDirtyRect(lcd, 2, 4, src, 2, 4, 0, 0, 2, 2);
+    expect([...lcd]).toEqual([1, 1, 2, 2, 5, 5, 5, 5]);
+  });
+
+  it("writes a later HUD flush without touching the playfield", () => {
+    const lcd = new Uint16Array([1, 1, 2, 2, 0, 0, 0, 0]);
+    const src = new Uint16Array([9, 9, 9, 9, 3, 3, 4, 4]);
+    copyLcdDirtyRect(lcd, 2, 4, src, 2, 4, 0, 2, 2, 2);
+    expect([...lcd]).toEqual([1, 1, 2, 2, 3, 3, 4, 4]);
   });
 });

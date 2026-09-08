@@ -7,6 +7,7 @@
   <title>flymrp · 经典掌上游戏</title>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3251239894110421" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="./catalog.css" />
+  <link rel="stylesheet" href="./kaios.css" />
 </head>
 <body>
   <header class="site-bar"><a class="brand" href="./"><span class="brand-mark">f</span> flymrp</a><nav><a href="https://github.com/zixing131/flymrp">项目源码 ↗</a><button id="theme" aria-label="切换深浅主题">◐</button></nav></header>
@@ -15,6 +16,23 @@
     <section aria-labelledby="collection-heading"><div class="collection-heading"><div><h2 id="collection-heading">经典精选 <span id="total-count">100</span></h2><p>找回熟悉的名字，或试试新的冒险。</p></div><input id="search" type="search" aria-label="搜索精选游戏" placeholder="搜索游戏或类型…" /></div><div id="categories" class="categories" role="group" aria-label="游戏类型"></div><div class="results-line"><span id="library-count" role="status">正在加载游戏库…</span><button id="refresh-library">刷新</button></div><div id="games" class="game-grid"></div><p id="empty" hidden>没有找到游戏，换个关键词，或打开自己的 MRP 文件。</p></section>
   </main>
   <footer>为掌上游戏留一个位置。<span>flymrp · <a href="https://github.com/zixing131/flymrp/blob/main/LICENSE">AGPL-3.0</a></span></footer>
+  <div id="kaios-softkeys" hidden>
+    <div id="kaios-soft-left">菜单</div>
+    <div id="kaios-soft-center">启动</div>
+    <div id="kaios-soft-right">退出</div>
+  </div>
+  <div id="kaios-menu" hidden>
+    <div id="kaios-menu-sheet">
+      <div id="kaios-menu-title">菜单</div>
+      <div id="kaios-menu-items"></div>
+    </div>
+  </div>
+  <div id="kaios-alert" hidden>
+    <div id="kaios-alert-sheet">
+      <div id="kaios-alert-title">提示</div>
+      <div id="kaios-alert-text"></div>
+    </div>
+  </div>
   <script type="module" src="./catalog.ts"></script>
 </body>
 </html>

@@ -137,6 +137,10 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
+# KaiOS sideload package
+dist-kaios/
+flymrp-kaios.zip
+
 # Vite files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

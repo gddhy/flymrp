@@ -1,5 +1,7 @@
+import './kaios-polyfill.ts';
 import { setupSdPanel } from './sd-panel.ts';
 import { listSdFiles, readSdFile, removeSdFile, saveSdFile } from './sd-card.ts';
+import { activateKaiOSControl, adjustKaiOSControl, applyKaiOS, closeDialog, dialogIsOpen, focusedItem, moveFocus, openDialog, setKaiOSPageKeys, setSoftkeys, showAlert } from './kaios.ts';
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
 import { MRPArchive } from "../src/mrp/index.ts";
 import { PlayerClient } from "./player-client.ts";
@@ -34,7 +36,13 @@ let fpsStart = 0;
 let lastGame: { name: string; read: () => Promise<ArrayBuffer> } | null = null;
 const audio = new BrowserAudio();
 const midiPlayer = document.querySelector<HTMLSelectElement>("#midi-player")!;
-try { audio.setMidiPlayer(localStorage.getItem("flymrp.midi-player") === "simple" ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
+const kaios = applyKaiOS();
+try { audio.setMidiPlayer(localStorage.getItem("flymrp.midi-player") === "simple" || kaios ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
+if (kaios) {
+  try { if (!localStorage.getItem("flymrp.midi-player")) audio.setMidiPlayer("simple"); } catch { /* storage is optional */ }
+  const hint = emptyScreen.querySelector("span");
+  if (hint) hint.textContent = "用方向键、确认键和左右软键玩。返回键回到列表。长按 * 打开设置。";
+}
 midiPlayer.value = audio.midiPlayer;
 midiPlayer.addEventListener("change", () => {
   audio.setMidiPlayer(midiPlayer.value === "simple" ? "simple" : "tinysynth");
@@ -78,7 +86,7 @@ function setStatus(text: string, err = false): void {
 function stop(keepStatus = false): void {
   void flushEfs();
   generation++;
-  if (editorDialog.open) editorDialog.close();
+  if (dialogIsOpen(editorDialog)) closeDialog(editorDialog);
   editingRuntime = null;
   held.clear();
   touch = null;
@@ -193,13 +201,14 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
       localSystem: systemCatalog.localSystem, localResources: import.meta.env.DEV,
     };
     rt = new PlayerClient(canvas, { edit: state => {
-      if (!state) { if (editorDialog.open) editorDialog.close(); editingRuntime = null; canvas.focus(); return; }
+      if (!state) { if (dialogIsOpen(editorDialog)) closeDialog(editorDialog); editingRuntime = null; if (!kaios) canvas.focus(); syncPlayerKaiOS(); return; }
       editingRuntime = rt ?? null;
       document.querySelector("#guest-editor-title")!.textContent = state.title || "游戏输入";
       editorText.type = state.type === 2 ? "password" : "text";
       editorText.inputMode = state.type === 1 ? "numeric" : "text";
       editorText.maxLength = state.maxLength; editorText.value = state.text;
-      if (!editorDialog.open) editorDialog.showModal(); editorText.focus();
+      if (!dialogIsOpen(editorDialog)) openDialog(editorDialog); editorText.focus();
+      syncPlayerKaiOS();
     }, sound: (type, data, loop, positionMs) => audio.play(type, data, loop, positionMs), soundStop: type => audio.stop(type),
       persist: persistEfs,
       error: error => { if (token === generation) fail(error, rt); } });
@@ -216,7 +225,8 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     pauseBtn.disabled = false;
     frames = rt.frames; fpsStart = performance.now();
     if (window.matchMedia("(max-width: 760px)").matches) setDrawer(false);
-    canvas.focus();
+    if (!kaios) canvas.focus();
+    syncPlayerKaiOS();
     session.raf = requestAnimationFrame(frame);
   } catch (e) { if (token === generation) fail(e, rt); }
 }
@@ -240,7 +250,30 @@ pauseBtn.addEventListener("click", () => {
 restartBtn.addEventListener("click", () => { if (lastGame) void start(lastGame.name, lastGame.read); });
 const drawer = document.querySelector<HTMLElement>("#game-drawer")!;
 const libraryToggle = document.querySelector<HTMLButtonElement>("#library-toggle")!;
-function setDrawer(open: boolean): void { drawer.hidden = !open; libraryToggle.setAttribute("aria-expanded", String(open)); }
+function setDrawer(open: boolean): void { drawer.hidden = !open; libraryToggle.setAttribute("aria-expanded", String(open)); syncPlayerKaiOS(); }
+function syncPlayerKaiOS(): void {
+  if (!kaios) return;
+  if (dialogIsOpen(editorDialog)) { setSoftkeys("确定", "", "取消"); return; }
+  if (!drawer.hidden) {
+    setSoftkeys("选择", "确定", "关闭");
+    if (!drawer.querySelector(".kaios-nav.focus")) drawer.querySelector(".kaios-nav")?.classList.add("focus");
+    return;
+  }
+  setSoftkeys(session ? "左软键" : "", "确定", session ? "右软键" : "返回");
+}
+function goLibrary(): void { stop(); location.assign(assetUrl("index.html")); }
+function submitGuestEditor(): boolean {
+  document.querySelector<HTMLFormElement>("#guest-editor-form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  if (dialogIsOpen(editorDialog)) closeDialog(editorDialog);
+  syncPlayerKaiOS();
+  return true;
+}
+function cancelGuestEditor(): boolean {
+  editingRuntime?.finishEdit(editorText.value, false);
+  if (dialogIsOpen(editorDialog)) closeDialog(editorDialog);
+  syncPlayerKaiOS();
+  return true;
+}
 libraryToggle.addEventListener("click", () => setDrawer(drawer.hidden));
 document.querySelector("#theme")!.addEventListener("click", () => {
   document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -258,14 +291,15 @@ document.addEventListener("fullscreenchange", () => {
   button.title = document.fullscreenElement ? "退出全屏" : "进入全屏";
 });
 window.addEventListener("keydown", ev => {
-  if (!session || paused || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
-  const alias = ev.key === "*" ? "STAR" : ev.key === "#" ? "POUND" : DOM_KEY[ev.code];
+  if (!session || paused || !drawer.hidden || dialogIsOpen(editorDialog) || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
+  const alias = ev.key === "*" ? "STAR" : ev.key === "#" ? "POUND" : (DOM_KEY[ev.code] || DOM_KEY[ev.key]);
   if (!alias) return;
+  if (kaios && (ev.key === "Backspace" || ev.key === "EndCall")) return;
   ev.preventDefault();
   audio.resume();
-  held.press(`keyboard:${ev.code}`, rotatedDirection(alias, rotation));
+  held.press(`keyboard:${ev.code || ev.key}`, rotatedDirection(alias, rotation));
 });
-window.addEventListener("keyup", ev => held.release(`keyboard:${ev.code}`));
+window.addEventListener("keyup", ev => held.release(`keyboard:${ev.code || ev.key}`));
 function releaseAll(): void {
   held.clear();
   document.querySelectorAll("[data-key].held").forEach(button => button.classList.remove("held"));
@@ -275,7 +309,7 @@ function releaseAll(): void {
 window.addEventListener("blur", releaseAll);
 document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
 let activationId = 0;
-for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
+if (!kaios) for (const btn of document.querySelectorAll<HTMLButtonElement>("[data-key]")) {
   let pointerActivated = false;
   const pointers = new Map<number, { source: string; start: number }>();
   btn.addEventListener("pointerdown", ev => {
@@ -318,15 +352,17 @@ function touchEvent(ev: PointerEvent, type: number): void {
   const [x, y] = screenPoint((ev.clientX - rect.left) / rect.width, (ev.clientY - rect.top) / rect.height, canvas.width, canvas.height, rotation);
   session.rt.queueEvent(EV_KEY, type, x, y);
 }
-canvas.addEventListener("pointerdown", ev => {
-  if (!session || touch !== null) return;
-  ev.preventDefault(); canvas.focus(); canvas.setPointerCapture(ev.pointerId);
-  touch = ev.pointerId; touchEvent(ev, MR_MOUSE_DOWN);
-});
-canvas.addEventListener("pointermove", ev => { if (ev.pointerId === touch) touchEvent(ev, MR_MOUSE_MOVE); });
-for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const) canvas.addEventListener(type, ev => {
-  if (ev.pointerId === touch) { touchEvent(ev, MR_MOUSE_UP); touch = null; }
-});
+if (!kaios) {
+  canvas.addEventListener("pointerdown", ev => {
+    if (!session || touch !== null) return;
+    ev.preventDefault(); canvas.focus(); canvas.setPointerCapture(ev.pointerId);
+    touch = ev.pointerId; touchEvent(ev, MR_MOUSE_DOWN);
+  });
+  canvas.addEventListener("pointermove", ev => { if (ev.pointerId === touch) touchEvent(ev, MR_MOUSE_MOVE); });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"] as const) canvas.addEventListener(type, ev => {
+    if (ev.pointerId === touch) { touchEvent(ev, MR_MOUSE_UP); touch = null; }
+  });
+}
 
 
 const stage = document.querySelector<HTMLElement>('#stage')!;
@@ -339,7 +375,8 @@ function fitScreen(): void {
   if (!stage) return;
   const swapped = rotation % 2 !== 0;
   const width = swapped ? canvas.height : canvas.width, height = swapped ? canvas.width : canvas.height;
-  const fit = Math.max(.1, Math.min((stage.clientWidth - 32) / width, (stage.clientHeight - 26) / height));
+  const inset = kaios ? 2 : 32;
+  const fit = Math.max(.1, Math.min((stage.clientWidth - inset) / width, (stage.clientHeight - (kaios ? 2 : 26)) / height));
   const scale = zoomSelect.value === 'auto' ? fit : Math.min(fit, Number(zoomSelect.value));
   canvas.style.width = `${canvas.width * scale}px`; canvas.style.height = `${canvas.height * scale}px`;
   viewport.style.width = `${width * scale + 10}px`; viewport.style.height = `${height * scale + 10}px`;
@@ -365,8 +402,70 @@ const keyboardButton = document.querySelector<HTMLButtonElement>('#toggle-keypad
 function showKeyboard(show: boolean): void {
   releaseAll(); keypad.hidden = !show; keyboardButton.setAttribute('aria-pressed', String(show)); keyboardButton.setAttribute('aria-label', show ? '隐藏虚拟键盘' : '显示虚拟键盘'); storeSetting('keypad', String(show)); fitScreen();
 }
-try { showKeyboard(localStorage.getItem('flymrp.keypad') !== 'false'); } catch {}
+try { showKeyboard(kaios ? false : localStorage.getItem('flymrp.keypad') !== 'false'); } catch { if (kaios) showKeyboard(false); }
 keyboardButton.addEventListener('click', () => showKeyboard(keypad.hidden));
+if (kaios) {
+  document.querySelector('#keypad-side')?.closest('label')?.classList.add('kaios-hide');
+  for (const el of drawer.querySelectorAll<HTMLElement>('.setting, .transport button, #theme')) {
+    if (el.classList.contains('kaios-hide') || el.id === 'screenshot') continue;
+    el.classList.add('kaios-nav');
+  }
+  setKaiOSPageKeys({
+    up: () => { if (drawer.hidden) return false; moveFocus(drawer, '.kaios-nav', -1); return true; },
+    down: () => { if (drawer.hidden) return false; moveFocus(drawer, '.kaios-nav', 1); return true; },
+    left: () => {
+      if (drawer.hidden) return false;
+      const item = focusedItem(drawer, '.kaios-nav');
+      if (item) adjustKaiOSControl(item, -1);
+      return true;
+    },
+    right: () => {
+      if (drawer.hidden) return false;
+      const item = focusedItem(drawer, '.kaios-nav');
+      if (item) adjustKaiOSControl(item, 1);
+      return true;
+    },
+    enter: () => {
+      if (dialogIsOpen(editorDialog)) return submitGuestEditor();
+      if (drawer.hidden) return false;
+      const item = focusedItem(drawer, '.kaios-nav');
+      if (item) activateKaiOSControl(item);
+      return true;
+    },
+    softLeft: () => {
+      if (dialogIsOpen(editorDialog)) return submitGuestEditor();
+      if (!drawer.hidden) {
+        const item = focusedItem(drawer, '.kaios-nav');
+        if (item) activateKaiOSControl(item);
+        return true;
+      }
+      return false;
+    },
+    softRight: () => {
+      if (dialogIsOpen(editorDialog)) return cancelGuestEditor();
+      if (!drawer.hidden) { setDrawer(false); return true; }
+      if (!session) { goLibrary(); return true; }
+      return false;
+    },
+    back: () => {
+      if (dialogIsOpen(editorDialog)) return cancelGuestEditor();
+      if (!drawer.hidden) { setDrawer(false); return true; }
+      showAlert('返回', '返回游戏列表？', goLibrary, () => { syncPlayerKaiOS(); });
+      return true;
+    },
+  });
+  syncPlayerKaiOS();
+  let starAt = 0;
+  window.addEventListener('keydown', ev => {
+    if (ev.key !== '*' || dialogIsOpen(editorDialog) || !drawer.hidden) return;
+    if (!starAt) starAt = Date.now();
+  }, true);
+  window.addEventListener('keyup', ev => {
+    if (ev.key !== '*') return;
+    if (starAt && Date.now() - starAt > 800 && session && drawer.hidden && !dialogIsOpen(editorDialog)) setDrawer(true);
+    starAt = 0;
+  }, true);
+}
 const showFps = document.querySelector<HTMLInputElement>('#show-fps')!;
 try { showFps.checked = localStorage.getItem('flymrp.show-fps') !== 'false'; } catch {}
 fpsEl.hidden = !showFps.checked;
@@ -387,7 +486,8 @@ mute.addEventListener('click', () => { muted = !muted; applyVolume(); if (!muted
 applyVolume();
 try { document.documentElement.dataset.theme = localStorage.getItem('flymrp.theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch {}
 document.querySelector('#theme')!.addEventListener('click', () => storeSetting('theme', document.documentElement.dataset.theme!));
-new ResizeObserver(fitScreen).observe(stage);
+if (typeof ResizeObserver === 'function') new ResizeObserver(fitScreen).observe(stage);
+else window.addEventListener('resize', fitScreen);
 new MutationObserver(fitScreen).observe(canvas, { attributes: true, attributeFilter: ['width', 'height'] });
 document.querySelector('#screenshot')!.addEventListener('click', () => {
   canvas.toBlob(blob => {
