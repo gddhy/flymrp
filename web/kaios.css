@@ -35,50 +35,52 @@ html.kaios body {
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
+  padding-bottom: 0 !important;
 }
 
-html.kaios .site-bar {
-  max-width: none;
-  height: 44px;
-  padding: 0 10px;
+html.kaios .desktop-rail,
+html.kaios .desktop-detail,
+html.kaios .search-bar,
+html.kaios .categories,
+html.kaios .library-status,
+html.kaios .fab,
+html.kaios .bottom-nav,
+html.kaios .action-sheet-overlay,
+html.kaios #tab-settings,
+html.kaios .top-bar-nav-icon,
+html.kaios .top-bar-about-link,
+html.kaios .top-bar-large-title {
+  display: none !important;
+}
+
+html.kaios .top-app-bar {
+  position: relative;
   margin: 0;
+  padding: 0;
+  height: 44px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
   background: #152238;
   border-bottom: 2px solid #d4a017;
 }
 
-html.kaios .site-bar nav,
-html.kaios .hero,
-html.kaios body > footer,
-html.kaios #search,
-html.kaios #categories,
-html.kaios .results-line,
-html.kaios .collection-heading p,
-html.kaios .play-arrow {
-  display: none !important;
+html.kaios .top-bar-small {
+  height: 44px;
+  padding: 0 10px;
 }
 
-html.kaios .brand {
-  gap: 8px;
+html.kaios .top-bar-small-title {
+  opacity: 1;
+  transform: none;
+  color: #fff7e0;
   font-size: 16px;
   letter-spacing: 0.08em;
-  color: #fff7e0;
 }
 
-html.kaios .brand-mark {
-  width: 18px;
-  height: 18px;
-  line-height: 18px;
-  font-size: 12px;
-  border-radius: 3px;
-  background: #d4a017;
-}
-
-html.kaios .catalog {
+html.kaios .page-layout {
   max-width: none;
+  margin: 0 !important;
   padding: 0;
-  margin: 0;
   -webkit-flex: 1;
   flex: 1;
   min-height: 0;
@@ -89,37 +91,44 @@ html.kaios .catalog {
   flex-direction: column;
 }
 
-html.kaios .collection-heading {
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-  padding: 8px 10px 4px;
+html.kaios #tab-games {
+  display: -webkit-flex !important;
+  display: flex !important;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-flex: 1;
+  flex: 1;
+  min-height: 0;
 }
 
-html.kaios .collection-heading h2 {
-  font-size: 15px;
-  letter-spacing: 0;
-}
-
-html.kaios .collection-heading h2 span {
-  background: rgba(212, 160, 23, 0.16);
-  color: #d4a017;
+html.kaios .section-card-games {
+  -webkit-flex: 1;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 html.kaios #games,
 html.kaios .game-grid {
   display: block;
-  -webkit-flex: 1;
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   padding: 4px 0 8px;
 }
 
+html.kaios .game,
 html.kaios .game-card,
 html.kaios .listitem {
   display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
   -webkit-align-items: center;
   align-items: center;
   min-height: 48px;
@@ -129,6 +138,10 @@ html.kaios .listitem {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #e8eef8;
+}
+
+html.kaios .game + .game {
+  border-top: 0;
 }
 
 html.kaios .game-card.focus,
@@ -153,7 +166,8 @@ html.kaios .game-info {
   min-width: 0;
 }
 
-html.kaios .game-info strong {
+html.kaios .game-info strong,
+html.kaios .game-name {
   font-size: 15px;
 }
 

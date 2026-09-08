@@ -4,6 +4,17 @@ import { ExtRuntime } from '../../src/abi/runtime.ts';
 import { buildMrp } from '../../src/mrp/index.ts';
 import { MR_FILE_CREATE, MR_FILE_RDWR, MR_IS_DIR, MR_IS_FILE } from '../../src/mythroad/constants.ts';
 
+it('installs a pack-root cloudstorage plugin onto the EFS plugins path', () => {
+  const plugin = new Uint8Array([1, 2, 3, 4]);
+  const rt = new MythroadRuntime();
+  rt.loadMrp(buildMrp([
+    { name: 'start.mr', data: new Uint8Array([0]) },
+    { name: 'cloudstorage.mrp', data: plugin },
+    { name: 'plugins.lst', data: new TextEncoder().encode('plugins\\cloudstorage.mrp\n') },
+  ]));
+  expect(rt.appFs.file('plugins/cloudstorage.mrp')).toEqual(plugin);
+});
+
 it('keeps download caches out of installation checks and deferred game unpacking', () => {
   const shared=new Uint8Array([1]), stale=new Uint8Array([9]), missing=new Uint8Array([3]);
   const rt=new MythroadRuntime({systemFiles:{'plugins/shared.mrp':shared},resourceFiles:{'game/map.txt':stale,'game/extra.bin':missing}});

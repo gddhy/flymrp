@@ -87,6 +87,15 @@ export const MR_LOCALUI_EVENT = 10;
 export const MR_OSD_EVENT = 11;
 export const MR_MOUSE_MOVE = 12;
 export const MR_ERROR_EVENT = 13;
+export const MR_PHB_EVENT = 14;
+export const MR_SMS_OP_EVENT = 15;
+export const MR_SMS_GET_SC = 16;
+export const MR_DATA_ACCOUNT_EVENT = 17;
+/**
+ * SkyEngine `mrporting.h` / `mrc_base.h`.
+ * Maze-ball EXT expects `mr_event(18, &{int32 x,y,z}, 0)`, not raw axes in p1/p2.
+ */
+export const MR_MOTION_EVENT = 18;
 
 export const MR_KEY_0 = 0;
 export const MR_KEY_1 = 1;

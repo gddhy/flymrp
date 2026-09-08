@@ -11,6 +11,7 @@ import { MRPArchive } from "../mrp/archive.ts";
 import {
   MR_IGNORE,
   MR_IS_FILE,
+  MR_MOTION_EVENT,
   MR_START_FILE,
   MR_STATE_IDLE,
   MR_STATE_PAUSE,
@@ -156,6 +157,8 @@ export class MythroadRuntime {
   readonly onStopSound: ((type: number) => void) | null;
   soundOn = false;
   shakeOn = false;
+  /** Guest `int32 x,y,z` for SkyEngine `MR_MOTION_EVENT`. Raw x/y in p1/p2 crash 迷宫滚球. */
+  private motionAddr = 0;
 
   constructor(opts: MythroadRuntimeOptions = {}) {
     this.monotonicTime = opts.monotonicTime;
@@ -254,7 +257,42 @@ export class MythroadRuntime {
     this.ext?.setPackTableName(this.packName);
     // Old current-pack handles must not silently alias a newly loaded archive.
     this.mrTable?.files.reset(false);
+    this.installPackPlugins();
     return this.archive;
+  }
+
+  /**
+   * SkyMobi titles list `plugins\\cloudstorage.mrp` but ship the file at the
+   * pack root. Put those members on the EFS plugin path so 冒泡对战 / 云存档
+   * open the bundled plugin instead of a missing handset file.
+   */
+  private installPackPlugins(): void {
+    const archive = this.archive;
+    if (!archive) return;
+    const members = new Set(archive.entries.map(entry => entry.name));
+    const install = (src: string, dest: string) => {
+      try {
+        const data = archive.readFile(src);
+        if (!data?.length) return;
+        this.appFs.createFile(dest, true);
+        this.appFs.replace(dest, data);
+      } catch { /* member missing or unreadable */ }
+    };
+    if (members.has("cloudstorage.mrp")) install("cloudstorage.mrp", "plugins/cloudstorage.mrp");
+    if (!members.has("plugins.lst")) return;
+    let list: Uint8Array;
+    try { list = archive.readFile("plugins.lst"); } catch { return; }
+    let text: string;
+    try { text = new TextDecoder("gbk").decode(list); }
+    catch { text = new TextDecoder().decode(list); }
+    for (const line of text.split(/[\r\n]+/)) {
+      const raw = line.replace(/^\uFEFF/, "").trim();
+      if (!raw || raw.startsWith("#")) continue;
+      const path = raw.replace(/\\/g, "/");
+      const base = path.split("/").pop();
+      if (!base || !members.has(base)) continue;
+      install(base, /^plugins\//i.test(path) ? path : `plugins/${base}`);
+    }
   }
 
   start(entry = MR_START_FILE): void {
@@ -284,6 +322,25 @@ export class MythroadRuntime {
 
   queueEvent(kind: number, type: number, p1 = 0, p2 = 0): void {
     this.events.queue(kind, type, p1, p2);
+  }
+
+  /** Maze-ball EXT reads `mr_event(18, &T_MOTION, 0)`, not raw axis integers. */
+  queueMotion(x: number, y: number, z = 0): void {
+    const table = this.mrTable, mem = this.ext?.mem;
+    if (table && mem) {
+      if (!this.motionAddr) this.motionAddr = table.malloc(12);
+      if (this.motionAddr) {
+        mem.write32(this.motionAddr, x | 0);
+        mem.write32(this.motionAddr + 4, y | 0);
+        mem.write32(this.motionAddr + 8, z | 0);
+        if (!this.events.replaceLast(EV_KEY, MR_MOTION_EVENT, this.motionAddr, 0)) {
+          this.events.queue(EV_KEY, MR_MOTION_EVENT, this.motionAddr, 0);
+        }
+        return;
+      }
+    }
+    const px = x | 0, py = y | 0;
+    if (!this.events.replaceLast(EV_KEY, MR_MOTION_EVENT, px, py)) this.events.queue(EV_KEY, MR_MOTION_EVENT, px, py);
   }
 
   pollEvent(): RuntimeEvent | null {
@@ -352,6 +409,7 @@ export class MythroadRuntime {
     this.exited = false;
     this.ext = null;
     this.mrTable = null;
+    this.motionAddr = 0;
     this.events.clear();
     this.rebindLua();
     this.archive = archive; this.vfs.reset(); this.vfs.attach(archive);

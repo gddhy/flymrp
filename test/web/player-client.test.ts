@@ -24,6 +24,15 @@ function fixture() {
   return { player, worker: WorkerDouble.latest, canvas, hooks, draw };
 }
 afterEach(() => vi.unstubAllGlobals());
+it('holds only the latest motion sample while a long tick is busy', () => {
+  const { player, worker } = fixture();
+  player.tick(16, 1);
+  player.motion(10, 0);
+  player.motion(20, -5);
+  expect(worker.messages.filter(message => (message as { type?: string }).type === 'motion')).toEqual([]);
+  worker.emit({ type: 'tick-complete' });
+  expect(worker.messages.at(-1)).toEqual({ type: 'motion', x: 20, y: -5 });
+});
 it('bounds pending ticks and preserves key presses and releases during a busy callback', () => {
   const { player, worker } = fixture();
   player.tick(16, 1); player.tick(20, 4);

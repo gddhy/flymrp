@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F5F5F5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
+  <title>关于作者 · flymrp</title>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3251239894110421" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="./catalog.css" />
+</head>
+<body class="about-page">
+  <div class="top-app-bar scrolled">
+    <div class="top-bar-small">
+      <a href="./index.html" class="top-bar-nav-icon" title="返回">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </a>
+      <div class="top-bar-small-title">关于作者</div>
+    </div>
+  </div>
+  <div class="page-layout">
+    <div class="section-card">
+      <p class="about-epigraph">有些欢喜藏在按键声里；多年后再点开，仿佛与年少的自己，隔着屏幕轻轻击掌。</p>
+      <p class="about-lead">紫星 · flymrp 在线模拟器</p>
+      <p class="about-text">在浏览器里，让那些以为留在过去的 MRP 游戏还能再被打开一遍。不必翻箱倒柜找旧手机，也不必向谁解释你为何还记得那个名字。兼容与体验仍在打磨；若有卡顿或闪退，欢迎到项目页留言。</p>
+      <p class="about-text">文件留在当前浏览器，不会上传到服务器。界面与 j2me 在线模拟器对齐，方便两边来回使用。</p>
+      <div class="about-tip-block">
+        <div class="about-tip-copy">
+          <p class="about-tip-line">域名与服务器都是实实在在的成本。若你愿意用一杯奶茶的心意，托住这份还在更新的坚持，可以扫下方赞赏码；随心即可，不必勉强。</p>
+          <p class="about-tip-note">心意已到，也祝你今日愉快。</p>
+        </div>
+        <div class="about-tip-figure">
+          <img src="./img/zixing.jpg" alt="赞赏收款码" class="about-tip-qr" width="240" height="240" decoding="async" />
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/zixing131/flymrp">项目源码</a>
+        <a href="./index.html">返回游戏列表</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    try {
+      var mode = localStorage.getItem('flymrp.theme-mode') || localStorage.getItem('flymrp.theme');
+      var dark = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch (e) {}
+  </script>
+</body>
+</html>

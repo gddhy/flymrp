@@ -90,6 +90,7 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
       case 'sd-file': rt.setUserFile(message.path, message.bytes); break;
       case 'key': if (message.pressed) rt.input.press(message.key); else rt.input.release(message.key); break;
       case 'touch': rt.queueEvent(EV_KEY, message.event, message.x, message.y); break;
+      case 'motion': rt.queueMotion(message.x, message.y); break;
       case 'pause': if (message.paused) rt.pause(); else rt.resume(); present(); break;
       case 'edit': rt.mrTable?.editor.finish(message.text, message.accepted); break;
     }

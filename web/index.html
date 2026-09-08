@@ -3,19 +3,329 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f5f5f5" />
+  <meta name="theme-color" content="#F5F5F5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
   <title>flymrp · 经典掌上游戏</title>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3251239894110421" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="./catalog.css" />
   <link rel="stylesheet" href="./kaios.css" />
 </head>
 <body>
-  <header class="site-bar"><a class="brand" href="./"><span class="brand-mark">f</span> flymrp</a><nav><a href="https://github.com/zixing131/flymrp">项目源码 ↗</a><button id="theme" aria-label="切换深浅主题">◐</button></nav></header>
-  <main class="catalog">
-    <section class="hero"><div><p class="eyebrow">掌上时光，随时重启</p><h1>那些年，<br />还没玩够的游戏。</h1><p class="intro">经典 MRP 游戏收藏，在浏览器里继续下一关。</p></div><div class="local-card"><span class="local-symbol" aria-hidden="true">＋</span><h2>你的收藏，也能玩</h2><p>打开本地 .mrp 文件即可开始。<br />文件留在浏览器，无需上传服务器。</p><label class="upload" for="local-file">打开 MRP 文件</label></div></section>
-    <section aria-labelledby="collection-heading"><div class="collection-heading"><div><h2 id="collection-heading">经典精选 <span id="total-count">100</span></h2><p>找回熟悉的名字，或试试新的冒险。</p></div><input id="search" type="search" aria-label="搜索精选游戏" placeholder="搜索游戏或类型…" /></div><div id="categories" class="categories" role="group" aria-label="游戏类型"></div><div class="results-line"><span id="library-count" role="status">正在加载游戏库…</span><button id="refresh-library">刷新</button></div><div id="games" class="game-grid"></div><p id="empty" hidden>没有找到游戏，换个关键词，或打开自己的 MRP 文件。</p></section>
-  </main>
-  <footer>为掌上游戏留一个位置。<span>flymrp · <a href="https://github.com/zixing131/flymrp/blob/main/LICENSE">AGPL-3.0</a></span></footer>
+  <nav class="desktop-rail" id="desktopRail">
+    <button type="button" class="rail-item active" data-tab="games">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="10.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13" r="0.8" fill="currentColor" stroke="none"/></svg>
+      <span>游戏</span>
+    </button>
+    <button type="button" class="rail-item" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0 1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>设置</span>
+    </button>
+  </nav>
+
+  <div class="top-app-bar" id="topAppBar">
+    <div class="top-bar-small">
+      <a href="./" class="top-bar-nav-icon" title="回到首页">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </a>
+      <div class="top-bar-small-title" id="topBarSmallTitle">游戏列表</div>
+      <a href="./about.html" class="top-bar-about-link" title="关于作者">
+        <svg class="top-bar-about-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="18" height="18" aria-hidden="true">
+          <path d="M471.947636 759.319273l46.848-83.223273a46.173091 46.173091 0 0 1 63.976728-17.594182l324.491636 192.186182a48.709818 48.709818 0 0 1 17.152 65.629091l-46.848 83.223273a46.173091 46.173091 0 0 1-63.976727 17.594181l-324.491637-192.186181a48.709818 48.709818 0 0 1-17.152-65.629091zM791.272727 46.545455h93.090909a46.545455 46.545455 0 0 1 46.545455 46.545454v884.363636a46.545455 46.545455 0 0 1-46.545455 46.545455h-93.090909a46.545455 46.545455 0 0 1-46.545454-46.545455V93.090909a46.545455 46.545455 0 0 1 46.545454-46.545454z" fill="#E5E5E5"></path>
+          <path d="M861.090909 977.454545a58.181818 58.181818 0 0 1-23.272727-9.30909l-349.090909-196.654546L139.636364 968.145455a28.113455 28.113455 0 0 1-23.272728 9.30909 24.832 24.832 0 0 1-23.272727-23.272727c0.349091 4.375273 0-37.096727 0-23.272727V46.545455a46.545455 46.545455 0 0 1 46.545455-46.545455h698.181818a46.545455 46.545455 0 0 1 46.545454 46.545455v907.636363a21.736727 21.736727 0 0 1-23.272727 23.272727zM837.818182 46.545455H139.636364v867.793454l336.896-189.765818a23.016727 23.016727 0 0 1 4.538181-1.489455 23.691636 23.691636 0 0 1 2.746182-0.907636 37.236364 37.236364 0 0 1 9.821091 0 23.691636 23.691636 0 0 1 2.746182 0.907636 23.016727 23.016727 0 0 1 4.538182 1.489455L837.818182 914.338909V46.545455zM256 581.818182a23.272727 23.272727 0 0 1 23.272727-23.272727h418.909091a23.272727 23.272727 0 0 1 0 46.545454H279.272727a23.272727 23.272727 0 0 1-23.272727-23.272727z m442.181818-162.909091H279.272727a23.272727 23.272727 0 0 1 0-46.545455h418.909091a23.272727 23.272727 0 0 1 0 46.545455z m0-186.181818H279.272727a23.272727 23.272727 0 0 1 0-46.545455h418.909091a23.272727 23.272727 0 0 1 0 46.545455z" fill="#1C1C1C"></path>
+        </svg>
+        <span>关于作者</span>
+      </a>
+    </div>
+    <div class="top-bar-large-title" id="topBarLargeTitle">游戏列表</div>
+  </div>
+
+  <div class="page-layout">
+    <div class="tab-view active" id="tab-games">
+      <div class="search-bar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="search" placeholder="搜索游戏" aria-label="搜索游戏" />
+      </div>
+      <div id="categories" class="categories" role="group" aria-label="游戏类型"></div>
+      <p id="library-count" class="library-status" role="status">正在加载游戏库…</p>
+      <div class="section-card section-card-games">
+        <div id="games"></div>
+      </div>
+      <p id="empty" hidden>没有找到游戏，换个关键词，或打开自己的 MRP 文件。</p>
+    </div>
+
+    <div class="tab-view" id="tab-settings">
+      <div class="section-card">
+        <div class="section-title">游戏</div>
+        <div class="pref-item">
+          <span class="pref-label">游戏背景</span>
+          <div class="color-picker" id="bgColorPicker">
+            <span class="color-dot active" data-color="" title="默认"></span>
+            <span class="color-dot" data-color="#6B5CE7" style="background:#6B5CE7" title="紫色"></span>
+            <span class="color-dot" data-color="#FF9500" style="background:#FF9500" title="橙色"></span>
+            <span class="color-dot" data-color="#FF3B30" style="background:#FF3B30" title="红色"></span>
+            <span class="color-dot" data-color="#34C759" style="background:#34C759" title="绿色"></span>
+          </div>
+        </div>
+        <div class="pref-item">
+          <span class="pref-label">配置管理</span>
+          <div class="button-group">
+            <button type="button" class="btn btn-sm" id="export-config">导出配置</button>
+            <button type="button" class="btn btn-sm" id="import-config">导入配置</button>
+            <button type="button" class="btn btn-sm" id="refresh-library">刷新游戏库</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">全局设置</div>
+        <div class="pref-item">
+          <label class="pref-label" for="theme">界面主题</label>
+          <select id="theme">
+            <option value="auto">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="resolution">显示尺寸</label>
+          <select id="resolution">
+            <option value="auto">自动识别</option>
+            <option value="176x220">176×220</option>
+            <option value="240x320">240×320</option>
+            <option value="240x400">240×400</option>
+            <option value="320x240">320×240</option>
+            <option value="320x480">320×480</option>
+            <option value="480x320">480×320</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="zoom">缩放</label>
+          <select id="zoom">
+            <option value="auto">适应窗口</option>
+            <option value="1">1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="midi-player">音乐播放器</label>
+          <select id="midi-player">
+            <option value="tinysynth">TinySynth · GM</option>
+            <option value="simple">轻量方波</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="rotation">屏幕旋转</label>
+          <select id="rotation">
+            <option value="0">不旋转</option>
+            <option value="1">右转</option>
+            <option value="2">倒置</option>
+            <option value="3">左转</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="speed">运行倍速</label>
+          <select id="speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="keypad-side">键盘位置</label>
+          <select id="keypad-side">
+            <option value="normal">方向键在左</option>
+            <option value="reverse">方向键在右</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="show-fps">显示 FPS</label>
+          <select id="show-fps">
+            <option value="true">显示</option>
+            <option value="false">隐藏</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">本地 MRP</div>
+        <p class="section-hint">文件只留在当前浏览器，不会上传到服务器。</p>
+        <div class="button-group">
+          <button type="button" class="btn btn-primary" id="choose-local">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>选择本地 MRP</span>
+          </button>
+          <button type="button" class="btn" id="open-player">打开模拟器</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="footer-links">
+          <a href="https://github.com/zixing131/flymrp">项目源码</a>
+          <a href="./about.html">关于作者</a>
+          <span>精选 <span id="total-count">100</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="desktop-detail" id="desktopDetail">
+    <div class="detail-empty" id="detailEmpty">点击左侧游戏查看详情</div>
+    <div class="detail-content" id="detailContent" hidden>
+      <div class="detail-game-header">
+        <span class="detail-game-icon" id="detailIcon" aria-hidden="true"></span>
+        <div class="detail-game-name" id="detailName"></div>
+        <div class="detail-game-meta" id="detailMeta"></div>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-actions">
+        <button type="button" class="detail-action-btn primary" id="detailRun">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>运行</span>
+        </button>
+        <button type="button" class="detail-action-btn" id="detailClearData">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="5" y="6" width="14" height="14" rx="2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          <span>清除数据</span>
+        </button>
+        <button type="button" class="detail-action-btn danger" id="detailDelete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <span>删除</span>
+        </button>
+      </div>
+      <div class="detail-divider"></div>
+      <div class="detail-settings-title">独立设置</div>
+      <div class="detail-settings-form" id="detailSettingsForm">
+        <div class="pref-item">
+          <label class="pref-label" for="dsResolution">显示尺寸</label>
+          <select id="dsResolution">
+            <option value="">游戏默认/全局</option>
+            <option value="auto">自动识别</option>
+            <option value="176x220">176×220</option>
+            <option value="240x320">240×320</option>
+            <option value="240x400">240×400</option>
+            <option value="320x240">320×240</option>
+            <option value="320x480">320×480</option>
+            <option value="480x320">480×320</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="dsZoom">缩放</label>
+          <select id="dsZoom">
+            <option value="">游戏默认/全局</option>
+            <option value="auto">适应窗口</option>
+            <option value="1">1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="dsMidi">音乐播放器</label>
+          <select id="dsMidi">
+            <option value="">游戏默认/全局</option>
+            <option value="tinysynth">TinySynth · GM</option>
+            <option value="simple">轻量方波</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="dsRotation">屏幕旋转</label>
+          <select id="dsRotation">
+            <option value="">游戏默认/全局</option>
+            <option value="0">不旋转</option>
+            <option value="1">右转</option>
+            <option value="2">倒置</option>
+            <option value="3">左转</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="dsSpeed">运行倍速</label>
+          <select id="dsSpeed">
+            <option value="">游戏默认/全局</option>
+            <option value="0.5">0.5×</option>
+            <option value="1">1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <div class="pref-item">
+          <label class="pref-label" for="dsKeypad">键盘位置</label>
+          <select id="dsKeypad">
+            <option value="">游戏默认/全局</option>
+            <option value="normal">方向键在左</option>
+            <option value="reverse">方向键在右</option>
+          </select>
+        </div>
+        <div class="detail-settings-btns">
+          <button type="button" class="btn" id="dsReset">恢复游戏默认</button>
+          <button type="button" class="btn btn-primary" id="dsSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <button type="button" class="fab" id="fab" title="安装游戏">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <div class="action-sheet-overlay" id="actionSheetOverlay">
+    <div class="action-sheet" id="actionSheetMain">
+      <div class="action-sheet-handle"></div>
+      <div class="action-sheet-header" id="asTitle"></div>
+      <button type="button" class="action-sheet-item" id="asRun">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>运行</span>
+      </button>
+      <button type="button" class="action-sheet-item" id="asSettings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0 1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>独立设置</span>
+      </button>
+      <button type="button" class="action-sheet-item" id="asClearData">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="5" y="6" width="14" height="14" rx="2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        <span>清除数据</span>
+      </button>
+      <div class="action-sheet-divider"></div>
+      <button type="button" class="action-sheet-item danger" id="asDelete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        <span>删除</span>
+      </button>
+      <div class="action-sheet-divider"></div>
+      <button type="button" class="action-sheet-cancel" id="asCancel">取消</button>
+    </div>
+    <div class="game-settings-sheet" id="gameSettingsSheet">
+      <div class="action-sheet-handle"></div>
+      <div class="gs-title" id="gsTitle">独立设置</div>
+      <div class="gs-row"><label for="gsResolution">显示尺寸</label><select id="gsResolution"><option value="">游戏默认/全局</option><option value="auto">自动识别</option><option value="176x220">176×220</option><option value="240x320">240×320</option><option value="240x400">240×400</option><option value="320x240">320×240</option><option value="320x480">320×480</option><option value="480x320">480×320</option></select></div>
+      <div class="gs-row"><label for="gsZoom">缩放</label><select id="gsZoom"><option value="">游戏默认/全局</option><option value="auto">适应窗口</option><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></div>
+      <div class="gs-row"><label for="gsMidi">音乐播放器</label><select id="gsMidi"><option value="">游戏默认/全局</option><option value="tinysynth">TinySynth · GM</option><option value="simple">轻量方波</option></select></div>
+      <div class="gs-row"><label for="gsRotation">屏幕旋转</label><select id="gsRotation"><option value="">游戏默认/全局</option><option value="0">不旋转</option><option value="1">右转</option><option value="2">倒置</option><option value="3">左转</option></select></div>
+      <div class="gs-row"><label for="gsSpeed">运行倍速</label><select id="gsSpeed"><option value="">游戏默认/全局</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></div>
+      <div class="gs-row"><label for="gsKeypad">键盘位置</label><select id="gsKeypad"><option value="">游戏默认/全局</option><option value="normal">方向键在左</option><option value="reverse">方向键在右</option></select></div>
+      <div class="gs-buttons">
+        <button type="button" class="btn" id="gsReset">恢复游戏默认</button>
+        <button type="button" class="btn btn-primary" id="gsSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav">
+    <button type="button" class="bottom-nav-item active" data-tab="games">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="10.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13" r="0.8" fill="currentColor" stroke="none"/></svg>
+      <span>游戏</span>
+    </button>
+    <button type="button" class="bottom-nav-item" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0 1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>设置</span>
+    </button>
+  </nav>
+
   <div id="kaios-softkeys" hidden>
     <div id="kaios-soft-left">菜单</div>
     <div id="kaios-soft-center">启动</div>
@@ -34,6 +344,7 @@
     </div>
   </div>
   <input id="local-file" type="file" accept=".mrp,.MRP" style="visibility:hidden;display:none" />
+  <input id="config-file" type="file" accept="application/json,.json" style="visibility:hidden;display:none" />
   <script type="module" src="./catalog.ts"></script>
 </body>
 </html>

@@ -234,6 +234,11 @@ describe("5-C.10K current-pack read-only file backend", () => {
     expect(rt.vfs.exists(PACK)).toBe(false);
   });
 
+  it("reports mr_ferrno as MR_FAILED like rxgj dsm.c", () => {
+    const { ext } = wirePack();
+    expect(callSlot(ext, 39, 0).r0 | 0).toBe(MR_FAILED);
+  });
+
   it("backend host values stay signed; IDs are monotonic and not reused", () => {
     const files = new CurrentPackFileBackend(() => ({ name: PACK, bytes: SMALL }));
     expect(files.open(PACK, MR_FILE_RDONLY)).toBe(1);

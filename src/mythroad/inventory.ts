@@ -97,6 +97,7 @@ export const IMPLEMENTED_C = [
   "mr_table/100/pack_filename",
   // Deterministic read-only virtual file alias for the currently loaded
   // MRP container. Other filenames and write modes remain unsupported.
+  "mr_table/39/mr_ferrno/MR_FAILED",
   "mr_table/40/current-pack/RDONLY+appfs",
   "mr_table/44/read",
   "mr_table/45/seek",

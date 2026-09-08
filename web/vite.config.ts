@@ -14,7 +14,7 @@ export default defineConfig(({ mode, command }) => {
   const resourceDir = env.MRP_RESOURCE_DIR ?? (gameDir ? resolve(gameDir, "mythroad_res") : undefined);
   return {
     root, base: "./", build: { outDir: resolve(root, "../dist"), emptyOutDir: false,
-      rollupOptions: { input: { index: resolve(root, "index.html"), main: resolve(root, "main.html") } } }, publicDir: resolve(root, "../assets"),
+      rollupOptions: { input: { index: resolve(root, "index.html"), main: resolve(root, "main.html"), about: resolve(root, "about.html") } } }, publicDir: resolve(root, "../assets"),
     plugins: [localGames(gameDir), localSystem(systemDir), localSystem(resourceDir, true), resourceBuild(resourceDir), gameBuild(gameDir)],
     server: { host: "127.0.0.1", port: 5173, strictPort: false, open: "/", fs: { allow: [resolve(root, "..")] } },
   };

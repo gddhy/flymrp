@@ -10,6 +10,7 @@ export type PlayerRequest =
   | { type: 'tick'; milliseconds: number; speed: number }
   | { type: 'key'; key: string; pressed: boolean }
   | { type: 'touch'; event: number; x: number; y: number }
+  | { type: 'motion'; x: number; y: number }
   | { type: 'pause'; paused: boolean }
   | { type: 'edit'; text: string; accepted: boolean };
 export type PlayerResponse =

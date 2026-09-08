@@ -1,7 +1,7 @@
 import type { GuestMemory } from '../hot/memory.ts';
 import { ScreenBuffer } from './graphics.ts';
 import { gb16Glyph } from './font.ts';
-import { MR_FAILED, MR_SUCCESS, MR_IGNORE, MR_KEY_UP, MR_KEY_DOWN, MR_KEY_FIRE, MR_KEY_SOFTLEFT, MR_KEY_SOFTRIGHT, MR_MENU_SELECT, MR_MENU_RETURN, MR_DIALOG_EVENT, MR_MOUSE_DOWN, MR_MOUSE_UP } from './constants.ts';
+import { MR_FAILED, MR_SUCCESS, MR_IGNORE, MR_KEY_UP, MR_KEY_DOWN, MR_KEY_FIRE, MR_KEY_SOFTLEFT, MR_KEY_SOFTRIGHT, MR_MENU_SELECT, MR_MENU_RETURN, MR_DIALOG_EVENT, MR_MOTION_EVENT, MR_MOUSE_DOWN, MR_MOUSE_UP } from './constants.ts';
 
 type View = { handle: number; kind: 'menu' | 'text' | 'dialog'; title: string; text: string; items: string[]; selected: number; buttons: number; scroll: number };
 /** Handset menu/text/dialog ABI with independent handles and real events. */
@@ -57,6 +57,7 @@ export class NativeUi {
       return true;
     }
     if (type === MR_MOUSE_UP) return true;
+    if (type === MR_MOTION_EVENT) return false;
     if (type !== 0) return true;
     if ([MR_KEY_UP, MR_KEY_DOWN, 2, 8].includes(key)) {
       const delta = key === MR_KEY_UP || key === 2 ? -1 : 1;

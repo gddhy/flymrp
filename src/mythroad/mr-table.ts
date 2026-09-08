@@ -236,6 +236,7 @@ export class MrTableBridge {
       onVibrate?: (milliseconds: number) => void;
       onUiChange?: () => void;
       onPlatformEvent?: (type: number, value: number) => void;
+      onSensorPower?: (on: boolean) => void;
       onEditChange?: (state: EditState | null) => void;
       onEditComplete?: (accepted: boolean) => void;
       getDownloadFile?: (name: string) => Uint8Array | null;
@@ -432,6 +433,8 @@ export class MrTableBridge {
     this.ext.registerHandler(74, (_cpu, _mem, [handle, title, text]) => this.nativeUi.refresh(handle, title, text));
     this.ext.registerHandler(33, () => this.pollTime());
     this.ext.registerHandler(17, (cpu, mem, args) => this.sprintf(mem, args, cpu.r[13] >>> 0));
+    // rxgj dsm.c `mr_ferrno`: no per-handle errno; always `MR_FAILED`.
+    this.ext.registerHandler(39, () => MR_FAILED);
     this.ext.registerHandler(40, (_cpu, mem, args) => this.open(mem, args[0]! >>> 0, args[1]! >>> 0));
     this.ext.registerHandler(41, (_cpu, _mem, args) => this.files.close(args[0]! | 0));
     this.ext.registerHandler(43, (_cpu, mem, args) => this.files.write(mem, args[0]! | 0, args[1]! >>> 0, args[2]! >>> 0));
@@ -1268,10 +1271,10 @@ export class MrTableBridge {
     if ((code >>> 0) === MR_CHECK_TOUCH) return MR_TOUCH_SCREEN;
     // rxgj dsm.c: SMS-centre query is asynchronous (MR_WAITING); no SMS is sent.
     if ((code >>> 0) === 1106) return 2;
-    if (code >= 4001 && code <= 4006) {
-      this.hooks.onPlatformEvent?.(code, param | 0);
-      return MR_SUCCESS;
-    }
+    // 4001/4002 are later SkyEngine `mrc_motionSensorPowerOn` / Off.
+    // Do not echo these codes as `mr_event` types; 迷宫滚球 already polls
+    // `MR_MOTION_EVENT` and treats a plat-code event as a guest pointer.
+    if (code >= 4001 && code <= 4006) return MR_SUCCESS;
     const message = `unsupported mr_plat code ${code}`;
     this.hooks.onUnknownAbi?.({ family: "mr_plat", code, message });
     throw new UnknownAbiError(message, {

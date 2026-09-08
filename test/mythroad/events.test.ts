@@ -10,6 +10,7 @@ import {
   MR_IGNORE,
   MR_KEY_PRESS,
   MR_KEY_UP,
+  MR_MOTION_EVENT,
   MR_SUCCESS,
   MythroadRuntime,
 } from "../../src/mythroad/index.ts";
@@ -117,5 +118,18 @@ describe("5-B event queue", () => {
     rt.state = 1;
     rt.lua.register("dealevent", () => 0);
     expect(rt.dispatchEvent({ kind: EV_KEY, type: 0, p1: 12, p2: 0 })).toBe(MR_SUCCESS);
+  });
+
+  it("queueMotion without EXT keeps raw axes for Lua-only titles", () => {
+    const rt = new MythroadRuntime();
+    rt.queueMotion(-40, 25);
+    expect(rt.pollEvent()).toEqual({ kind: EV_KEY, type: MR_MOTION_EVENT, p1: -40, p2: 25 });
+  });
+
+  it("keeps only the latest unread motion sample so a long tick cannot fill the queue", () => {
+    const rt = new MythroadRuntime();
+    for (let i = 0; i < 80; i++) rt.queueMotion(i, -i);
+    expect(rt.pollEvent()).toEqual({ kind: EV_KEY, type: MR_MOTION_EVENT, p1: 79, p2: -79 });
+    expect(rt.pollEvent()).toBeNull();
   });
 });

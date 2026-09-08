@@ -9,6 +9,7 @@ export class PlayerClient {
     : new Worker(new URL('./player.worker.ts', import.meta.url), { type: 'module' });
   private busy = false;
   private stopped = false;
+  private pendingMotion: [number, number] | null = null;
   private readyResolve: ((title: string) => void) | null = null;
   private readyReject: ((error: Error) => void) | null = null;
   screenW = 240;
@@ -39,7 +40,14 @@ export class PlayerClient {
           break;
         }
         case 'ready': this.readyResolve?.(data.title); this.readyResolve = null; this.readyReject = null; break;
-        case 'tick-complete': this.busy = false; break;
+        case 'tick-complete':
+          this.busy = false;
+          if (this.pendingMotion) {
+            const motion = this.pendingMotion;
+            this.pendingMotion = null;
+            this.send({ type: 'motion', x: motion[0], y: motion[1] });
+          }
+          break;
         case 'edit': hooks.edit(data.state); break;
         case 'sound': hooks.sound(data.format, data.bytes, data.loop, data.positionMs); break;
         case 'vibrate': navigator.vibrate?.(data.milliseconds); break;
@@ -64,6 +72,11 @@ export class PlayerClient {
     this.busy = true; this.send({ type: 'tick', milliseconds, speed });
   }
   queueEvent(_kind: number, event: number, x: number, y: number): void { this.send({ type: 'touch', event, x, y }); }
+  motion(x: number, y: number): void {
+    if (this.stopped) return;
+    if (this.busy) { this.pendingMotion = [x, y]; return; }
+    this.send({ type: 'motion', x, y });
+  }
   setUserFile(path: string, bytes: Uint8Array | null): void { this.send({ type: 'sd-file', path, bytes }); }
   pause(): void { this.send({ type: 'pause', paused: true }); }
   resume(): void { this.send({ type: 'pause', paused: false }); }

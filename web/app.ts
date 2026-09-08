@@ -11,7 +11,7 @@ import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 import { assetUrl, catalogHref, readGame, readLibrary } from "./library.ts";
-import { rotatedDirection, screenPoint } from "./player-options.ts";
+import { readPref, rotatedDirection, rotatedTilt, screenPoint } from "./player-options.ts";
 import { PRELOAD_SYSTEM_FILES, isSafeAssetPath, type PlayerFileSource } from "./remote-files.ts";
 
 let rotation = 0, speed = 1;
@@ -37,7 +37,11 @@ let lastGame: { name: string; read: () => Promise<ArrayBuffer> } | null = null;
 const audio = new BrowserAudio();
 const midiPlayer = document.querySelector<HTMLSelectElement>("#midi-player")!;
 const kaios = applyKaiOS({ fullscreen: true });
-try { audio.setMidiPlayer(localStorage.getItem("flymrp.midi-player") === "simple" || kaios ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
+const pageQuery = new URL(location.href).searchParams;
+const selectedName = pageQuery.get("game");
+const localPath = pageQuery.get("local");
+const currentGameKey = localPath || selectedName;
+try { audio.setMidiPlayer(readPref("midi-player", currentGameKey) === "simple" || kaios ? "simple" : "tinysynth"); } catch { /* storage is optional */ }
 if (kaios) {
   try { if (!localStorage.getItem("flymrp.midi-player")) audio.setMidiPlayer("simple"); } catch { /* storage is optional */ }
   const hint = emptyScreen.querySelector("span");
@@ -77,7 +81,61 @@ let generation = 0;
 let fontPromise: Promise<void> | null = null;
 const systemFiles: Record<string, Uint8Array> = {};
 let touch: number | null = null;
-const held = new HeldKeys(key => session?.rt.input.press(key), key => session?.rt.input.release(key));
+const held = new HeldKeys(
+  key => { session?.rt.input.press(key); applyTiltKey(key, true); },
+  key => { session?.rt.input.release(key); applyTiltKey(key, false); },
+);
+const tilt = { oriX: 0, oriY: 0, keyX: 0, keyY: 0, sentX: 0, sentY: 0, next: 0, listening: false, haveOrientation: false };
+const TILT_KEY = 80;
+function currentTilt(): [number, number] {
+  return rotatedTilt(tilt.oriX + tilt.keyX, tilt.oriY + tilt.keyY, rotation);
+}
+function pushTilt(now = performance.now(), force = false): void {
+  if (!session || paused) return;
+  if (!force && now < tilt.next) return;
+  const [x, y] = currentTilt();
+  const ix = x | 0, iy = y | 0;
+  if (!force && ix === tilt.sentX && iy === tilt.sentY) return;
+  tilt.next = now + 50;
+  tilt.sentX = ix;
+  tilt.sentY = iy;
+  session.rt.motion(ix, iy);
+}
+function applyTiltKey(alias: string, down: boolean): void {
+  if (alias === "LEFT") tilt.keyX = down ? -TILT_KEY : tilt.keyX < 0 ? 0 : tilt.keyX;
+  else if (alias === "RIGHT") tilt.keyX = down ? TILT_KEY : tilt.keyX > 0 ? 0 : tilt.keyX;
+  else if (alias === "UP") tilt.keyY = down ? -TILT_KEY : tilt.keyY < 0 ? 0 : tilt.keyY;
+  else if (alias === "DOWN") tilt.keyY = down ? TILT_KEY : tilt.keyY > 0 ? 0 : tilt.keyY;
+  else return;
+  pushTilt(performance.now(), true);
+}
+function onDeviceOrientation(ev: DeviceOrientationEvent): void {
+  if (ev.gamma == null || ev.beta == null) return;
+  tilt.haveOrientation = true;
+  tilt.oriX = Math.max(-100, Math.min(100, Math.round(ev.gamma * 10 / 9)));
+  tilt.oriY = Math.max(-100, Math.min(100, Math.round(ev.beta * 10 / 9)));
+  pushTilt();
+}
+function onDeviceMotion(ev: DeviceMotionEvent): void {
+  if (tilt.haveOrientation) return;
+  const a = ev.accelerationIncludingGravity;
+  if (!a || a.x == null || a.y == null) return;
+  tilt.oriX = Math.max(-100, Math.min(100, Math.round(a.x * 10)));
+  tilt.oriY = Math.max(-100, Math.min(100, Math.round(-a.y * 10)));
+  pushTilt();
+}
+async function enableMotion(): Promise<void> {
+  if (tilt.listening) return;
+  tilt.listening = true;
+  const orient = DeviceOrientationEvent as typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> };
+  const motion = DeviceMotionEvent as typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
+  try {
+    if (typeof orient.requestPermission === "function") await orient.requestPermission();
+    else if (typeof motion.requestPermission === "function") await motion.requestPermission();
+  } catch { /* permission is optional; keys still tilt */ }
+  window.addEventListener("deviceorientation", onDeviceOrientation);
+  window.addEventListener("devicemotion", onDeviceMotion);
+}
 
 function setStatus(text: string, err = false): void {
   statusEl.textContent = text;
@@ -89,6 +147,10 @@ function stop(keepStatus = false): void {
   if (dialogIsOpen(editorDialog)) closeDialog(editorDialog);
   editingRuntime = null;
   held.clear();
+  tilt.keyX = 0;
+  tilt.keyY = 0;
+  tilt.sentX = 0;
+  tilt.sentY = 0;
   touch = null;
   if (session) { cancelAnimationFrame(session.raf); session.rt.stop(); }
   loadingRuntime?.stop(); loadingRuntime = null;
@@ -111,6 +173,7 @@ function frame(now: number): void {
   if (!s) return;
   if (paused) { s.last = now; s.raf = requestAnimationFrame(frame); return; }
   try {
+    pushTilt(now);
     s.rt.tick(now - s.last, speed);
     s.last = now;
     if (s.rt.exited) {
@@ -196,6 +259,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
   const token = generation;
   const profile = resolution.value === "auto" ? inferScreenSize(name) : inferScreenSize(resolution.value);
   audio.resume();
+  void enableMotion();
   setStatus(`正在读取 ${name.split("/").at(-1)}…`);
   let rt: PlayerClient | undefined;
   try {
@@ -324,11 +388,14 @@ window.addEventListener("keydown", ev => {
   if (kaios && (ev.key === "Backspace" || ev.key === "EndCall")) return;
   ev.preventDefault();
   audio.resume();
+  void enableMotion();
   held.press(`keyboard:${ev.code || ev.key}`, rotatedDirection(alias, rotation));
 });
 window.addEventListener("keyup", ev => held.release(`keyboard:${ev.code || ev.key}`));
 function releaseAll(): void {
   held.clear();
+  tilt.keyX = 0;
+  tilt.keyY = 0;
   document.querySelectorAll("[data-key].held").forEach(button => button.classList.remove("held"));
   if (touch !== null && session) session.rt.queueEvent(EV_KEY, MR_MOUSE_UP, 0, 0);
   touch = null;
@@ -344,6 +411,7 @@ if (!kaios) for (const btn of document.querySelectorAll<HTMLButtonElement>("[dat
     if (!session || paused) return;
     btn.setPointerCapture(ev.pointerId);
     audio.resume();
+    void enableMotion();
     pointerActivated = true;
     const source = `pointer:${ev.pointerId}:${++activationId}`;
     pointers.set(ev.pointerId, { source, start: performance.now() });
@@ -383,6 +451,7 @@ if (!kaios) {
   canvas.addEventListener("pointerdown", ev => {
     if (!session || touch !== null) return;
     ev.preventDefault(); canvas.focus(); canvas.setPointerCapture(ev.pointerId);
+    void enableMotion();
     touch = ev.pointerId; touchEvent(ev, MR_MOUSE_DOWN);
   });
   canvas.addEventListener("pointermove", ev => { if (ev.pointerId === touch) touchEvent(ev, MR_MOUSE_MOVE); });
@@ -413,7 +482,7 @@ function fitScreen(): void {
 function storeSetting(name: string, value: string): void { try { localStorage.setItem(`flymrp.${name}`, value); } catch {} }
 function bindSelect(id: string, apply: (value: string) => void): void {
   const select = document.querySelector<HTMLSelectElement>(`#${id}`)!;
-  try { const saved = localStorage.getItem(`flymrp.${id}`); if (Array.from(select.options).some(option => option.value === saved)) select.value = saved!; } catch {}
+  try { const saved = readPref(id, currentGameKey); if (saved && Array.from(select.options).some(option => option.value === saved)) select.value = saved; } catch {}
   apply(select.value);
   select.addEventListener('change', () => { storeSetting(id, select.value); apply(select.value); canvas.focus(); });
 }
@@ -497,7 +566,7 @@ if (kaios) {
   }, true);
 }
 const showFps = document.querySelector<HTMLInputElement>('#show-fps')!;
-try { showFps.checked = localStorage.getItem('flymrp.show-fps') !== 'false'; } catch {}
+try { showFps.checked = readPref('show-fps', currentGameKey) !== 'false'; } catch {}
 fpsEl.hidden = !showFps.checked;
 showFps.addEventListener('change', () => { fpsEl.hidden = !showFps.checked; storeSetting('show-fps', String(showFps.checked)); });
 const volume = document.querySelector<HTMLInputElement>('#volume')!;
@@ -515,6 +584,7 @@ volume.addEventListener('input', () => { applyVolume(); audio.resume(); });
 mute.addEventListener('click', () => { muted = !muted; applyVolume(); if (!muted) audio.resume(); });
 applyVolume();
 try { document.documentElement.dataset.theme = localStorage.getItem('flymrp.theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch {}
+try { const bg = localStorage.getItem('flymrp.game-bg'); if (bg) document.querySelector<HTMLElement>('.stage')!.style.background = bg; } catch {}
 document.querySelector('#theme')!.addEventListener('click', () => storeSetting('theme', document.documentElement.dataset.theme!));
 if (typeof ResizeObserver === 'function') new ResizeObserver(fitScreen).observe(stage);
 else window.addEventListener('resize', fitScreen);
@@ -528,8 +598,6 @@ document.querySelector('#screenshot')!.addEventListener('click', () => {
 });
 document.querySelector('#back')!.addEventListener('click', () => goLibrary());
 window.addEventListener('pagehide', () => stop(true));
-const selectedName = new URL(location.href).searchParams.get('game');
-const localPath = new URL(location.href).searchParams.get('local');
 if (localPath) void (async () => {
   try {
     const file = await readSdFile(localPath);

@@ -35,6 +35,19 @@ export class EventQueue {
     this.count++;
   }
 
+  /** Keep only the latest sample of a repeating sensor/key event. */
+  replaceLast(kind: number, type: number, p1: number, p2: number): boolean {
+    for (let n = this.count - 1; n >= 0; n--) {
+      const i = (this.head + n) % CAP;
+      if (this.kind[i] === kind && this.type[i] === type) {
+        this.p1[i] = p1;
+        this.p2[i] = p2;
+        return true;
+      }
+    }
+    return false;
+  }
+
   poll(): RuntimeEvent | null {
     if (this.count === 0) return null;
     const i = this.head;
