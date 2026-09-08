@@ -10,6 +10,7 @@ import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 import { assetUrl, readGame, readLibrary } from "./library.ts";
 import { rotatedDirection, screenPoint } from "./player-options.ts";
+import { PRELOAD_SYSTEM_FILES, isSafeAssetPath, type PlayerFileSource } from "./remote-files.ts";
 
 let rotation = 0, speed = 1;
 const editorDialog = document.querySelector<HTMLDialogElement>("#guest-editor")!;
@@ -92,9 +93,9 @@ function frame(now: number): void {
   } catch (e) { fail(e, s.rt); }
 }
 async function ensureFont(): Promise<void> {
-  if (systemFiles["system/gb16.uc2"] && systemFiles["system/gb12.uc2"]) return;
+  if (PRELOAD_SYSTEM_FILES.every(name => systemFiles[name])) return;
   fontPromise ??= (async () => {
-    await Promise.all(SYSTEM_COMPONENTS.map(async name => {
+    await Promise.all(PRELOAD_SYSTEM_FILES.map(async name => {
       const res = await fetch(assetUrl(name));
       if (!res.ok) throw new Error(`缺少运行组件 ${name}`);
       systemFiles[name] = new Uint8Array(await res.arrayBuffer());
@@ -102,42 +103,45 @@ async function ensureFont(): Promise<void> {
   })().catch(e => { fontPromise = null; throw e; });
   await fontPromise;
 }
-const localBlobCache = new Map<string, Uint8Array>();
-async function loadLocalSystem(packName?: string): Promise<Record<string, Uint8Array>> {
-  const endpoint = packName ? "/__resources" : "/__system";
-  if (import.meta.env.PROD && !packName) return {};
-  const res = import.meta.env.PROD ? new Response(null, { status: 404 }) : await fetch(endpoint + (packName ? `?game=${encodeURIComponent(packName)}` : ""));
-  // Static hosting has no optional local directory endpoint.
-  let manifest: { name: string; sha256: string; size: number }[];
-  let staticResources = false;
-  if (res.status === 404 || (res.ok && !res.headers.get("content-type")?.includes("application/json"))) {
-    if (!packName) return {};
-    const index = await fetch(assetUrl("mythroad_res/index.json"));
-    if (index.status === 404 || (index.ok && !index.headers.get("content-type")?.includes("application/json"))) return {};
-    if (!index.ok) throw new Error("无法读取游戏资源清单");
-    manifest = (await index.json()).groups[packName.replace(/\.mrp$/i, "").toLowerCase()] ?? [];
-    staticResources = true;
-  } else {
-    if (!res.ok) throw new Error("无法读取本地 mythroad 资源目录");
-    manifest = await res.json();
-  }
-  const files: Record<string, Uint8Array> = {};
-  await Promise.all(manifest.map(async item => {
-    let bytes = localBlobCache.get(item.sha256);
-    if (!bytes) {
-      const response = await fetch(staticResources ? assetUrl(`mythroad_res/${item.name.split("/").map(encodeURIComponent).join("/")}`) : `${endpoint}/${item.sha256}`);
-      if (!response.ok) throw new Error(`无法读取本地组件 ${item.name}`);
-      const buffer = await response.arrayBuffer();
-      bytes = new Uint8Array(buffer);
-      const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))].map(b => b.toString(16).padStart(2, "0")).join("");
-      if (bytes.length !== item.size || digest !== item.sha256) throw new Error(`本地组件已改变：${item.name}，请重新加载`);
-      localBlobCache.set(item.sha256, bytes);
+let systemCatalogPromise: Promise<{ names: string[]; localSystem: boolean }> | null = null;
+let resourceIndex: Promise<Record<string, string[]>> | null = null;
+function namesOf(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.flatMap(item => {
+    const name = typeof item === "string" ? item : item && typeof item === "object" && "name" in item && typeof item.name === "string" ? item.name : "";
+    return isSafeAssetPath(name) ? [name] : [];
+  }))];
+}
+async function loadSystemCatalog(): Promise<{ names: string[]; localSystem: boolean }> {
+  systemCatalogPromise ??= (async () => {
+    const bundled = SYSTEM_COMPONENTS.filter(isSafeAssetPath);
+    if (import.meta.env.PROD) return { names: bundled, localSystem: false };
+    const res = await fetch("/__system");
+    if (!res.ok || !res.headers.get("content-type")?.includes("application/json")) return { names: bundled, localSystem: false };
+    const extra = namesOf(await res.json());
+    return { names: [...new Set([...bundled, ...extra])], localSystem: extra.length > 0 };
+  })().catch(error => { systemCatalogPromise = null; throw error; });
+  return systemCatalogPromise;
+}
+async function loadResourceCatalog(packName: string): Promise<string[]> {
+  if (!/^[a-z0-9_.-]+\.mrp$/i.test(packName)) return [];
+  const stem = packName.slice(0, -4).toLowerCase();
+  if (import.meta.env.DEV) {
+    const res = await fetch(`/__resources?game=${encodeURIComponent(packName)}`);
+    if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+      const names = namesOf(await res.json());
+      if (names.length) return names;
     }
-    files[item.name] = bytes;
-  }));
-  let cachedBytes = [...localBlobCache.values()].reduce((sum, bytes) => sum + bytes.length, 0);
-  for (const [hash, bytes] of localBlobCache) { if (cachedBytes <= 64 * 1024 * 1024) break; localBlobCache.delete(hash); cachedBytes -= bytes.length; }
-  return files;
+  }
+  const grouped = await fetch(assetUrl(`mythroad_res/groups/${encodeURIComponent(stem)}.json`));
+  if (grouped.ok) return namesOf(await grouped.json());
+  resourceIndex ??= (async () => {
+    const index = await fetch(assetUrl("mythroad_res/index.json"));
+    if (!index.ok) return {};
+    const groups = (await index.json() as { groups?: Record<string, unknown> }).groups ?? {};
+    return Object.fromEntries(Object.entries(groups).map(([name, files]) => [name, namesOf(files)]));
+  })().catch(error => { resourceIndex = null; throw error; });
+  return (await resourceIndex)[stem] ?? [];
 }
 async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
   stop(true);
@@ -151,7 +155,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
   setStatus(`正在读取 ${name.split("/").at(-1)}…`);
   let rt: PlayerClient | undefined;
   try {
-    const [buffer] = await Promise.all([read(), ensureFont()]);
+    const [buffer, systemCatalog] = await Promise.all([read(), ensureFont().then(() => loadSystemCatalog())]);
     if (token !== generation) return;
     setStatus("正在启动游戏，请稍候…");
     await new Promise<void>(resolve => setTimeout(resolve, 40));
@@ -160,8 +164,12 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     canvas.height = profile.height;
     fitScreen();
     const packName = MRPArchive.parse(new Uint8Array(buffer)).header.filename;
-    const [localFiles, resources] = await Promise.all([loadLocalSystem(), loadLocalSystem(packName)]);
+    const resourceCatalog = await loadResourceCatalog(packName);
     if (token !== generation) return;
+    const fileSource: PlayerFileSource = {
+      base: document.baseURI, system: systemCatalog.names, resources: resourceCatalog, packName,
+      localSystem: systemCatalog.localSystem, localResources: import.meta.env.DEV,
+    };
     rt = new PlayerClient(canvas, { edit: state => {
       if (!state) { if (editorDialog.open) editorDialog.close(); editingRuntime = null; canvas.focus(); return; }
       editingRuntime = rt ?? null;
@@ -175,7 +183,7 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
     loadingRuntime = rt;
     const userFiles = Object.fromEntries((await listSdFiles().catch(() => [])).map(file => [file.path, file.bytes]));
     if (token !== generation) return;
-    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles, ...localFiles }, resources, userFiles, profile });
+    const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles }, userFiles, profile, fileSource });
     if (token !== generation) return;
     loadingRuntime = null;
     const title = guestTitle || name.split('/').at(-1)!;

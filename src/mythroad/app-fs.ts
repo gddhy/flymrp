@@ -15,6 +15,9 @@ export type AppFsNode =
 
 export class AppFileSystem {
   readonly nodes = new Map<string, AppFsNode>();
+  /** Cataloged remote paths. info()/list() see them; file() downloads once. */
+  readonly remotes = new Set<string>();
+  readMissing?: (normalizedName: string) => Uint8Array | null;
 
   normalize(name: string): string {
     // Handset EFS uses FAT-style case-insensitive filenames. Archive resource
@@ -30,13 +33,21 @@ export class AppFileSystem {
 
   clear(): void {
     this.nodes.clear();
+    this.remotes.clear();
+  }
+
+  watch(name: string): void {
+    const key = this.normalize(name);
+    if (!key || this.nodes.get(key)?.kind === "file") return;
+    this.remotes.add(key);
+    this.ensureParents(key);
   }
 
   list(name: string, extraPaths: string[] = []): string[] | null {
     const key = this.normalize(name).replace(/^c:\//i, '').replace(/^\.\/?/, '');
     const prefix = key ? key + '/' : '';
     const children = new Set<string>();
-    for (const path of [...this.nodes.keys(), ...extraPaths.map(p => this.normalize(p))]) {
+    for (const path of [...this.nodes.keys(), ...this.remotes, ...extraPaths.map(p => this.normalize(p))]) {
       if (!path.startsWith(prefix)) continue;
       const child = path.slice(prefix.length).split('/')[0];
       if (child) children.add(child);
@@ -49,8 +60,8 @@ export class AppFileSystem {
     const key = this.normalize(name);
     if (!key) return null;
     const node = this.nodes.get(key);
-    if (!node) return null;
-    return node.kind === "dir" ? MR_IS_DIR : MR_IS_FILE;
+    if (node) return node.kind === "dir" ? MR_IS_DIR : MR_IS_FILE;
+    return this.remotes.has(key) ? MR_IS_FILE : null;
   }
 
   /**
@@ -66,8 +77,15 @@ export class AppFileSystem {
   }
 
   file(name: string): Uint8Array | null {
-    const node = this.nodes.get(this.normalize(name));
-    return node?.kind === "file" ? node.bytes : null;
+    const key = this.normalize(name);
+    const node = this.nodes.get(key);
+    if (node?.kind === "file") return node.bytes;
+    if (node?.kind === "dir") return null;
+    const bytes = this.readMissing?.(key) ?? null;
+    if (!bytes) return null;
+    this.replace(key, bytes);
+    this.remotes.delete(key);
+    return bytes;
   }
 
   remove(name: string): number {
@@ -97,6 +115,7 @@ export class AppFileSystem {
     if (existing?.kind === "dir") return null;
     if (existing?.kind === "file" && !recreate) return existing.bytes;
     this.ensureParents(key);
+    this.remotes.delete(key);
     const bytes = new Uint8Array(0);
     this.nodes.set(key, { kind: "file", bytes });
     return bytes;

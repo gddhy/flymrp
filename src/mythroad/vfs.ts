@@ -21,6 +21,7 @@ const MAX_FD = 32;
 export class MythroadVfs {
   archive: MRPArchive | null = null;
   readExternal?: (name: string) => Uint8Array | null;
+  existsExternal?: (name: string) => boolean;
   readonly ramNames: (string | null)[] = [];
   readonly ramData: (Uint8Array | null)[] = [];
   readonly fdOpen = new Uint8Array(MAX_FD + 1);
@@ -51,7 +52,9 @@ export class MythroadVfs {
 
   exists(name: string): boolean {
     if (this.ramIndex(name) >= 0) return true;
-    return (this.archive?.hasFile(name) ?? false) || this.readExternal?.(name) != null;
+    if (this.archive?.hasFile(name) ?? false) return true;
+    if (this.existsExternal) return this.existsExternal(name);
+    return this.readExternal?.(name) != null;
   }
 
   size(name: string): number {

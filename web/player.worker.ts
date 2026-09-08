@@ -1,9 +1,10 @@
-import { MythroadRuntime, loadGb16Uc2, type GraphicsBackend } from '../src/mythroad/index.ts';
+import { AppFileSystem, MythroadRuntime, loadGb16Uc2, type GraphicsBackend } from '../src/mythroad/index.ts';
 import { DEFAULT_NETWORK_RULES } from '../src/mythroad/network-rules.ts';
 import { binToBytes } from '../src/mrp/index.ts';
 import { EV_KEY } from '../src/mythroad/events.ts';
 import type { PlayerRequest, PlayerResponse } from './player-protocol.ts';
 import { clockSlices } from './player-options.ts';
+import { createRemoteFileLoaders } from './remote-files.ts';
 
 const send = (message: PlayerResponse, transfer: Transferable[] = []) => postMessage(message, { transfer });
 let rt: MythroadRuntime | null = null;
@@ -42,7 +43,12 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
   try {
     if (message.type === 'start') {
       loadGb16Uc2(message.files['system/gb16.uc2']);
-      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, userFiles: message.userFiles, graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
+      const names = new AppFileSystem();
+      const loaders = message.fileSource ? createRemoteFileLoaders(message.fileSource, name => names.normalize(name)) : null;
+      rt = new MythroadRuntime({ profile: message.profile, systemFiles: message.files, resourceFiles: message.resources, userFiles: message.userFiles,
+        systemCatalog: message.fileSource?.system, resourceCatalog: message.fileSource?.resources,
+        loadSystemFile: loaders?.loadSystemFile, loadResourceFile: loaders?.loadResourceFile,
+        graphics: new Display(), abiMode: 'strict', monotonicTime: () => performance.now(),
         networkRules: DEFAULT_NETWORK_RULES,
         onEditChange: state => send({ type: 'edit', state }),
         onVibrate: milliseconds => send({ type: 'vibrate', milliseconds }),

@@ -30,8 +30,12 @@ export function resourceBuild(directory: string | undefined): Plugin {
         }
       }
       await copy(directory);
-      await mkdir(output, { recursive: true });
+      await mkdir(join(output, "groups"), { recursive: true });
       await writeFile(join(output, "index.json"), JSON.stringify({ groups }));
+      for (const [group, files] of Object.entries(groups)) {
+        if (!/^[a-z0-9_.-]+$/.test(group)) continue;
+        await writeFile(join(output, "groups", `${group}.json`), JSON.stringify(files.map(file => file.name)));
+      }
     },
   };
 }

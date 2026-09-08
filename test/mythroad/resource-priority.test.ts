@@ -2,6 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { MythroadRuntime } from '../../src/mythroad/runtime.ts';
 import { ExtRuntime } from '../../src/abi/runtime.ts';
 import { buildMrp } from '../../src/mrp/index.ts';
+import { MR_IS_DIR, MR_IS_FILE } from '../../src/mythroad/constants.ts';
 
 it('keeps download caches out of installation checks and deferred game unpacking', () => {
   const shared=new Uint8Array([1]), stale=new Uint8Array([9]), missing=new Uint8Array([3]);
@@ -32,4 +33,33 @@ it('makes offline downloads available to an EXT loaded after the initial script'
   rt.bindExt(new ExtRuntime());
   expect(rt.mrTable!.appFs.file('game/data.bin')).toBeNull();
   expect(rt.mrTable!.hooks.getDownloadFile?.('GAME\\DATA.BIN')).toEqual(new Uint8Array([7]));
+});
+
+it('lists cataloged system files without downloading, then loads bytes on the first read', () => {
+  const loads: string[] = [];
+  const rt = new MythroadRuntime({
+    systemCatalog: ['plugins/netpay.mrp'],
+    loadSystemFile: name => { loads.push(name); return new Uint8Array([9, 8]); },
+  });
+  expect(rt.appFs.info('plugins')).toBe(MR_IS_DIR);
+  expect(rt.appFs.info('plugins/netpay.mrp')).toBe(MR_IS_FILE);
+  expect(rt.appFs.list('plugins')).toEqual(['netpay.mrp']);
+  expect(rt.vfs.exists('plugins/netpay.mrp')).toBe(true);
+  expect(loads).toEqual([]);
+  expect(rt.appFs.file('c:/mythroad/plugins/NETPAY.MRP')).toEqual(new Uint8Array([9, 8]));
+  expect(rt.appFs.file('plugins/netpay.mrp')).toEqual(new Uint8Array([9, 8]));
+  expect(loads).toEqual(['plugins/netpay.mrp']);
+});
+
+it('fetches download resources only when the offline hook reads them', () => {
+  const loads: string[] = [];
+  const rt = new MythroadRuntime({
+    resourceCatalog: ['game/data.bin'],
+    loadResourceFile: name => { loads.push(name); return new Uint8Array([7]); },
+  });
+  rt.bindExt(new ExtRuntime());
+  expect(rt.appFs.info('game/data.bin')).toBeNull();
+  expect(loads).toEqual([]);
+  expect(rt.mrTable!.hooks.getDownloadFile?.('GAME\\DATA.BIN')).toEqual(new Uint8Array([7]));
+  expect(loads).toEqual(['game/data.bin']);
 });

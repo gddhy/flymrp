@@ -47,9 +47,31 @@ describe("local handset resource directory", () => {
       expect(manifest[0].name).toBe("system/font.bin");
       expect([...new Uint8Array(await (await fetch(base + "/__system/" + manifest[0].sha256)).arrayBuffer())]).toEqual([1,2,3]);
       expect((await fetch(base + "/__system/system%2Ffont.bin")).status).toBe(404);
+      expect([...new Uint8Array(await (await fetch(base + "/__system/file/system/font.bin")).arrayBuffer())]).toEqual([1, 2, 3]);
+      expect((await fetch(base + "/__system/file/linked/font.bin")).status).toBe(404);
+      expect((await fetch(base + "/__system/file/%2e%2e/system/font.bin")).status).toBe(404);
       expect((await fetch(base + "/__system", { method: "POST" })).status).toBe(405);
       await writeFile(join(dir, "system/new.dat"), "new");
       manifest = await (await fetch(base + "/__system")).json(); expect(manifest).toHaveLength(2);
+    } finally { await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve())); }
+  });
+  it("serves one resource file by relative path and refuses saves, traversal, and other packs", async () => {
+    const dir = await fixture();
+    await mkdir(join(dir, "GameA")); await writeFile(join(dir, "GameA/scene.bin"), "scene");
+    await writeFile(join(dir, "GameA/old.sav"), "progress");
+    await mkdir(join(dir, "GameB")); await writeFile(join(dir, "GameB/other.bin"), "other");
+    let handler: (req: IncomingMessage, res: ServerResponse, next: () => void) => void = () => {};
+    const register = localSystem(dir, true).configureServer as (server: Pick<ViteDevServer, "middlewares">) => void;
+    register({ middlewares: { use(fn: typeof handler) { handler = fn; } } } as unknown as Pick<ViteDevServer, "middlewares">);
+    const server = createServer((req, res) => handler(req, res, () => { res.statusCode = 404; res.end(); }));
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as { port: number }, base = `http://127.0.0.1:${address.port}`;
+    try {
+      expect(await (await fetch(base + "/__resources/file/GameA/scene.bin?game=gamea.mrp")).text()).toBe("scene");
+      expect((await fetch(base + "/__resources/file/GameA/old.sav?game=gamea.mrp")).status).toBe(404);
+      expect((await fetch(base + "/__resources/file/GameB/other.bin?game=gamea.mrp")).status).toBe(404);
+      expect((await fetch(base + "/__resources/file/GameA/scene.bin")).status).toBe(404);
+      expect((await fetch(base + "/__resources/file/%2e%2e/GameA/scene.bin?game=gamea.mrp")).status).toBe(404);
     } finally { await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve())); }
   });
 });

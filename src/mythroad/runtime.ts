@@ -10,6 +10,7 @@ import { LuaVM } from "../lua/vm.ts";
 import { MRPArchive } from "../mrp/archive.ts";
 import {
   MR_IGNORE,
+  MR_IS_FILE,
   MR_START_FILE,
   MR_STATE_IDLE,
   MR_STATE_PAUSE,
@@ -49,8 +50,14 @@ export type MythroadRuntimeOptions = {
   onEditChange?: (state: EditState | null) => void;
   /** Bundled handset files, copied into each runtime’s virtual filesystem. */
   systemFiles?: Readonly<Record<string, Uint8Array>>;
+  /** Names that exist as installed handset files; bytes load through `loadSystemFile`. */
+  systemCatalog?: readonly string[];
+  loadSystemFile?: (normalizedName: string) => Uint8Array | null;
   /** Offline download sources, separate from installed game files and unpacking markers. */
   resourceFiles?: Readonly<Record<string, Uint8Array>>;
+  /** Downloadable resource names; bytes load through `loadResourceFile`. */
+  resourceCatalog?: readonly string[];
+  loadResourceFile?: (normalizedName: string) => Uint8Array | null;
   /** Explicit user uploads, installed into the writable virtual SD card. */
   userFiles?: Readonly<Record<string, Uint8Array>>;
   graphics?: GraphicsBackend;
@@ -173,10 +180,15 @@ export class MythroadRuntime {
     this.screen = new ScreenBuffer(this.screenW, this.screenH);
     this.randSeed = this.profile.randSeed;
     this.vfs.readExternal = name => this.appFs.file(name);
+    this.vfs.existsExternal = name => this.appFs.info(name) === MR_IS_FILE;
     this.systemFiles = opts.systemFiles ?? {};
+    this.appFs.readMissing = opts.loadSystemFile;
+    this.resourceFiles.readMissing = opts.loadResourceFile;
     for (const [name, bytes] of Object.entries(this.systemFiles)) { this.appFs.createFile(name, true); this.appFs.replace(name, bytes.slice()); }
+    for (const name of opts.systemCatalog ?? []) this.appFs.watch(name);
     for (const [name, bytes] of Object.entries(opts.userFiles ?? {})) this.setUserFile(name, bytes);
     for (const [name, bytes] of Object.entries(opts.resourceFiles ?? {})) this.resourceFiles.replace(name, bytes);
+    for (const name of opts.resourceCatalog ?? []) this.resourceFiles.watch(name);
     this.networkRules = opts.networkRules;
     this.onEditChange = opts.onEditChange;
     this.entry = opts.entry ?? "_dsm";
