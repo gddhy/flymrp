@@ -19,12 +19,14 @@ export class PlayerClient {
     sound: (format: number, bytes: Uint8Array | null, loop: number, positionMs?: number) => void;
     soundStop: (format: number) => void;
     error: (error: Error) => void;
+    persist?: (path: string, bytes: Uint8Array | null) => void;
   }) {
     const context = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!context) { this.worker.terminate(); throw new Error('Canvas2D unavailable'); }
     this.worker.onmessage = (event: MessageEvent<PlayerResponse>) => {
-      if (this.stopped) return;
       const data = event.data;
+      if (data.type === 'efs-file') { hooks.persist?.(data.path, data.bytes); return; }
+      if (this.stopped) return;
       switch (data.type) {
         case 'frame': {
           this.screenW = data.width; this.screenH = data.height;

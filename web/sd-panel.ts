@@ -1,6 +1,6 @@
 import { listSdFiles, removeSdFile, saveSdFile, sdPath } from './sd-card.ts';
 
-export function setupSdPanel(update: (path: string, bytes: Uint8Array | null) => void): void {
+export function setupSdPanel(update: (path: string, bytes: Uint8Array | null) => void): { refresh: () => Promise<void> } {
   const input = document.querySelector<HTMLInputElement>('#sd-files')!;
   const directory = document.querySelector<HTMLInputElement>('#sd-directory')!;
   const status = document.querySelector<HTMLElement>('#sd-status')!;
@@ -47,4 +47,5 @@ export function setupSdPanel(update: (path: string, bytes: Uint8Array | null) =>
   });
   void render().catch(error => { status.textContent = `无法读取浏览器存储：${String(error)}`; });
   window.addEventListener('pagehide', stopPreview);
+  return { refresh: () => render().catch(() => {}) };
 }

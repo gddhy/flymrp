@@ -85,10 +85,8 @@ export class CurrentPackFileBackend {
   rename(from: string, to: string): number {
     const fs = this.appFs;
     if (!fs || from === this.getPack()?.name || to === this.getPack()?.name) return MR_FAILED;
-    const source = fs.normalize(from), target = fs.normalize(to), node = fs.nodes.get(source);
-    if (!source || !target || node?.kind !== "file" || fs.nodes.get(target)?.kind === "dir") return MR_FAILED;
-    if (source === target) return MR_SUCCESS;
-    fs.nodes.delete(source); fs.nodes.set(target, node);
+    const source = fs.normalize(from), target = fs.normalize(to);
+    if (fs.rename(from, to) !== MR_SUCCESS) return MR_FAILED;
     for (const handle of this.handles.values()) {
       if (handle.efsKey === source) handle.efsKey = target;
       else if (handle.efsKey === target) handle.efsKey = null;
@@ -213,7 +211,7 @@ export class CurrentPackFileBackend {
     h.pos = end;
     if (h.packSource) this.updatePack(h.packSource, h.bytes);
     else {
-      this.appFs!.replace(h.efsKey!, h.bytes);
+      this.appFs!.replace(h.efsKey!, h.bytes, true);
       for (const other of this.handles.values()) if (other.efsKey === h.efsKey) other.bytes = h.bytes;
     }
     this.ops.push({ op: "write", handle: f | 0, ret: n, pos: h.pos, requested: n });

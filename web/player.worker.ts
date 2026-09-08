@@ -54,6 +54,7 @@ onmessage = (event: MessageEvent<PlayerRequest>) => {
         onVibrate: milliseconds => send({ type: 'vibrate', milliseconds }),
         onPlaySound: (format, bytes, loop, positionMs) => send({ type: 'sound', format, bytes, loop, positionMs }),
         onStopSound: format => send({ type: 'sound-stop', format }),
+        onPersistFile: (path, bytes) => send({ type: 'efs-file', path, bytes: bytes ? bytes.slice() : null }),
       });
       const archive = rt.loadMrp(new Uint8Array(message.bytes));
       rt.start();

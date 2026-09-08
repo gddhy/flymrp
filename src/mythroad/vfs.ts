@@ -22,6 +22,7 @@ export class MythroadVfs {
   archive: MRPArchive | null = null;
   readExternal?: (name: string) => Uint8Array | null;
   existsExternal?: (name: string) => boolean;
+  onWrite?: (name: string, bytes: Uint8Array) => void;
   readonly ramNames: (string | null)[] = [];
   readonly ramData: (Uint8Array | null)[] = [];
   readonly fdOpen = new Uint8Array(MAX_FD + 1);
@@ -154,6 +155,7 @@ export class MythroadVfs {
     cur.set(bytes, pos);
     this.fdPos[fd] = need;
     this.fdSize[fd] = cur.length;
+    this.onWrite?.(name, cur);
     return bytes.length;
   }
 

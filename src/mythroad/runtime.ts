@@ -60,6 +60,8 @@ export type MythroadRuntimeOptions = {
   loadResourceFile?: (normalizedName: string) => Uint8Array | null;
   /** Explicit user uploads, installed into the writable virtual SD card. */
   userFiles?: Readonly<Record<string, Uint8Array>>;
+  /** Guest-created EFS writes. Host may persist these across sessions. */
+  onPersistFile?: (name: string, bytes: Uint8Array | null) => void;
   graphics?: GraphicsBackend;
   entry?: string;
   param?: string;
@@ -189,6 +191,8 @@ export class MythroadRuntime {
     for (const [name, bytes] of Object.entries(opts.userFiles ?? {})) this.setUserFile(name, bytes);
     for (const [name, bytes] of Object.entries(opts.resourceFiles ?? {})) this.resourceFiles.replace(name, bytes);
     for (const name of opts.resourceCatalog ?? []) this.resourceFiles.watch(name);
+    this.appFs.onPersist = opts.onPersistFile;
+    this.vfs.onWrite = (name, bytes) => this.appFs.replace(name, bytes, true);
     this.networkRules = opts.networkRules;
     this.onEditChange = opts.onEditChange;
     this.entry = opts.entry ?? "_dsm";

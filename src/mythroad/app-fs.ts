@@ -5,7 +5,7 @@
  *   - current-pack RDONLY alias (`CurrentPackFileBackend`)
  *   - MRP archive resource namespace (`MythroadVfs` / `MRPArchive`)
  *
- * Not IndexedDB. Not a host filesystem. Persistence is deferred.
+ * Host persistence is optional via `onPersist`; this object stays in-memory.
  */
 import { MR_FAILED, MR_IS_DIR, MR_IS_FILE, MR_SUCCESS } from "./constants.ts";
 
@@ -18,6 +18,7 @@ export class AppFileSystem {
   /** Cataloged remote paths. info()/list() see them; file() downloads once. */
   readonly remotes = new Set<string>();
   readMissing?: (normalizedName: string) => Uint8Array | null;
+  onPersist?: (normalizedName: string, bytes: Uint8Array | null) => void;
 
   normalize(name: string): string {
     // Handset EFS uses FAT-style case-insensitive filenames. Archive resource
@@ -92,6 +93,20 @@ export class AppFileSystem {
     const key = this.normalize(name);
     if (this.nodes.get(key)?.kind !== "file") return MR_FAILED;
     this.nodes.delete(key);
+    this.onPersist?.(key, null);
+    return MR_SUCCESS;
+  }
+
+  rename(from: string, to: string): number {
+    const source = this.normalize(from), target = this.normalize(to), node = this.nodes.get(source);
+    if (!source || !target || node?.kind !== "file" || this.nodes.get(target)?.kind === "dir") return MR_FAILED;
+    if (source === target) return MR_SUCCESS;
+    this.nodes.delete(source);
+    this.ensureParents(target);
+    this.nodes.set(target, node);
+    this.remotes.delete(target);
+    this.onPersist?.(source, null);
+    this.onPersist?.(target, node.bytes);
     return MR_SUCCESS;
   }
 
@@ -121,10 +136,11 @@ export class AppFileSystem {
     return bytes;
   }
 
-  replace(name: string, bytes: Uint8Array): void {
+  replace(name: string, bytes: Uint8Array, persist = false): void {
     const key = this.normalize(name);
     if (!key) return;
     this.nodes.set(key, { kind: "file", bytes });
+    if (persist) this.onPersist?.(key, bytes);
   }
 
   private ensureParents(key: string): void {

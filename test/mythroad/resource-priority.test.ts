@@ -2,7 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { MythroadRuntime } from '../../src/mythroad/runtime.ts';
 import { ExtRuntime } from '../../src/abi/runtime.ts';
 import { buildMrp } from '../../src/mrp/index.ts';
-import { MR_IS_DIR, MR_IS_FILE } from '../../src/mythroad/constants.ts';
+import { MR_FILE_CREATE, MR_FILE_RDWR, MR_IS_DIR, MR_IS_FILE } from '../../src/mythroad/constants.ts';
 
 it('keeps download caches out of installation checks and deferred game unpacking', () => {
   const shared=new Uint8Array([1]), stale=new Uint8Array([9]), missing=new Uint8Array([3]);
@@ -49,6 +49,18 @@ it('lists cataloged system files without downloading, then loads bytes on the fi
   expect(rt.appFs.file('c:/mythroad/plugins/NETPAY.MRP')).toEqual(new Uint8Array([9, 8]));
   expect(rt.appFs.file('plugins/netpay.mrp')).toEqual(new Uint8Array([9, 8]));
   expect(loads).toEqual(['plugins/netpay.mrp']);
+});
+
+it('reports guest EFS writes and deletes for the host to persist', () => {
+  const seen: [string, number[] | null][] = [];
+  const rt = new MythroadRuntime({
+    onPersistFile: (name, bytes) => seen.push([name, bytes ? [...bytes] : null]),
+  });
+  rt.appFs.replace('game.sav', new Uint8Array([1, 2]), true);
+  const fd = rt.vfs.open('lua.sav', MR_FILE_RDWR | MR_FILE_CREATE);
+  rt.vfs.write(fd, new Uint8Array([9, 8]));
+  rt.appFs.remove('game.sav');
+  expect(seen).toEqual([['game.sav', [1, 2]], ['lua.sav', [9, 8]], ['game.sav', null]]);
 });
 
 it('fetches download resources only when the offline hook reads them', () => {

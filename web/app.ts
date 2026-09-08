@@ -1,5 +1,5 @@
 import { setupSdPanel } from './sd-panel.ts';
-import { listSdFiles, readSdFile } from './sd-card.ts';
+import { listSdFiles, readSdFile, removeSdFile, saveSdFile } from './sd-card.ts';
 import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
 import { MRPArchive } from "../src/mrp/index.ts";
 import { PlayerClient } from "./player-client.ts";
@@ -43,7 +43,28 @@ midiPlayer.addEventListener("change", () => {
 type Session = { rt: PlayerClient; raf: number; last: number; title: string; nextHud: number };
 let session: Session | null = null;
 let loadingRuntime: PlayerClient | null = null;
-setupSdPanel((path, bytes) => (session?.rt ?? loadingRuntime)?.setUserFile(path, bytes));
+const sdPanel = setupSdPanel((path, bytes) => (session?.rt ?? loadingRuntime)?.setUserFile(path, bytes));
+const pendingEfs = new Map<string, Uint8Array | null>();
+let efsTimer = 0;
+async function flushEfs(): Promise<void> {
+  const batch = [...pendingEfs]; pendingEfs.clear();
+  if (!batch.length) return;
+  for (const [path, bytes] of batch) {
+    try {
+      if (bytes) await saveSdFile({ path, bytes, modified: Date.now() });
+      else await removeSdFile(path);
+    } catch { /* storage is optional */ }
+  }
+  void sdPanel.refresh();
+}
+function persistEfs(path: string, bytes: Uint8Array | null): void {
+  if (!isSafeAssetPath(path)) return;
+  pendingEfs.set(path, bytes);
+  clearTimeout(efsTimer);
+  efsTimer = window.setTimeout(() => { void flushEfs(); }, 200);
+}
+window.addEventListener('pagehide', () => { void flushEfs(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) void flushEfs(); });
 let generation = 0;
 let fontPromise: Promise<void> | null = null;
 const systemFiles: Record<string, Uint8Array> = {};
@@ -55,6 +76,7 @@ function setStatus(text: string, err = false): void {
   statusEl.classList.toggle("err", err);
 }
 function stop(keepStatus = false): void {
+  void flushEfs();
   generation++;
   if (editorDialog.open) editorDialog.close();
   editingRuntime = null;
@@ -179,8 +201,10 @@ async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<vo
       editorText.maxLength = state.maxLength; editorText.value = state.text;
       if (!editorDialog.open) editorDialog.showModal(); editorText.focus();
     }, sound: (type, data, loop, positionMs) => audio.play(type, data, loop, positionMs), soundStop: type => audio.stop(type),
+      persist: persistEfs,
       error: error => { if (token === generation) fail(error, rt); } });
     loadingRuntime = rt;
+    await flushEfs();
     const userFiles = Object.fromEntries((await listSdFiles().catch(() => [])).map(file => [file.path, file.bytes]));
     if (token !== generation) return;
     const guestTitle = await rt.start({ type: 'start', bytes: buffer, files: { ...systemFiles }, userFiles, profile, fileSource });

@@ -41,6 +41,19 @@ it('terminates loading immediately and ignores stale frames and errors after rep
   worker.emit({ type: 'error', message: 'old guest', exited: false });
   expect(worker.terminated).toBe(true); expect(draw).not.toHaveBeenCalled(); expect(hooks.error).not.toHaveBeenCalled();
 });
+it('keeps guest file writes after the player has been stopped', () => {
+  const persist = vi.fn();
+  vi.stubGlobal('Worker', WorkerDouble);
+  const canvas = { width: 240, height: 320, getContext: () => ({
+    createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: vi.fn(),
+  }) };
+  const player = new PlayerClient(canvas as unknown as HTMLCanvasElement, {
+    edit: vi.fn(), sound: vi.fn(), soundStop: vi.fn(), error: vi.fn(), persist,
+  });
+  player.stop();
+  WorkerDouble.latest.emit({ type: 'efs-file', path: 'game.sav', bytes: new Uint8Array([4, 5]) });
+  expect(persist).toHaveBeenCalledWith('game.sav', new Uint8Array([4, 5]));
+});
 it('renders transferred LCD pixels and handles resolution changes and editor messages', () => {
   const { player, worker, canvas, draw, hooks } = fixture();
   worker.emit({ type: 'frame', width: 2, height: 1, pixels: new Uint16Array([0xf800, 0x07e0]) });
