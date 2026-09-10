@@ -54,4 +54,5 @@ log "资源目录：$MRP_RESOURCE_DIR"
 
 # ---------- 3. 安装依赖并生成静态产物（build.sh 内含 npm ci / 清单生成 / 类型检查 / 构建） ----------
 log '开始构建：bash ./build.sh'
+chmod +x ./build.sh
 exec ./build.sh
