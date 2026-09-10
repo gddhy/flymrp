@@ -10,6 +10,7 @@
     "test:games": "tsx tools/real/batch-test.ts",
     "test:coarse": "tsx tools/real/coarse-all.ts",
     "build": "vite build --config web/vite.config.ts && tsx tools/check-dist.ts",
+    "games:generate": "tsx tools/generate-classic-games.ts",
     "build:kaios": "vite build --config web/vite.kaios.ts && tsx tools/kaios-package.ts",
     "bench": "tsx bench/run.ts",
     "inspect": "tsx tools/real/inspect.ts",

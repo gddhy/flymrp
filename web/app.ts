@@ -11,6 +11,7 @@ import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 import { assetUrl, catalogHref, readGame, readLibrary } from "./library.ts";
+import { registerServiceWorker } from "./pwa.ts";
 import { readPref, rotatedDirection, rotatedTilt, screenPoint } from "./player-options.ts";
 import { PRELOAD_SYSTEM_FILES, isSafeAssetPath, type PlayerFileSource } from "./remote-files.ts";
 
@@ -598,6 +599,10 @@ document.querySelector('#screenshot')!.addEventListener('click', () => {
 });
 document.querySelector('#back')!.addEventListener('click', () => goLibrary());
 window.addEventListener('pagehide', () => stop(true));
+// PWA：播放器页同样注册 Service Worker（离线可用、触发版本更新检查）。
+// 采用 "quiet" 策略：新版本激活时不自动刷新，避免打断正在运行的游戏；
+// 返回目录页时由目录页的 reload 行为完成刷新。
+registerServiceWorker("quiet");
 if (localPath) void (async () => {
   try {
     const file = await readSdFile(localPath);
@@ -609,3 +614,4 @@ else if (selectedName) void (async () => {
   try { const game = (await readLibrary()).find(game => game.name === selectedName); if (!game) throw new Error('游戏不在精选清单中，请从游戏库选择或打开本地文件。'); await start(game.name, () => readGame(game)); }
   catch (error) { fail(error); }
 })();
+
