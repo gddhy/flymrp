@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "由 tools/generate-classic-games.ts 自动生成：扫描 C:\\Users\\WDAGUtilityAccount\\Desktop\\flymrp\\mrpfile，共 1 个游戏（标题取自 MRP 包内 appname，mythroad/mythroad_res 系统组件已排除）。",
+  "description": "由 tools/generate-classic-games.ts 自动生成：扫描 C:\\Users\\Administrator\\Downloads\\flymrp-main\\flymrp-main\\mrpfile，共 1 个游戏（标题取自 MRP 包内 appname，mythroad/mythroad_res 系统组件已排除）。",
   "games": [
     {
       "path": "白跑分.mrp",

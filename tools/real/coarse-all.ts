@@ -33,7 +33,9 @@ type Result = {
 const args = process.argv.slice(2);
 const worker = args[0] === "--worker";
 const poolWorker = args[0] === "--pool-worker";
-const root = resolve(worker ? args[1]! : poolWorker ? args[1]! : args[0] ?? process.env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结");
+const rootArg = worker ? args[1]! : poolWorker ? args[1]! : args[0] ?? process.env.MRP_GAME_DIR;
+if (!rootArg) { console.error("错误：请传入游戏目录参数或设置 MRP_GAME_DIR 环境变量。"); process.exit(1); }
+const root = resolve(rootArg);
 const output = resolve(worker ? args[2]! : poolWorker ? args[2]! : args[1] ?? "artifacts/coarse-all");
 const gameRoot = resolve(worker ? args[3]! : poolWorker ? args[3]! : root);
 const concurrency = Math.max(1, Number(process.env.MRP_COARSE_CONCURRENCY ?? 8) || 8);

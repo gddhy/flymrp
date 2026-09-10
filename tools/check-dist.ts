@@ -4,7 +4,14 @@ import classics from "../config/classic-games.json";
 import { fileSha256, listMrpFiles, type PublishedGame } from "./static-files.ts";
 
 const output = resolve("dist");
-const games: PublishedGame[] = JSON.parse(await readFile(join(output, "games/index.json"), "utf8"));
+let games: PublishedGame[] = [];
+try {
+  games = JSON.parse(await readFile(join(output, "games/index.json"), "utf8"));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  console.log("未发布游戏库（未设置 MRP_GAME_DIR）：跳过游戏校验，仅校验应用壳。");
+}
+if (games.length) {
 const files = await listMrpFiles(join(output, "games"));
 if (games.length !== classics.games.length || files.length !== classics.games.length) throw new Error(`发布目录必须恰好包含 ${classics.games.length} 个精选游戏（当前 ${games.length} 个，目录文件 ${files.length} 个），不能残留旧游戏。`);
 for (const [index, expected] of classics.games.entries()) {
@@ -12,6 +19,7 @@ for (const [index, expected] of classics.games.entries()) {
   if (!game || game.name !== expected.path || game.sha256 !== expected.sha256 ||
       await fileSha256(join(output, "games", expected.path)) !== expected.sha256)
     throw new Error(`发布游戏与精选清单不一致：${expected.path}`);
+}
 }
 let bytes = 0;
 async function measure(dir: string): Promise<void> {

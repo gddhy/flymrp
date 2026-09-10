@@ -3,7 +3,9 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { MRPArchive } from "../../src/mrp/archive.ts";
 
-const root = resolve(process.argv[2] ?? "/Users/zixing/Downloads/mrp游戏大集结");
+const dirArg = process.argv[2] ?? process.env.MRP_GAME_DIR;
+if (!dirArg) { console.error("错误：请传入游戏目录参数或设置 MRP_GAME_DIR 环境变量。"); process.exit(1); }
+const root = resolve(dirArg);
 const output = process.argv[3] ?? "docs/compatibility/collection-100.json";
 const categories = ["大屏动作格斗", "大屏棋牌休闲", "大屏策略角色", "大屏运动赛车", "大屏飞行射击"];
 function walk(dir: string): string[] {

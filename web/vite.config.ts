@@ -10,7 +10,7 @@ import { pwaBuild } from "./pwa-build.ts";
 const root = dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode, command }) => {
   const env = { ...loadEnv(mode, resolve(root, ".."), "MRP_"), ...process.env };
-  const gameDir = env.MRP_GAME_DIR ?? (command === "build" ? "/Users/zixing/Downloads/mrp游戏大集结" : undefined);
+  const gameDir = env.MRP_GAME_DIR || undefined;
   const systemDir = env.MRP_SYSTEM_DIR ?? (gameDir ? resolve(gameDir, "mythroad") : undefined);
   const resourceDir = env.MRP_RESOURCE_DIR ?? (gameDir ? resolve(gameDir, "mythroad_res") : undefined);
   return {

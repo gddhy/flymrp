@@ -14,7 +14,9 @@ import { FrameCapture } from "./frame-capture.ts";
 
 // Startup check only. A visible startup frame is not proof of gameplay or controls.
 const args = process.argv.slice(2), worker = args[0] === "--worker";
-const root = resolve(process.env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结");
+const envDir = process.env.MRP_GAME_DIR;
+if (!envDir) { console.error("错误：请设置 MRP_GAME_DIR 环境变量指定游戏目录。"); process.exit(1); }
+const root = resolve(envDir);
 if (worker) {
   const path = resolve(args[1]), profile = inferScreenSize(path);
   let phase = "load", error: string | null = null, rt: MythroadRuntime | undefined;

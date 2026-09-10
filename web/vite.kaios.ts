@@ -7,7 +7,7 @@ import kaiosGames from "../config/kaios-games.json";
 const root = dirname(fileURLToPath(import.meta.url));
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, resolve(root, ".."), "MRP_"), ...process.env };
-  const gameDir = env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结";
+  const gameDir = env.MRP_GAME_DIR || undefined;
   return {
     root,
     base: "./",

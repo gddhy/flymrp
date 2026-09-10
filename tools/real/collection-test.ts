@@ -24,7 +24,9 @@ const allGames: Game[] = manifest.games ? manifest.games.map((game: Game, index:
 const scenarios: Record<string, Scenario> = existsSync(scenarioPath) ? JSON.parse(readFileSync(scenarioPath,"utf8")) : {};
 const hash = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const args = process.argv.slice(2), worker = args[0] === "--worker";
-const root = resolve(worker ? args[2] : args[0] ?? process.env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结");
+const rootArg = worker ? args[2] : args[0] ?? process.env.MRP_GAME_DIR;
+if (!rootArg) { console.error("错误：请传入游戏目录参数或设置 MRP_GAME_DIR 环境变量。"); process.exit(1); }
+const root = resolve(rootArg);
 const localSystemDirectory = process.env.MRP_SYSTEM_DIR ?? join(root, "mythroad");
 const output = resolve(worker ? args[3] : args[1] ?? "artifacts/collection-current");
 mkdirSync(output,{recursive:true});

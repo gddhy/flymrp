@@ -11,7 +11,7 @@ import { binToBytes, MRPArchive } from "../src/mrp/archive.ts";
  * 写出与文件一一对应的精选清单，供构建流程校验与发布。
  *
  * 用法：
- *   MRP_GAME_DIR="C:/Users/Administrator/Downloads/mrp" npm run games:generate
+ *   MRP_GAME_DIR="/path/to/mrp-games" npm run games:generate
  *   （build.sh 已自动调用，无需手动执行）
  *
  * 规则：
@@ -74,7 +74,7 @@ function readAppTitle(bytes: Uint8Array, fallback: string): string {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gameDir = process.env.MRP_GAME_DIR ?? process.argv[2];
 if (!gameDir) {
-  console.error("错误：请设置 MRP_GAME_DIR 环境变量指定游戏目录（例如 C:\\Users\\Administrator\\Downloads\\mrp）。");
+  console.error("错误：请设置 MRP_GAME_DIR 环境变量指定游戏目录（例如 C:\\path\\to\\mrp-games）。");
   process.exit(1);
 }
 
