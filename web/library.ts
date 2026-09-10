@@ -37,8 +37,7 @@ export function catalogHref(base: string): string {
 }
 export async function readLibrary(): Promise<Game[]> {
   const response = await fetch(import.meta.env.PROD ? assetUrl('games/index.json') : '/__games', { cache: 'no-cache' });
-  // 未发布游戏库（未设置 MRP_GAME_DIR 的构建）时返回空列表，页面降级为"打开本地 MRP"。
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error('无法读取精选游戏库，请刷新重试。');
   return response.json();
 }
 export async function readGame(game: Game): Promise<ArrayBuffer> {

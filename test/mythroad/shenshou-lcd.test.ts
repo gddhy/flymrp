@@ -7,9 +7,7 @@ import { loadGb16Uc2, MythroadRuntime } from "../../src/mythroad/index.ts";
 import { SYSTEM_COMPONENTS } from "../../src/mythroad/system-components.ts";
 import { FrameCapture } from "../../tools/real/frame-capture.ts";
 
-const gameDir = process.env.MRP_GAME_DIR;
-if (!gameDir) throw new Error("此测试需要 MRP_GAME_DIR 环境变量指向游戏目录。");
-const GAME = join(gameDir, "mrpoid2在线商城所有游戏/神兽传说.mrp");
+const GAME = join(process.env.MRP_GAME_DIR ?? "/Users/zixing/Downloads/mrp游戏大集结", "mrpoid2在线商城所有游戏/神兽传说.mrp");
 const ROOT = resolve(import.meta.dirname, "../..");
 
 function png(width: number, height: number, pixels: Uint16Array): Buffer {

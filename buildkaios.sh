@@ -4,7 +4,7 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 command -v node >/dev/null || { echo '请先安装 Node.js 20 或更新版本。' >&2; exit 1; }
 node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || { echo '需要 Node.js 20 或更新版本。' >&2; exit 1; }
-export MRP_GAME_DIR="${MRP_GAME_DIR:-./mrpfile}"
+export MRP_GAME_DIR="${MRP_GAME_DIR:-/Users/zixing/Downloads/mrp游戏大集结}"
 [[ -d "$MRP_GAME_DIR" ]] || { echo "找不到游戏目录：$MRP_GAME_DIR，请设置 MRP_GAME_DIR。" >&2; exit 1; }
 MRP_GAME_DIR="$(cd -- "$MRP_GAME_DIR" && pwd -P)"
 export MRP_GAME_DIR
