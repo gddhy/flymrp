@@ -47,6 +47,17 @@ export function pwaBuild(): Plugin {
           start_url: "./",
           scope: "./",
           display: "standalone",
+          launch_handler: { client_mode: "navigate-new" },
+          file_handlers: [
+            {
+              action: "./main.html",
+              accept: {
+                "application/x-mrp": [".mrp"],
+                "application/vnd.mrp": [".mrp"],
+                "application/octet-stream": [".mrp"],
+              },
+            },
+          ],
           orientation: "any",
           background_color: "#131420",
           theme_color: "#131420",

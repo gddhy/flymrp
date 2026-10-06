@@ -314,6 +314,21 @@ fileInput.addEventListener("change", () => {
   fileInput.value = ""; // Same game can be selected again after failure or exit.
   if (file) void start(file.name, () => file.arrayBuffer());
 });
+// PWA File Handling API：系统“打开方式”/双击 .mrp 文件启动时，launchQueue 会把
+// 文件句柄交给这里，与页面内“打开 MRP 文件”走同一条运行路径。
+// navigate-new 模式下若已有模拟器窗口，系统会新开一个页面，不打断进行中的游戏。
+interface LaunchParamsLike { files?: FileSystemFileHandle[] }
+interface LaunchQueueLike { setConsumer(consumer: (params: LaunchParamsLike) => void): void }
+if ("launchQueue" in window) {
+  (window as unknown as { launchQueue: LaunchQueueLike }).launchQueue.setConsumer(async params => {
+    const handle = params.files?.[0];
+    if (!handle) return;
+    try {
+      const file = await handle.getFile();
+      void start(file.name, () => file.arrayBuffer());
+    } catch { /* 未授权读取该文件时静默降级，保留空画面提示 */ }
+  });
+}
 pauseBtn.addEventListener("click", () => {
   if (!session) return;
   releaseAll();
