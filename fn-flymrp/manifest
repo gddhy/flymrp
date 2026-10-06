@@ -1,0 +1,17 @@
+appname               = flymrp
+version               = 1.0.0
+display_name          = flymrp
+desc                  = 经典 MRP 游戏模拟器：直接运行本机或飞牛 NAS 中的 MRP 文件
+platform              = all
+source                = thirdparty
+maintainer            = zixing
+maintainer_url        = https://github.com/zixing131/flymrp
+distributor           = gddhy
+distributor_url       = https://gddhy.net/
+desktop_uidir         = ui
+desktop_applaunchname = flymrp.Application
+micro_app             = true
+install_dep_apps      = nodejs_v22
+checkport             = false
+os_min_version        = 1.2.0401
+ctl_stop              = true

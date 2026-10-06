@@ -150,3 +150,9 @@ vite.config.ts.timestamp-*
 
 # Local game regression captures
 artifacts/
+
+# fnOS app build artifacts & tool
+fnpack.exe
+*.fpk
+fn-flymrp/app/www/
+fn-flymrp/app/server/node_modules/

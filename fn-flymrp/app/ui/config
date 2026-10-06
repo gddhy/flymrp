@@ -1,0 +1,26 @@
+{
+    ".url": {
+        "flymrp.Application": {
+            "title": "flymrp",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "gatewayPrefix": "/app/flymrp",
+            "gatewaySocket": "app.sock",
+            "url": "/app/flymrp",
+            "allUsers": true
+        },
+        "flymrp.OpenFile": {
+            "title": "flymrp",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "gatewayPrefix": "/app/flymrp",
+            "gatewaySocket": "app.sock",
+            "url": "/app/flymrp",
+            "allUsers": true,
+            "fileTypes": ["mrp"],
+            "noDisplay": true
+        }
+    }
+}

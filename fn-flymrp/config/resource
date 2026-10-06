@@ -1,0 +1,13 @@
+{
+  "api-scope": ["trim.file.userAccess"],
+  "data-share": {
+    "shares": [
+      {
+        "name": "flymrp"
+      },
+      {
+        "name": "flymrp/data"
+      }
+    ]
+  }
+}

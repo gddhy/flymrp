@@ -1,0 +1,9 @@
+#!/bin/bash
+
+### This script is called before the user installs the application.
+
+# 清理旧版本残留：防止升级时旧 app.sock 导致 EADDRINUSE、旧 app.pid 误判状态
+pkill -f "/var/apps/flymrp/server/server.js" >/dev/null 2>&1
+rm -f "/var/apps/flymrp/app.sock" 2>/dev/null
+
+exit 0
