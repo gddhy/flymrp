@@ -25,10 +25,13 @@ export function copyLcdDirtyRect(
   w: number,
   h: number,
 ): void {
-  const x0 = Math.max(0, x | 0);
-  const y0 = Math.max(0, y | 0);
-  const x1 = Math.min(lcdWidth, srcWidth, x0 + Math.max(0, w | 0));
-  const y1 = Math.min(lcdHeight, srcHeight, y0 + Math.max(0, h | 0));
+  const left = x | 0, top = y | 0;
+  const x0 = Math.max(0, left);
+  const y0 = Math.max(0, top);
+  // Clip both endpoints of the original rectangle. Moving a negative origin
+  // before adding its size would present pixels outside the requested area.
+  const x1 = Math.min(lcdWidth, srcWidth, left + Math.max(0, w | 0));
+  const y1 = Math.min(lcdHeight, srcHeight, top + Math.max(0, h | 0));
   if (x1 <= x0 || y1 <= y0) return;
   if (
     x0 === 0 && y0 === 0 && x1 === lcdWidth && y1 === lcdHeight &&
@@ -76,6 +79,21 @@ export class ScreenBuffer {
     pixels?: Uint16Array,
   ) {
     this.pixels = pixels ?? new Uint16Array(width * height);
+  }
+
+  /** SDK _mr_EffSetCon: signed int16 rectangle/gains, RGB565 scaled by 256. */
+  effSetCon(x: number, y: number, w: number, h: number, perr: number, perg: number, perb: number): void {
+    x = asI16(x); y = asI16(y); w = asI16(w); h = asI16(h);
+    perr = asI16(perr); perg = asI16(perg); perb = asI16(perb);
+    const maxX = Math.min(this.width, x + w), maxY = Math.min(this.height, y + h);
+    for (let dy = Math.max(0, y); dy < maxY; dy++) {
+      for (let dx = Math.max(0, x); dx < maxX; dx++) {
+        const offset = dy * this.width + dx, old = this.pixels[offset];
+        this.pixels[offset] = (((Math.imul(old & 0xf800, perr) >>> 8) & 0xf800) |
+          ((Math.imul(old & 0x07e0, perg) >>> 8) & 0x07e0) |
+          ((Math.imul(old & 0x001f, perb) >>> 8) & 0x001f));
+      }
+    }
   }
 
   /**

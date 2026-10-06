@@ -1,3 +1,4 @@
+import { fetchFileBytes } from './chunk-download.ts';
 import './kaios-polyfill.ts';
 import { fileBaseName, listSdFiles, readBlobBytes, removeSdFile, saveSdFile, sdPath, type SdFile } from './sd-card.ts';
 import { gameTitle, installedGamesFromSd, isMrpFilename, playerHref, readLibrary, type Game } from './library.ts';
@@ -13,6 +14,9 @@ const count = document.querySelector<HTMLElement>('#library-count')!;
 const categories = document.querySelector<HTMLElement>('#categories')!;
 const localFile = document.querySelector<HTMLInputElement>('#local-file')!;
 const configFile = document.querySelector<HTMLInputElement>('#config-file')!;
+const sdUploadFiles = document.querySelector<HTMLInputElement>('#sd-upload-files')!;
+const sdUploadDirectory = document.querySelector<HTMLInputElement>('#sd-upload-directory')!;
+const sdUploadStatus = document.querySelector<HTMLElement>('#sd-upload-status')!;
 const empty = document.querySelector<HTMLElement>('#empty')!;
 const fab = document.querySelector<HTMLButtonElement>('#fab')!;
 const overlay = document.querySelector<HTMLElement>('#actionSheetOverlay')!;
@@ -58,13 +62,15 @@ let focusedName = '';
 let selected: Game | undefined;
 let sheetGame: Game | undefined;
 const kaios = applyKaiOS();
-const prefIds = ['resolution', 'zoom', 'midi-player', 'rotation', 'speed', 'keypad-side', 'show-fps'] as const;
+const prefIds = ['resolution', 'zoom', 'midi-player', 'rotation', 'speed', 'heap-size', 'word-load-mode', 'keypad-side', 'show-fps'] as const;
 const gamePrefMap = [
   ['resolution', 'dsResolution', 'gsResolution'],
   ['zoom', 'dsZoom', 'gsZoom'],
   ['midi-player', 'dsMidi', 'gsMidi'],
   ['rotation', 'dsRotation', 'gsRotation'],
   ['speed', 'dsSpeed', 'gsSpeed'],
+  ['heap-size', 'dsHeap', 'gsHeap'],
+  ['word-load-mode', 'dsWordLoad', 'gsWordLoad'],
   ['keypad-side', 'dsKeypad', 'gsKeypad'],
 ] as const;
 
@@ -459,7 +465,7 @@ function dlState(app: StoreApp): StoreDl {
 
 function runStoreApp(app: StoreApp): void {
   const path = storeSdPath(app);
-  const game: Game = { id: app.id, name: path, title: app.label, category: STORE_CATEGORY, size: app.len || undefined, local: true };
+  const game: Game = { id: app.id, name: path, title: app.label, category: STORE_CATEGORY, size: app.len || undefined, local: true, resolution: app.scr };
   location.assign(playerHref(game));
 }
 
@@ -480,39 +486,16 @@ async function startStoreDownload(app: StoreApp, force = false): Promise<void> {
   state.error = '';
   paintStore(app);
   try {
-    const response = await fetch(app.downUrl, { cache: 'no-cache' });
-    if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
-    const length = Number(response.headers.get('content-length'));
-    if (Number.isFinite(length) && length > 0) state.total = length;
-    let bytes: Uint8Array;
-    const body = response.body as ReadableStream<Uint8Array> | null;
-    const reader = body && typeof body.getReader === 'function' ? body.getReader() : null;
-    if (reader) {
-      const parts: Uint8Array[] = [];
-      let got = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value && value.length) { parts.push(value); got += value.length; state.received = got; maybePaintStore(app); }
-      }
-      if (got > 128 * 1024 * 1024) throw new Error('文件过大（超过 128 MB），暂不支持在线运行');
-      const out = new Uint8Array(got);
-      let offset = 0;
-      for (const part of parts) { out.set(part, offset); offset += part.length; }
-      bytes = out;
-    } else {
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > 128 * 1024 * 1024) throw new Error('文件过大（超过 128 MB），暂不支持在线运行');
-      bytes = new Uint8Array(buffer);
-      state.received = bytes.length;
-    }
+    const bytes = await fetchFileBytes(app.downUrl, (received, total) => {
+      state.received = received; if (total > 0) state.total = total; maybePaintStore(app);
+    });
     if (!bytes.length) throw new Error('下载的文件是空的');
     state.status = 'saving';
     state.received = bytes.length;
     state.total = bytes.length;
     paintStore(app);
     const path = storeSdPath(app);
-    await saveSdFile({ path, bytes, modified: Date.now() });
+    await saveSdFile({ path, bytes, modified: Date.now(), resolution: app.scr });
     installedStore.add(path);
     state.status = 'done';
     paintStore(app);
@@ -604,6 +587,35 @@ function uiButton(label: string, primary: boolean, onClick: () => void): HTMLBut
   return btn;
 }
 
+let storeSettingsId = 0;
+/** Use the existing per-game controls and the same saved-file key as the player. */
+function buildStoreSettings(app: StoreApp): HTMLElement {
+  const section = document.createElement('section');
+  const heading = document.createElement('div');
+  heading.className = 'detail-settings-title';
+  heading.textContent = '独立运行设置';
+  const hint = document.createElement('p');
+  hint.className = 'store-ui-meta';
+  hint.textContent = '仅对当前游戏生效，未单独设置的选项使用全局设置。更改后自动保存。';
+  const form = document.querySelector<HTMLElement>('#detailSettingsForm')!.cloneNode(true) as HTMLElement;
+  const path = storeSdPath(app);
+  const controls = gamePrefMap.map(([name, id]) => ({ name, select: form.querySelector<HTMLSelectElement>(`#${id}`)! }));
+  const reset = form.querySelector<HTMLButtonElement>('#dsReset')!;
+  const save = form.querySelector<HTMLButtonElement>('#dsSave')!;
+  const prefix = `store-settings-${++storeSettingsId}-`;
+  // Desktop and mobile can coexist; labels must address their own controls.
+  for (const el of [form, ...Array.from(form.querySelectorAll<HTMLElement>('[id]'))]) el.id = prefix + el.id;
+  for (const label of Array.from(form.querySelectorAll<HTMLLabelElement>('label[for]'))) label.htmlFor = prefix + label.htmlFor;
+  const fill = () => { for (const { name, select } of controls) select.value = readGamePref(path, name); };
+  const persist = () => { for (const { name, select } of controls) writePref(name, select.value, path); };
+  for (const { name, select } of controls) select.addEventListener('change', () => writePref(name, select.value, path));
+  save.addEventListener('click', persist);
+  reset.addEventListener('click', () => { clearGamePrefs(path); fill(); });
+  fill();
+  section.append(heading, hint, form);
+  return section;
+}
+
 function buildStoreUi(app: StoreApp): HTMLElement {
   const state = dlState(app);
   const root = document.createElement('div');
@@ -674,6 +686,7 @@ function buildStoreUi(app: StoreApp): HTMLElement {
   // downloading / saving 期间不展示按钮，避免重复下载
 
   root.append(head, desc, progress, status, actions);
+  if (state.status === 'done' || installedStore.has(storeSdPath(app))) root.append(buildStoreSettings(app));
   return root;
 }
 
@@ -917,7 +930,7 @@ function switchTab(tabName: string): void {
   document.querySelector('#desktopDetail')!.classList.toggle('hidden', hideDetail);
   document.querySelector('#topAppBar')!.classList.toggle('no-detail', hideDetail);
   document.querySelector('.page-layout')!.classList.toggle('no-detail', hideDetail);
-  window.scrollTo({ top: 0 });
+  window.scrollTo(0, 0);
 }
 
 function onPickedFile(input: HTMLInputElement): void {
@@ -928,10 +941,36 @@ function onPickedFile(input: HTMLInputElement): void {
   void installMrp(file, file.name).catch(failInstall).then(() => { input.disabled = false; });
 }
 
+async function uploadFilesToSd(input: HTMLInputElement): Promise<void> {
+  const files = Array.from(input.files ?? []);
+  input.value = '';
+  if (!files.length) return;
+  input.disabled = true;
+  let saved = 0;
+  const directory = sdUploadDirectory.value.trim();
+  try {
+    for (const file of files) {
+      const path = sdPath(directory, file.name);
+      const bytes = await readBlobBytes(file);
+      await saveSdFile({ path, bytes, modified: file.lastModified || Date.now() });
+      saved++;
+    }
+    const target = directory || '根目录';
+    sdUploadStatus.textContent = `已上传 ${saved} 个文件到 ${target}；目标目录不存在时已自动创建。`;
+    if (files.some(file => isMrpFilename(file.name) && sdPath(directory, file.name).startsWith('games/'))) void load();
+  } catch (error) {
+    sdUploadStatus.textContent = `已上传 ${saved} 个文件，其余上传失败：${errorText(error)}`;
+  } finally {
+    input.disabled = false;
+  }
+}
+
 search.addEventListener('input', render);
 document.querySelector('#refresh-library')!.addEventListener('click', () => { void load(); });
 document.querySelector('#choose-local')!.addEventListener('click', pickLocalMrp);
 document.querySelector('#open-player')!.addEventListener('click', () => { location.assign('./main.html'); });
+document.querySelector('#choose-sd-files')!.addEventListener('click', () => { sdUploadFiles.value = ''; sdUploadFiles.click(); });
+sdUploadFiles.addEventListener('change', () => { void uploadFilesToSd(sdUploadFiles); });
 document.querySelector('#export-config')!.addEventListener('click', exportConfig);
 document.querySelector('#import-config')!.addEventListener('click', () => { configFile.value = ''; configFile.click(); });
 configFile.addEventListener('change', event => {

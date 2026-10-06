@@ -1,6 +1,6 @@
 import { MRPArchive } from "../../src/mrp/index.ts";
 import { EV_KEY } from "../../src/mythroad/events.ts";
-import { MR_MOUSE_DOWN, MR_MOUSE_UP } from "../../src/mythroad/constants.ts";
+import { MR_MOUSE_DOWN, MR_MOUSE_UP, MR_MOUSE_MOVE } from "../../src/mythroad/constants.ts";
 import { loadGameResourceFiles, loadLocalSystemFiles, systemFileHashes } from "../local-system-files.ts";
 import { SYSTEM_COMPONENTS } from "../../src/mythroad/system-components.ts";
 import { createHash } from "node:crypto";
@@ -15,10 +15,13 @@ import { FrameCapture } from "./frame-capture.ts";
 import { inferScreenSize } from "../../src/mythroad/device-size.ts";
 
 type Game = { id: number; path: string; sha256: string; required?: boolean };
-type Action = ({ key: string } | { tap: [number, number] }) & { hold?: number; wait?: number };
-type Scenario = { tickMs?: number; entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
+type Action = (({ key: string } | { tap: [number, number] } | { swipe: [[number, number], [number, number]] }) & { hold?: number; wait?: number }) | { idle: number };
+type Scenario = { profile?: Partial<import("../../src/mythroad/profile.ts").DeviceProfile>; clock?: "deterministic" | "monotonic"; tickMs?: number; entry?: Action[]; controls?: Action[]; bootTicks?: number; tailTicks?: number; gameplaySha256?: string[]; controlSha256?: string[]; reviewNote?: string };
 const manifestPath = resolve(process.env.MRP_TEST_MANIFEST ?? "docs/compatibility/collection-100.json");
 const scenarioPath = resolve(process.env.MRP_TEST_SCENARIOS ?? "docs/compatibility/scenarios.json");
+const verificationMode = process.env.MRP_TEST_MODE ?? "functional";
+if (verificationMode !== "functional" && verificationMode !== "entry") throw new Error("MRP_TEST_MODE must be functional or entry");
+const entryOnly = verificationMode === "entry";
 const manifest = JSON.parse(readFileSync(manifestPath,"utf8"));
 const allGames: Game[] = manifest.games ? manifest.games.map((game: Game, index: number) => ({ ...game, id: index + 1 })) : [...manifest.requiredGames,...manifest.selected];
 const scenarios: Record<string, Scenario> = existsSync(scenarioPath) ? JSON.parse(readFileSync(scenarioPath,"utf8")) : {};
@@ -45,18 +48,24 @@ if(worker) {
   const game=allGames.find(g=>g.id===Number(args[1])); if(!game) throw new Error("unknown manifest id");
   const path=join(root,game.path),bytes=readFileSync(path);
   if(hash(bytes)!==game.sha256) throw new Error("game content differs from frozen manifest");
-  const scenario=scenarios[String(game.id)]??{},profile=inferScreenSize(game.path);
+  const scenario=scenarios[String(game.id)]??{},profile={...inferScreenSize(game.path),...scenario.profile};
   loadGb16Uc2(readFileSync("assets/system/gb16.uc2"));
   const resourceFiles = await loadGameResourceFiles(process.env.MRP_RESOURCE_DIR ?? join(root, "mythroad_res"), MRPArchive.parse(bytes).header.filename);
   const systemFiles = { ...Object.fromEntries(SYSTEM_COMPONENTS.map(name => [name, readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(process.env.MRP_TEST_PRODUCTION ? undefined : localSystemDirectory) };
   loadGb16Uc2(systemFiles["system/gb16.uc2"]);
   const display: FrameCapture=new FrameCapture(()=>rt.screen,profile.width,profile.height);
   const vibrationRequests: number[] = [];
-  const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,resourceFiles,graphics:display,onVibrate:ms=>vibrationRequests.push(ms)});
+  const rt: MythroadRuntime=new MythroadRuntime({profile,abiMode:"strict",systemFiles,resourceFiles,graphics:display,onVibrate:ms=>vibrationRequests.push(ms),
+    // Timed benchmarks need the browser worker's clock; other scenarios retain
+    // deterministic execution. This choice is frozen in scenarioSha256.
+    monotonicTime:scenario.clock==="monotonic"?()=>performance.now():undefined,
+    traceGuestSlices:process.env.MRP_TEST_GUEST_SLICES==="1"});
+  const initialFiles = new Map([...rt.appFs.nodes].flatMap(([name,node]) => node.kind === "file" ? [[name,hash(node.bytes)] as const] : []));
   let phase="load",ticks=0,inputChanges=0,controlChanges=0,keysTested=0,error:string|null=null;
   const distinct=new Set<string>();
   const fingerprint=()=>hash(new Uint8Array(display.pixels.buffer,display.pixels.byteOffset,display.pixels.byteLength));
   const checkpoints: {name:string;sha256:string;image:string;clock:number;colors:number}[]=[];
+  const inputCheckpoints = new Set<string>();
   const capture=(name:string)=>{
     const sha256=fingerprint(),image=`${game.id}-${name}.png`;
     writeFileSync(join(output,image),png(rt.screenW,rt.screenH,display.pixels));
@@ -64,26 +73,64 @@ if(worker) {
     writeFileSync(join(output,`${game.id}-progress.json`),JSON.stringify({phase,ticks,keysTested,checkpoints}));
   };
   const tick=(count:number)=>{for(let i=0;i<count;i++){rt.advance(scenario.tickMs??80);for(let n=0;n<16&&rt.step();n++);if(rt.exited)throw new Error("guest exited");ticks++;if(ticks%5===0)distinct.add(fingerprint());}};
-  const tap=(action:Action)=>{const before=fingerprint();if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_DOWN, ...action.tap); else rt.input.press(action.key);tick(action.hold??3);if ("tap" in action) rt.queueEvent(EV_KEY, MR_MOUSE_UP, ...action.tap); else rt.input.release(action.key);tick(action.wait??10);keysTested++;if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}};
+  const tap=(action:Action)=>{
+    // Observe timers or a queued release without injecting another input.
+    // Animation during an idle action is not evidence of working controls.
+    if ("idle" in action) {
+      if (!Number.isSafeInteger(action.idle) || action.idle < 0) throw new Error("idle must be a non-negative integer tick count");
+      tick(action.idle);return;
+    }
+    const before=fingerprint();
+    if ("swipe" in action) {
+      const [from,to]=action.swipe, steps=Math.max(1,action.hold??3);
+      rt.queueEvent(EV_KEY,MR_MOUSE_DOWN,...from);tick(1);
+      for(let i=1;i<=steps;i++) {
+        rt.queueEvent(EV_KEY,MR_MOUSE_MOVE,Math.round(from[0]+(to[0]-from[0])*i/steps),Math.round(from[1]+(to[1]-from[1])*i/steps));tick(1);
+      }
+      rt.queueEvent(EV_KEY,MR_MOUSE_UP,...to);
+    } else {
+      if ("tap" in action) rt.queueEvent(EV_KEY,MR_MOUSE_DOWN,...action.tap); else rt.input.press(action.key);
+      tick(action.hold??3);
+      if ("tap" in action) rt.queueEvent(EV_KEY,MR_MOUSE_UP,...action.tap); else rt.input.release(action.key);
+    }
+    tick(action.wait??10);keysTested++;
+    if(before!==fingerprint()){inputChanges++;if(phase==="controls")controlChanges++;}
+  };
   const startedAt=Date.now();
   try {
     rt.loadMrp(bytes);phase="start";rt.start();phase="boot";tick(scenario.bootTicks??50);capture("boot");
     phase="entry";
-    const entry=scenario.entry??[{key:"SOFTLEFT"},{key:"FIRE"},{key:"FIRE"},{key:"FIRE"}];
+    const entry=scenario.entry??(entryOnly?[]:[{key:"SOFTLEFT"},{key:"FIRE"},{key:"FIRE"},{key:"FIRE"}]);
     for(const [index,action] of entry.entries()){tap(action);capture(`entry${index+1}`);}
     phase="controls";
-    const controls=scenario.controls??["UP","RIGHT","DOWN","LEFT","2","6","8","4","5"].map(key=>({key,hold:5,wait:10}));
-    for(const [index,action] of controls.entries()){tap(action);capture(`control${index+1}`);}
-    capture("controls");phase="sustained";
-    tick(Math.max(scenario.tailTicks??0,Math.ceil(60000/(scenario.tickMs??80))));capture("sustained");phase="complete";
+    const controls=entryOnly?[]:scenario.controls??["UP","RIGHT","DOWN","LEFT","2","6","8","4","5"].map(key=>({key,hold:5,wait:10}));
+    for(const [index,action] of controls.entries()){
+      tap(action);const name=`control${index+1}`;capture(name);
+      if (!("idle" in action)) inputCheckpoints.add(name);
+    }
+    if (entryOnly) capture("entry");
+    else {
+      capture("controls");phase="sustained";
+      tick(Math.max(scenario.tailTicks??0,Math.ceil(60000/(scenario.tickMs??80))));capture("sustained");
+    }
+    phase="complete";
   } catch(e) {error=e instanceof Error?`${e.name}: ${e.message}`:String(e);capture("failure");}
   const nonBlack=display.pixels.some(p=>p!==0),expected=scenario.gameplaySha256??[];
   const sceneVerified=expected.length>0&&checkpoints.some(c=>expected.includes(c.sha256));
-  const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>c.name.startsWith("control")&&scenario.controlSha256!.includes(c.sha256));
-  const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
+  const interactionVerified=(scenario.controlSha256??[]).length>0&&checkpoints.some(c=>inputCheckpoints.has(c.name)&&scenario.controlSha256!.includes(c.sha256));
+  const outcome=rt.exited?"exited":error?"runtime-error":!nonBlack?"black-screen":entryOnly?"entry-review":controlChanges===0?"no-input-response":(!sceneVerified||!interactionVerified)?"needs-scene-review":"passed";
+  // Preserve installer/tool output evidence even when the guest exits normally.
+  const writtenFiles = [...rt.appFs.nodes].flatMap(([name,node]) => {
+    if (node.kind !== "file") return [];
+    const sha256 = hash(node.bytes);
+    return initialFiles.get(name) === sha256 ? [] : [{name, size:node.bytes.length, sha256}];
+  });
+  const guestDiagnostics=process.env.MRP_TEST_GUEST_SLICES==="1"?{guestSlices:rt.ext?.guestSlices??[]}:{};
   console.log(JSON.stringify({...game,...profile,outcome,phase,error,ticks,keysTested,inputChanges,controlChanges,presentedFrames:display.frames,interactionVerified,distinctFrames:distinct.size,nonBlack,sceneVerified,
-    checkpoints,vibrationRequests,resourceFilesSha256:systemFileHashes(resourceFiles),missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],networkInterceptions:rt.mrTable?.offlineNetwork.interceptions??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??""}));
+    checkpoints,writtenFiles,vibrationRequests,resourceFilesSha256:systemFileHashes(resourceFiles),missingComponents:[...(rt.mrTable?.missingComponents??[])],offlineServiceRequests:rt.mrTable?.offlineNetwork.requests??[],networkInterceptions:rt.mrTable?.offlineNetwork.interceptions??[],exited:rt.exited,unknownSlot:rt.unknownRequiredSlot,unknownEvents:rt.unknownEvents,elapsedMs:Date.now()-startedAt,debugOutput:rt.ext?.debugOutput??"",...guestDiagnostics}));
 } else {
+  const concurrency = Number(process.env.MRP_TEST_CONCURRENCY ?? 3);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 16) throw new Error("MRP_TEST_CONCURRENCY must be an integer from 1 to 16");
   const onlyArg=args.find(a=>a.startsWith("--only="));
   const only=onlyArg?new Set(onlyArg.slice(7).split(",").map(Number)):null;
   const games=only?allGames.filter(g=>only.has(g.id)):allGames;
@@ -92,7 +139,7 @@ if(worker) {
   const diff=execFileSync("git",["diff"],{encoding:"utf8"});
   const meta={revision,workingDiffSha256:hash(diff),manifestSha256:hash(readFileSync(manifestPath)),scenarioSha256:existsSync(scenarioPath)?hash(readFileSync(scenarioPath)):null,
     systemFilesSha256:systemFileHashes({ ...Object.fromEntries(SYSTEM_COMPONENTS.map(name=>[name,readFileSync(`assets/${name}`)])), ...await loadLocalSystemFiles(process.env.MRP_TEST_PRODUCTION ? undefined : localSystemDirectory) }),
-    startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,method:"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
+    startedAt:new Date().toISOString(),requiredCount:allGames.length,selectedCount:games.length,concurrency,verificationMode,method:entryOnly?"frozen-content-startup-review-v1":"frozen-content-presented-lcd-controls-60s-scene-review-v2"};
   const results: any[]=[];
   const save=()=>writeFileSync(join(output,"results.json"),JSON.stringify({...meta,complete:results.length===games.length,
     allPassed:results.length===allGames.length&&results.every(r=>r.outcome==="passed"),results:[...results].sort((a,b)=>a.id-b.id)},null,2)+"\n");
@@ -113,6 +160,6 @@ if(worker) {
       results.push(row);save();console.log(`[${results.length}/${games.length}] #${game.id} ${basename(game.path)}: ${row.outcome}${row.error?` ${row.error}`:""}`);resolveDone();
     });
   });
-  await Promise.all(Array.from({length:3},async()=>{while(next<games.length){const game=games[next++];await runOne(game);}}));
+  await Promise.all(Array.from({length:concurrency},async()=>{while(next<games.length){const game=games[next++];await runOne(game);}}));
   process.exitCode=results.length===allGames.length&&results.every(r=>r.outcome==="passed")?0:1;
 }

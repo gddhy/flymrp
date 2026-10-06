@@ -1,3 +1,17 @@
+import { inferScreenSize } from '../src/mythroad/device-size.ts';
+
+/** Explicit handset metadata, bounded before allocating a guest framebuffer. */
+export function parseScreenSize(value?: string | null): { width: number; height: number } | null {
+  const match = value?.trim().match(/^(\d{2,3})[x×](\d{2,3})$/i);
+  if (!match) return null;
+  const width = Number(match[1]), height = Number(match[2]);
+  return width >= 32 && height >= 32 && width <= 800 && height <= 800 ? { width, height } : null;
+}
+
+export function playerScreenSize(name: string, setting: string, metadata?: string | null): { width: number; height: number } {
+  return (setting !== 'auto' ? parseScreenSize(setting) : null) ?? parseScreenSize(metadata) ?? inferScreenSize(name);
+}
+
 export function rotatedDirection(key: string, rotation: number): string {
   const directions = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
   const index = directions.indexOf(key);
@@ -69,4 +83,22 @@ export function clearGamePrefs(game: string): void {
     }
     for (const key of keys) localStorage.removeItem(key);
   } catch { /* storage is optional */ }
+}
+
+/** Bounded handset memory choices; stored preferences are untrusted. */
+export function playerHeapSize(value?: string | null): number {
+  const kib = Number(value);
+  return ([256, 512, 1024, 2048, 4096, 8192].includes(kib) ? kib : 8192) * 1024;
+}
+
+export function playerWordLoadMode(value?: string | null): "armv5" | "bytewise" {
+  return value === "bytewise" ? "bytewise" : "armv5";
+}
+
+/** Snap CSS zoom so each guest pixel covers a whole device pixel. */
+export function snapDisplayScale(fitScale: number, devicePixelRatio = 1): number {
+  const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const fit = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.1;
+  const device = Math.floor(fit * dpr + 1e-6);
+  return device < 1 ? fit : device / dpr;
 }

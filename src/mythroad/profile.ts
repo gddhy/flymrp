@@ -25,6 +25,10 @@ export type DeviceProfile = {
     second: number;
   };
   randSeed: number;
+  /** Guest-visible native heap capacity; older titles may require a small handset heap. */
+  guestHeapSize: number;
+  /** LDR compatibility only, not a claim to emulate a different CPU architecture. */
+  wordLoadMode: "armv5" | "bytewise";
   memMin: number;
   memTop: number;
   memLeft: number;
@@ -32,11 +36,15 @@ export type DeviceProfile = {
 
 export function defaultProfile(over: Partial<DeviceProfile> = {}): DeviceProfile {
   const { datetime, ...rest } = over;
+  if (over.wordLoadMode !== undefined && over.wordLoadMode !== "armv5" && over.wordLoadMode !== "bytewise") throw new RangeError("wordLoadMode must be armv5 or bytewise");
+  if (over.guestHeapSize !== undefined && (!Number.isInteger(over.guestHeapSize) || over.guestHeapSize < 256 * 1024 || over.guestHeapSize > 8 * 1024 * 1024 || over.guestHeapSize % 8 !== 0)) throw new RangeError("guestHeapSize must be aligned and between 256 KiB and 8 MiB");
   return {
     width: 240,
     height: 320,
     vmver: 1968,
-    hsman: "flymrp",
+    // Legacy SDK launchers explicitly recognize this emulated environment.
+    // A caller-supplied handset identity still wins through the override below.
+    hsman: "sdk",
     hstype: "stage5b",
     IMEI: "0000000000000000",
     IMSI: "0000000000000000",
@@ -49,6 +57,8 @@ export function defaultProfile(over: Partial<DeviceProfile> = {}): DeviceProfile
     // mandatory update screen when shown a modern date. Explicit dates win.
     datetime: { year: 2011, month: 1, day: 1, hour: 16, minute: 0, second: 0, ...datetime },
     randSeed: 1,
+    guestHeapSize: 8 * 1024 * 1024,
+    wordLoadMode: "armv5",
     memMin: 0,
     memTop: 1024 * 1024,
     memLeft: 512 * 1024,

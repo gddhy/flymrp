@@ -1,3 +1,4 @@
+import { NativeLifecycle } from "./native-lifecycle.ts";
 import { WorkPath, diskSpace } from './work-path.ts';
 import { NativeUi } from "./native-ui.ts";
 import { NativeEditor, type EditState } from "./native-editor.ts";
@@ -258,6 +259,7 @@ export class MrTableBridge {
       onUnknownAbi?: (info: { family: string; code: string | number; message: string }) => void;
       getTimer?: () => MythroadTimer;
       getMrState?: () => number;
+      setMrState?: (state: number, pack: string, entry: string) => void;
     } = {},
   ) {
     this.appFs = hooks.appFs ?? new AppFileSystem();
@@ -294,12 +296,16 @@ export class MrTableBridge {
       this.ext.mem.write32(bitmap + 4, screen.pixels.byteLength);
       this.ext.mem.write32(bitmap + 12, this.screenAddr);
     }
-    this.heap ??= new GuestHeap(this.ext);
+    this.heap ??= new GuestHeap(this.ext, this.hooks.getProfile?.().guestHeapSize);
     for (const [slot, value] of [[92, screen.width], [93, screen.height], [94, 16]]) {
       this.ext.mem.write32(this.ext.mem.read32(tableSlotAddr(slot)), value);
     }
     this.ext.registerHandler(0, (_cpu, _mem, args) => this.malloc(args[0]! >>> 0));
-    this.ext.onHostBoundary = () => this.recycleRetiredBlocks();
+    const lifecycle = new NativeLifecycle(this.ext, this.hooks.getTimer?.() ?? this.localTimer,
+      () => this.hooks.getMrState?.() ?? MR_STATE_RUN,
+      (state, pack, entry) => this.hooks.setMrState?.(state, pack, entry));
+    this.ext.onHostBoundary = () => { lifecycle.consume(); this.recycleRetiredBlocks(); };
+    this.ext.onGuestBoundary = () => lifecycle.publish();
     this.ext.registerHandler(1, (_cpu, _mem, args) => {
       const record = this.liveAllocations.get(args[0]);
       if (record) {
@@ -506,6 +512,14 @@ export class MrTableBridge {
     // during startup.  The browser has no handset service, so acknowledge it
     // with the platform's ignore result instead of aborting the game.
     this.ext.registerHandler(128, () => MR_IGNORE);
+    // rxgj mr_connectWAP is a void notification, with no host navigation.
+    this.ext.registerHandler(62, () => MR_SUCCESS);
+    this.ext.registerHandler(129, (cpu, mem, args) => {
+      const sp = cpu.r[13] >>> 0;
+      this.drawingScreen().effSetCon(args[0], args[1], args[2], args[3],
+        mem.read32(sp), mem.read32(sp + 4), mem.read32(sp + 8));
+      return MR_SUCCESS;
+    });
     this.ext.registerHandler(113, (_cpu, mem, args) => guestMd5Init(mem, args[0]));
     this.ext.registerHandler(114, (_cpu, mem, args) => guestMd5Append(mem, args[0], args[1], args[2]));
     this.ext.registerHandler(115, (_cpu, mem, args) => guestMd5Finish(mem, args[0], args[1]));
@@ -664,6 +678,9 @@ export class MrTableBridge {
       const p = this.ext.alloc(32); if (!p) return MR_FAILED; mem.fill(p, 0, 32); mem.write32(output, p); mem.write32(outputLen, 32); return MR_SUCCESS;
     }
     if (code === 1307) return MR_IGNORE;
+    // Observed store probes follow dsm.c's optional-platform default. Do not
+    // invent output pointers or advertise an unavailable native service.
+    if ([106, 1004, 1112, 1210, 1401, 1402, 1404, 2600, 4200, 0x70001, 0x70003].includes(code)) return MR_IGNORE;
     if (code === 4033) return MR_SUCCESS;
     if (code === MR_SWITCHPATH) return this.switchPath(mem, input, inputLen, output, outputLen);
     if (code === 3002) {
@@ -902,15 +919,11 @@ export class MrTableBridge {
       if (this.hooks.setScreen) this.hooks.setScreen(screen); else this.screen = screen;
     }
     if (bmp && bmp !== this.screenAddr) {
-      const maxW = Math.min(w, Math.max(0, screen.width - Math.max(x, 0)));
-      const maxH = Math.min(h, Math.max(0, screen.height - Math.max(y, 0)));
-      for (let row = 0; row < maxH; row++) {
-        const dy = y + row;
-        if (dy < 0 || dy >= screen.height) continue;
-        for (let col = 0; col < maxW; col++) {
-          const dx = x + col;
-          if (dx < 0 || dx >= screen.width) continue;
-          screen.pixels[dy * screen.width + dx] = mem.read16((bmp + (row * w + col) * 2) >>> 0);
+      const minX = Math.max(0, x), minY = Math.max(0, y);
+      const maxX = Math.min(screen.width, x + w), maxY = Math.min(screen.height, y + h);
+      for (let dy = minY; dy < maxY; dy++) {
+        for (let dx = minX; dx < maxX; dx++) {
+          screen.pixels[dy * screen.width + dx] = mem.read16((bmp + ((dy - y) * w + dx - x) * 2) >>> 0);
         }
       }
     }
@@ -1231,6 +1244,7 @@ export class MrTableBridge {
   }
 
   plat(code: number, param: number): number {
+    if (code === 1006 || code === 2500 || code === 2506 || code === 3012) return MR_IGNORE;
     if (code === 101) {
       if (param < 0 || param > 3) return MR_IGNORE;
       const profile = this.hooks.getProfile?.() ?? defaultProfile();
@@ -1250,7 +1264,9 @@ export class MrTableBridge {
     if (code === 1211) {
       const n = param | 0;
       if (n <= 0) return MR_FAILED;
-      this.randSeed = lcgNext(this.randSeed ?? (this.hooks.getProfile?.() ?? defaultProfile()).randSeed);
+      // dsm.c MR_GET_RAND calls srand(mr_getTime()) before rand(). The
+      // reseed also changes the generator subsequently used by table[20].
+      this.randSeed = lcgNext(this.pollTime());
       return MR_PLAT_VALUE_BASE + ((this.randSeed >>> 16) & 0x7fff) % n;
     }
     if (code === 1231) {
@@ -1340,7 +1356,7 @@ export class MrTableBridge {
    */
   findStart(name: string, buffer: number, length: number): number {
     const pack = this.hooks.getPack?.();
-    const names = this.appFs.list(name, pack ? [pack.name] : []);
+    const names = this.appFs.findEntries(name, pack ? [pack.name] : []);
     if (!names) return MR_FAILED;
     const handle = this.nextSearch++;
     this.searches.set(handle, { names, index: 0 });
@@ -1558,7 +1574,20 @@ export class MrTableBridge {
         this.noteRead({ name, lookfor, guestAddr: address, length: entry.storedLength });
         return address;
       }
-      const data = archive.readFile(name);
+      // The native reader publishes the gzip output size before attempting
+      // decompression and returns NULL on failure. Wrappers can handle this
+      // while probing a RAM package; do not turn it into a host exception.
+      if (lenAddr && entry.storedLength >= 4) {
+        const trailer = entry.offset + entry.storedLength - 4;
+        mem.write32(lenAddr, new DataView(archive.data.buffer, archive.data.byteOffset + trailer, 4).getUint32(0, true));
+      }
+      let data: Uint8Array;
+      try { data = archive.readFile(name); }
+      catch (e) {
+        if (!(e instanceof MrpFormatError)) throw e;
+        this.noteRead({ name, lookfor, guestAddr: 0, length: 0 });
+        return 0;
+      }
       const address = this.malloc(data.length);
       if (!address) return 0;
       mem.load(address, data);

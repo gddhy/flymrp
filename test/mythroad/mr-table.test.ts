@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { EXT_CODE_ADDR, EXT_MEM_SIZE, EXT_PLATFORM_MEM_ADDR, EXT_STACK_ADDR, EXT_STOP_ADDR, tableSlotAddr } from "../../src/abi/layout.ts";
+import { EXT_CODE_ADDR, EXT_MEM_SIZE, EXT_PLATFORM_MEM_ADDR, EXT_PLATFORM_MEM_SIZE, EXT_STACK_ADDR, EXT_STOP_ADDR, tableSlotAddr } from "../../src/abi/layout.ts";
 import { ExtRuntime } from "../../src/abi/runtime.ts";
 import { ExtStopKind } from "../../src/abi/fault.ts";
 import { MemoryFault } from "../../src/hot/memory.ts";
-import { buildMrp } from "../../src/mrp/index.ts";
+import { buildMrp, gzipStore } from "../../src/mrp/index.ts";
 import { MRPArchive } from "../../src/mrp/archive.ts";
 import { MrTableBridge } from "../../src/mythroad/mr-table.ts";
 import { MythroadVfs } from "../../src/mythroad/vfs.ts";
@@ -99,6 +99,29 @@ describe("5-C.2 table[125] _mr_readFile", () => {
     expect(b.reads.at(-1)).toMatchObject({ name: "nope.bin", guestAddr: 0, length: 0 });
   });
 
+  it("returns NULL for an invalid compressed RAM entry while retaining raw lookup", () => {
+    const ext = new ExtRuntime(), b = wire(ext);
+    const compressed = gzipStore(new Uint8Array([1, 2, 3]));
+    compressed[10] = 7; // Reserved deflate block type; header/trailer remain intact.
+    const bytes = buildMrp([{ name: "abc", data: compressed }]);
+    const address = ext.alloc(bytes.length); ext.mem.load(address, bytes);
+    ext.mem.write8(ext.mem.read32(tableSlotAddr(100)), 36); // pack_filename="$"
+    ext.mem.write8(ext.mem.read32(tableSlotAddr(100)) + 1, 0);
+    ext.mem.write32(ext.mem.read32(tableSlotAddr(104)), address);
+    ext.mem.write32(ext.mem.read32(tableSlotAddr(105)), bytes.length);
+    const name = putName(ext, "abc"), lenp = ext.alloc(4);
+    const before = b.liveAllocs().length;
+    expect(b.readFile(ext.mem, name, lenp, 1)).toBe(1);
+    expect(b.readFile(ext.mem, name, lenp, 0)).toBe(0);
+    expect(ext.mem.read32(lenp)).toBe(3);
+    expect(b.liveAllocs()).toHaveLength(before);
+    const raw = b.readFile(ext.mem, name, lenp, 2);
+    expect([...ext.mem.slice(raw, compressed.length)]).toEqual([...compressed]);
+    expect(ext.mem.read32(lenp)).toBe(compressed.length);
+    // Format failures are recoverable; invalid guest pointers still fault.
+    expect(() => b.readFile(ext.mem, 0xffffffff, lenp, 0)).toThrow(MemoryFault);
+  });
+
   it("lookfor=1 is exists only", () => {
     const { ext, b } = packed("res.bin", new Uint8Array([9]));
     expect(b.readFile(ext.mem, putName(ext, "res.bin"), 0, 1)).toBe(1);
@@ -166,8 +189,8 @@ describe("5-C.5 table[14] memset", () => {
   it("unmapped dest is a MemoryFault / Unmapped, not a guessed success", () => {
     const ext = new ExtRuntime();
     const b = wire(ext);
-    expect(() => b.memset(ext.mem, EXT_PLATFORM_MEM_ADDR, 0, 4)).toThrow(MemoryFault);
-    const out = runMemset(ext, EXT_PLATFORM_MEM_ADDR, 0, 8);
+    expect(() => b.memset(ext.mem, EXT_PLATFORM_MEM_ADDR + EXT_PLATFORM_MEM_SIZE, 0, 4)).toThrow(MemoryFault);
+    const out = runMemset(ext, EXT_PLATFORM_MEM_ADDR + EXT_PLATFORM_MEM_SIZE, 0, 8);
     expect(out.kind).toBe(ExtStopKind.Unmapped);
   });
 

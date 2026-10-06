@@ -11,6 +11,10 @@ import {
   EXT_HEAP_ADDR,
   EXT_LOW_TABLE_SIZE,
   EXT_MEM_SIZE,
+  EXT_PLATFORM_IO_MEM_ADDR,
+  EXT_PLATFORM_IO_MEM_SIZE,
+  EXT_PLATFORM_MEM_ADDR,
+  EXT_PLATFORM_MEM_SIZE,
   EXT_STACK_ADDR,
   EXT_STOP_ADDR,
   EXT_TABLE_ADDR,
@@ -28,15 +32,19 @@ import { DATA_SLOTS, MrTable, dataSlotAllocSize, initTableMemory } from "./table
 
 /** Finite watchdog per guest call, not a browser execution slice.
  * Vendor wrappers scan 8 MiB during their first memory check (~34M
- * instructions). Allow resource decoding in that same call, while retaining
- * the explicit per-runtime budget for tests and diagnostics.
+ * instructions). Resource installers such as #523/#726/#1350 also finish
+ * decoding in that same call and exceed 128M. Allow that finite startup work
+ * while retaining explicit diagnostic budgets and the monotonic deadline.
  */
-export const DEFAULT_INSN_BUDGET = 128_000_000;
-export const MAX_INSN_BUDGET = 128_000_000;
+export const DEFAULT_INSN_BUDGET = 256_000_000;
+export const MAX_INSN_BUDGET = 256_000_000;
 
 export function createExtMemory(): GuestMemory {
   const mem = new GuestMemory(EXT_BASE_ADDR, EXT_MEM_SIZE);
   mem.map(0, EXT_LOW_TABLE_SIZE);
+  // Reference platform ROM/MMIO state band, independent of ordinary guest RAM.
+  mem.map(EXT_PLATFORM_IO_MEM_ADDR, EXT_PLATFORM_IO_MEM_SIZE);
+  mem.map(EXT_PLATFORM_MEM_ADDR, EXT_PLATFORM_MEM_SIZE);
   return mem;
 }
 
@@ -54,6 +62,16 @@ export type LoadResult = {
   mapped: MappedExt;
   ret: number;
   kind: ExtStopKind;
+};
+
+export type GuestSliceSample = {
+  insnCount: number;
+  pc: number;
+  lr: number;
+  thumb: number;
+  cpsr: number;
+  clockProgress: number;
+  regs: number[];
 };
 
 function align2(n: number): number {
@@ -80,17 +98,23 @@ export class ExtRuntime {
   lastKind: ExtStopKind = ExtStopKind.Return;
   bridgeCalls = 0;
   guestCallSerial = 0;
+  /** Recent million-instruction boundaries for diagnosing bounded long calls. */
+  readonly guestSlices: GuestSliceSample[] = [];
+  guestSliceTracing = false;
   debugOutput = "";
   guestExitCode: number | null = null;
   onGuestExit: (() => void) | null = null;
   onExtCall: ((code: number, out: ExtCallResult) => void) | null = null;
   /** Commit deferred host bookkeeping before the next ABI call or guest return. */
   onHostBoundary: (() => void) | null = null;
+  /** Synchronize native data globals when host code resumes guest execution. */
+  onGuestBoundary: (() => void) | null = null;
 
   constructor() {
     this.mem = createExtMemory();
     this.cpu = new ARMCPU(this.mem);
     this.cache = new BlockCache();
+    this.cache.cacheUnregisteredCode = true;
     this.cpu.cache = this.cache;
     this.cpu.onBeforeFetch = (cpu) => this.intercept(cpu);
     this.cpu.onSvc = (cpu, immediate) => {
@@ -335,7 +359,9 @@ export class ExtRuntime {
       lr?: number;
     } = {},
   ): ExtCallResult {
+    this.onGuestBoundary?.();
     this.guestCallSerial++;
+    this.guestSlices.length = 0;
     const thumb = (regs.thumb ?? (start & 1)) & 1;
     const pc = (start & ~1) >>> 0;
     this.cpu.reset(pc, thumb);
@@ -359,6 +385,18 @@ export class ExtRuntime {
         for (;;) {
           const slice = Math.min(remaining, 1_000_000);
           run(this.cpu, slice);
+          if (this.guestSliceTracing) {
+            this.guestSlices.push({
+              insnCount: this.cpu.insnCount - startCount,
+              pc: this.cpu.r[15] >>> 0,
+              lr: this.cpu.r[14] >>> 0,
+              thumb: this.cpu.t & 1,
+              cpsr: this.cpu.cpsr >>> 0,
+              clockProgress: this.synchronousClockProgress,
+              regs: Array.from(this.cpu.r, value => value >>> 0),
+            });
+            if (this.guestSlices.length > 256) this.guestSlices.shift();
+          }
           if (this.cpu.halted) break;
           remaining -= slice;
           if (this.monotonicTime() >= deadline) return this.finish(ExtStopKind.AbiFault, "execution deadline exceeded");
@@ -425,12 +463,14 @@ export class ExtRuntime {
       this.onHostBoundary?.();
       this.bridgeCalls++;
       this.table.dispatch(cpu, this.mem, (EXT_TABLE_ADDR + pc) >>> 0);
+      this.onGuestBoundary?.();
       return true;
     }
     if (pc >= EXT_TABLE_ADDR && pc < EXT_TABLE_ADDR + EXT_TABLE_COUNT * 4) {
       this.onHostBoundary?.();
       this.bridgeCalls++;
       this.table.dispatch(cpu, this.mem, pc);
+      this.onGuestBoundary?.();
       return true;
     }
     this.maybeSwitchOwner(cpu, pc);

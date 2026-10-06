@@ -127,7 +127,7 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
     const { ext } = wire();
     const buf = ext.alloc(16);
     const fmt = ext.alloc(16);
-    const bad = ["%f", "%n", "%ls", "%*d", "%", "%9999d"];
+    const bad = ["%q", "%n", "%ls", "%*d", "%9999d"];
     for (const format of bad) {
       writeCString(ext, fmt, format);
       expect(() => call17(ext, buf, fmt, 0, 0)).toThrow(UnknownAbiError);
@@ -140,6 +140,21 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
         expect(u.message.startsWith("unsupported sprintf format")).toBe(true);
       }
     }
+  });
+
+  it('matches legacy trailing-percent output without reading past the format terminator', () => {
+    const { ext } = wire();
+    const buf = ext.alloc(32), fmt = ext.alloc(32), text = ext.alloc(16);
+    writeCString(ext, text, '75');
+    writeCString(ext, fmt, 'HP:%s%');
+    // Adjacent data must not become another format string or consume R3.
+    writeCString(ext, fmt + 7, '%s');
+    const result = call17(ext, buf, fmt, text, 0xdeadbeef);
+    expect(result.r0).toBe(6);
+    expect(guestBytes(ext, buf, 7)).toEqual([72, 80, 58, 55, 53, 0, 0]);
+    writeCString(ext, fmt, '%%');
+    expect(call17(ext, buf, fmt, 0, 0).r0).toBe(1);
+    expect(readGuestCString(ext.mem, buf)).toBe('%');
   });
 
   it("formats pointers with the legacy 0x hexadecimal form", () => {
@@ -193,8 +208,8 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
   it("unterminated format is UnknownAbiError", () => {
     const { ext } = wire();
     const buf = ext.alloc(8);
-    const fmt = ext.alloc(300);
-    ext.mem.fill(fmt, 0x41, 300);
+    const fmt = ext.alloc(4096);
+    ext.mem.fill(fmt, 0x41, 4096);
     expect(() => guestSprintf(ext.mem, buf, fmt, () => 0)).toThrow(UnknownAbiError);
   });
 
@@ -206,4 +221,14 @@ describe("5-C.10G table[17] sprintf_ literal+%d ABI", () => {
     expect(src).not.toMatch(/sprintf-js/);
     expect(src).not.toMatch(/from ["']printf["']/);
   });
+});
+
+it('formats long URLs, integer precision and aligned AAPCS doubles', () => {
+  const {ext}=wire(), fmt=ext.alloc(1024), buf=ext.alloc(2048);
+  writeCString(ext,fmt,'x'.repeat(300)+'%m%.4d %.2f');
+  const double=new DataView(new ArrayBuffer(8));double.setFloat64(0,12.375,true);
+  const values=[7,0xdeadbeef,double.getUint32(0,true),double.getUint32(4,true)];
+  const n=guestSprintf(ext.mem,buf,fmt,i=>values[i]);
+  expect(readGuestCString(ext.mem,buf,2048)).toBe('x'.repeat(300)+'m0007 12.38');
+  expect(n).toBe(311);
 });

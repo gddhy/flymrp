@@ -1,3 +1,4 @@
+import { fetchFileBytes } from './chunk-download.ts';
 import './kaios-polyfill.ts';
 import { setupSdPanel } from './sd-panel.ts';
 import { listSdFiles, readSdFile, removeSdFile, saveSdFile } from './sd-card.ts';
@@ -6,14 +7,15 @@ import { SYSTEM_COMPONENTS } from "../src/mythroad/system-components.ts";
 import { MRPArchive } from "../src/mrp/index.ts";
 import { PlayerClient } from "./player-client.ts";
 import { MR_MOUSE_DOWN, MR_MOUSE_UP, MR_MOUSE_MOVE } from "../src/mythroad/constants.ts";
-import { inferScreenSize } from "../src/mythroad/device-size.ts";
 import { EV_KEY } from "../src/mythroad/events.ts";
 import { BrowserAudio } from "./audio.ts";
 import { DOM_KEY, HeldKeys } from "./controls.ts";
 import { assetUrl, catalogHref, readGame, readLibrary } from "./library.ts";
 import { registerServiceWorker } from "./pwa.ts";
-import { readPref, rotatedDirection, rotatedTilt, screenPoint } from "./player-options.ts";
+import { playerScreenSize, playerHeapSize, playerWordLoadMode, readPref, writePref, rotatedDirection, rotatedTilt, screenPoint, snapDisplayScale } from "./player-options.ts";
+import { readCachedStoreList, storeSdPath } from './mrp-store.ts';
 import { PRELOAD_SYSTEM_FILES, isSafeAssetPath, type PlayerFileSource } from "./remote-files.ts";
+import { optionalResourceJson } from './resource-json.ts';
 
 let rotation = 0, speed = 1;
 const editorDialog = document.querySelector<HTMLDialogElement>("#guest-editor")!;
@@ -34,7 +36,7 @@ const emptyScreen = document.querySelector<HTMLElement>("#empty-screen")!;
 let paused = false;
 let frames = 0;
 let fpsStart = 0;
-let lastGame: { name: string; read: () => Promise<ArrayBuffer> } | null = null;
+let lastGame: { name: string; read: () => Promise<ArrayBuffer>; screen?: string } | null = null;
 const audio = new BrowserAudio();
 const midiPlayer = document.querySelector<HTMLSelectElement>("#midi-player")!;
 const kaios = applyKaiOS({ fullscreen: true });
@@ -165,9 +167,9 @@ function stop(keepStatus = false): void {
 }
 function fail(e: unknown, rt?: PlayerClient): void {
   const exited = Boolean(rt?.exited) || (e instanceof Error && (e.message === "游戏已退出" || e.message === "Exiting..."));
+  if (exited) { goLibrary(); return; }
   stop(true);
-  if (kaios && exited) { goLibrary(); return; }
-  setStatus(exited ? "游戏已退出，可重新加载。" : `运行失败：${e instanceof Error ? e.message : String(e)}`, !exited);
+  setStatus(`运行失败：${e instanceof Error ? e.message : String(e)}`, true);
 }
 function frame(now: number): void {
   const s = session;
@@ -178,9 +180,7 @@ function frame(now: number): void {
     s.rt.tick(now - s.last, speed);
     s.last = now;
     if (s.rt.exited) {
-      stop(true);
-      if (kaios) { goLibrary(); return; }
-      setStatus("游戏已退出，可重新加载。");
+      goLibrary();
       return;
     }
     if (now >= s.nextHud) {
@@ -196,9 +196,7 @@ async function ensureFont(): Promise<void> {
   if (PRELOAD_SYSTEM_FILES.every(name => systemFiles[name])) return;
   fontPromise ??= (async () => {
     await Promise.all(PRELOAD_SYSTEM_FILES.map(async name => {
-      const res = await fetch(assetUrl(name));
-      if (!res.ok) throw new Error(`缺少运行组件 ${name}`);
-      systemFiles[name] = new Uint8Array(await res.arrayBuffer());
+      systemFiles[name] = await fetchFileBytes(assetUrl(name));
     }));
   })().catch(e => { fontPromise = null; throw e; });
   await fontPromise;
@@ -240,25 +238,26 @@ async function loadResourceCatalog(packName: string): Promise<string[]> {
     }
   }
   const grouped = await fetch(assetUrl(`mythroad_res/groups/${encodeURIComponent(stem)}.json`));
-  if (grouped.ok) return namesOf(await grouped.json());
+  const group = await optionalResourceJson(grouped);
+  if (group !== null) return namesOf(group);
   resourceIndex ??= (async () => {
     const index = await fetch(assetUrl("mythroad_res/index.json"));
-    if (!index.ok) return {};
-    const groups = (await index.json() as { groups?: Record<string, unknown> }).groups ?? {};
+    const data = await optionalResourceJson(index) as { groups?: Record<string, unknown> } | null;
+    const groups = data?.groups ?? {};
     const mapped: Record<string, string[]> = {};
     for (const [name, files] of Object.entries(groups)) mapped[name] = namesOf(files);
     return mapped;
   })().catch(error => { resourceIndex = null; throw error; });
   return (await resourceIndex)[stem] ?? [];
 }
-async function start(name: string, read: () => Promise<ArrayBuffer>): Promise<void> {
+async function start(name: string, read: () => Promise<ArrayBuffer>, screen?: string): Promise<void> {
   stop(true);
-  lastGame = { name, read };
+  lastGame = { name, read, screen };
   restartBtn.disabled = false;
   titleEl.textContent = name.split("/").at(-1)!.replace(/\.mrp$/i, "");
   emptyScreen.hidden = true;
   const token = generation;
-  const profile = resolution.value === "auto" ? inferScreenSize(name) : inferScreenSize(resolution.value);
+  const profile = { ...playerScreenSize(name, resolution.value, screen), guestHeapSize: playerHeapSize(document.querySelector<HTMLSelectElement>("#heap-size")!.value), wordLoadMode: playerWordLoadMode(document.querySelector<HTMLSelectElement>("#word-load-mode")!.value) };
   audio.resume();
   void enableMotion();
   setStatus(`正在读取 ${name.split("/").at(-1)}…`);
@@ -327,7 +326,7 @@ pauseBtn.addEventListener("click", () => {
     setStatus(paused ? "已暂停" : "运行中");
   } catch (e) { fail(e, session.rt); }
 });
-restartBtn.addEventListener("click", () => { if (lastGame) void start(lastGame.name, lastGame.read); });
+restartBtn.addEventListener("click", () => { if (lastGame) void start(lastGame.name, lastGame.read, lastGame.screen); });
 const drawer = document.querySelector<HTMLElement>("#game-drawer")!;
 const libraryToggle = document.querySelector<HTMLButtonElement>("#library-toggle")!;
 function setDrawer(open: boolean): void { drawer.hidden = !open; libraryToggle.setAttribute("aria-expanded", String(open)); syncPlayerKaiOS(); }
@@ -366,21 +365,41 @@ libraryToggle.addEventListener("click", () => setDrawer(drawer.hidden));
 document.querySelector("#theme")!.addEventListener("click", () => {
   document.documentElement.dataset.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
 });
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  webkitExitFullscreen?: () => void | Promise<void>;
+};
+type FullscreenElement = HTMLElement & { webkitRequestFullscreen?: () => void | Promise<void> };
+function fullscreenElement(): Element | null {
+  const doc = document as FullscreenDocument;
+  return document.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || null;
+}
 document.querySelector("#fullscreen")!.addEventListener("click", async () => {
   try {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await document.documentElement.requestFullscreen();
+    const doc = document as FullscreenDocument;
+    const root = document.documentElement as FullscreenElement;
+    if (fullscreenElement()) {
+      const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(doc);
+      if (!exit) throw new Error("fullscreen");
+      await exit();
+    } else {
+      const enter = root.requestFullscreen?.bind(root) ?? root.webkitRequestFullscreen?.bind(root);
+      if (!enter) throw new Error("fullscreen");
+      await enter();
+    }
   } catch { setStatus("此浏览器暂不支持全屏，可隐藏虚拟键盘扩大画面。"); }
 });
 function syncFullscreenButton(): void {
   const button = document.querySelector<HTMLButtonElement>("#fullscreen")!;
-  const on = Boolean(document.fullscreenElement || (document as Document & { mozFullScreenElement?: Element | null }).mozFullScreenElement);
+  const on = Boolean(fullscreenElement());
   button.setAttribute("aria-pressed", String(on));
   button.setAttribute("aria-label", on ? "退出全屏" : "全屏");
   button.title = on ? "退出全屏" : "进入全屏";
   fitScreen();
 }
 document.addEventListener("fullscreenchange", syncFullscreenButton);
+document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
 document.addEventListener("mozfullscreenchange", syncFullscreenButton);
 window.addEventListener("keydown", ev => {
   if (!session || paused || !drawer.hidden || dialogIsOpen(editorDialog) || (ev.target instanceof HTMLElement && ev.target.closest("input, select, textarea, button, summary"))) return;
@@ -474,24 +493,38 @@ function fitScreen(): void {
   const width = swapped ? canvas.height : canvas.width, height = swapped ? canvas.width : canvas.height;
   const inset = kaios ? 0 : 32;
   const fit = Math.max(.1, Math.min((stage.clientWidth - inset) / width, (stage.clientHeight - (kaios ? 0 : 26)) / height));
-  const scale = zoomSelect.value === 'auto' ? fit : Math.min(fit, Number(zoomSelect.value));
+  const raw = zoomSelect.value === 'auto' ? fit : Math.min(fit, Number(zoomSelect.value));
+  const scale = snapDisplayScale(raw, window.devicePixelRatio || 1);
   const pad = kaios ? 0 : 10;
-  canvas.style.width = `${canvas.width * scale}px`; canvas.style.height = `${canvas.height * scale}px`;
-  viewport.style.width = `${width * scale + pad}px`; viewport.style.height = `${height * scale + pad}px`;
-  shell.style.transform = `translate(-50%, -50%) rotate(${rotation * 90}deg)`;
+  canvas.style.width = `${canvas.width * scale}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
+  viewport.style.width = `${width * scale + pad}px`;
+  viewport.style.height = `${height * scale + pad}px`;
+  const angle = (rotation % 4) * 90;
+  if (swapped) {
+    shell.style.top = '50%';
+    shell.style.left = '50%';
+    shell.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+  } else {
+    shell.style.top = '0';
+    shell.style.left = '0';
+    shell.style.transform = angle ? `rotate(${angle}deg)` : '';
+  }
 }
 function storeSetting(name: string, value: string): void { try { localStorage.setItem(`flymrp.${name}`, value); } catch {} }
 function bindSelect(id: string, apply: (value: string) => void): void {
   const select = document.querySelector<HTMLSelectElement>(`#${id}`)!;
   try { const saved = readPref(id, currentGameKey); if (saved && Array.from(select.options).some(option => option.value === saved)) select.value = saved; } catch {}
   apply(select.value);
-  select.addEventListener('change', () => { storeSetting(id, select.value); apply(select.value); canvas.focus(); });
+  select.addEventListener('change', () => { writePref(id, select.value, currentGameKey); apply(select.value); canvas.focus(); });
 }
 bindSelect('zoom', fitScreen);
 bindSelect('speed', value => { speed = Number(value); });
 bindSelect('rotation', value => { releaseAll(); rotation = Number(value); fitScreen(); });
 bindSelect('keypad-side', value => keypad.classList.toggle('reverse', value === 'reverse'));
 bindSelect('resolution', () => {});
+bindSelect('heap-size', () => {});
+bindSelect('word-load-mode', () => {});
 function rotate(delta: number): void { rotationSelect.value = String((rotation + delta + 4) % 4); rotationSelect.dispatchEvent(new Event('change')); }
 document.querySelector('#rotate-left')!.addEventListener('click', () => rotate(-1));
 document.querySelector('#rotate-right')!.addEventListener('click', () => rotate(1));
@@ -607,11 +640,13 @@ if (localPath) void (async () => {
   try {
     const file = await readSdFile(localPath);
     if (!file) throw new Error('此浏览器中找不到本地游戏，请返回首页重新选择文件。');
-    await start(file.path.split('/').at(-1)!, async () => new Uint8Array(file.bytes).buffer);
+    // Old downloads predate SD metadata; recover their hint from the cached store.
+    const cached = !file.resolution && !pageQuery.get('scr') ? await readCachedStoreList() : null;
+    const screen = pageQuery.get('scr') || file.resolution || cached?.apps.find(app => storeSdPath(app) === localPath)?.scr;
+    await start(file.path.split('/').at(-1)!, async () => new Uint8Array(file.bytes).buffer, screen);
   } catch (error) { fail(error); }
 })();
 else if (selectedName) void (async () => {
   try { const game = (await readLibrary()).find(game => game.name === selectedName); if (!game) throw new Error('游戏不在精选清单中，请从游戏库选择或打开本地文件。'); await start(game.name, () => readGame(game)); }
   catch (error) { fail(error); }
 })();
-
